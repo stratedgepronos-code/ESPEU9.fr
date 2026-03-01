@@ -22,7 +22,7 @@ Va dans le dépôt → **Settings** → **Secrets and variables** → **Actions*
 |--------------------|--------|
 | `SSH_HOST`         | `178.16.128.35` (l’IP SSH Hostinger) |
 | `SSH_USERNAME`     | `u527192911` (ton utilisateur SSH) |
-| `SSH_PASSWORD`     | Le mot de passe SSH (celui de « Détails sur SSH ») |
+| `SSH_PASSWORD`     | Mot de passe SSH. **Sur Hostinger c’est souvent le même que le mot de passe FTP** — en cas de « Permission denied », essaie le mot de passe de ton compte FTP. Colle uniquement le mot de passe, sans espace ni retour à la ligne après. |
 | `SSH_REMOTE_PATH`  | `/home/u527192911/domains/espeu9.fr/public_html` (adapter si ton chemin est différent) |
 | `SSH_PORT`         | (optionnel) `65002` — utilisé par défaut si absent |
 
