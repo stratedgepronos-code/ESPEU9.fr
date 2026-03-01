@@ -240,6 +240,11 @@ body {
                 e("img",{src:COACH_PHOTO,alt:"Coach",style:{width:32,height:32,borderRadius:"50%",objectFit:"cover",border:"2px solid #f59e0b",boxShadow:"0 0 6px rgba(245,158,11,0.3)"}}),
                 e("span",{style:{position:"absolute",top:-4,left:-4,transform:"rotate(-25deg)",fontSize:10,lineHeight:1,filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.3))",zIndex:1}},"\uD83D\uDC51")),
           e("span",{className:"nav-auth-name"},playerMatch ? playerMatch.firstName : (user.display_name||user.username)),
+          e("a",{href:"index.html#messagerie",onClick:function(ev){ev.stopPropagation();},style:{position:"relative",cursor:"pointer",padding:"4px 6px",display:"flex",alignItems:"center"},title:"Messagerie"},
+            e("svg",{width:24,height:24,viewBox:"0 0 24 24",fill:"none",xmlns:"http://www.w3.org/2000/svg"},
+              e("rect",{x:2,y:5,width:20,height:14,rx:2,fill:"var(--green-700)"}),
+              e("path",{d:"M2 5l10 7 10-7",stroke:"white",strokeWidth:1.5,fill:"none"}),
+              e("path",{d:"M2 19l7-6M22 19l-7-6",stroke:"white",strokeWidth:1,opacity:0.4,fill:"none"}))),
           e("button",{className:"nav-auth-btn logout",onClick:function(ev){ev.stopPropagation();handleLogout();}},"D\u00E9co"))
       : e("a",{href:"index.html#connexion",className:"nav-auth-btn login",style:{textDecoration:"none"}},"\uD83D\uDD12 Connexion");
 
@@ -275,6 +280,8 @@ body {
                 }))),
             e("a",{href:"index.html#matchs",className:"nav-btn"},"Matchs"),
             e("a",{href:"tchat.html",className:"nav-btn active"},"\uD83D\uDCAC Tchat"),
+            user && e("a",{href:"index.html#medias",className:"nav-btn",style:{textDecoration:"none"}},"\uD83D\uDCF7 M\u00E9dias"),
+            user && user.role==='coach' && e("a",{href:"index.html#coffre",className:"nav-btn",style:{textDecoration:"none"}},"\uD83D\uDD10 Coffre"),
             authDesktop,
             e("div",{className:"nav-social"},
               e("a",{href:FB,target:"_blank",rel:"noopener noreferrer",title:"Facebook",className:"nav-social-link"},
@@ -292,7 +299,11 @@ body {
             e("a",{href:"index.html",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83C\uDFE0")," Accueil"),
             e("a",{href:"index.html#joueurs",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83C\uDFC3")," Joueurs"),
             e("a",{href:"index.html#matchs",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83C\uDFC0")," Matchs"),
-            e("a",{href:"tchat.html",className:"mob-btn active"},e("span",{className:"mob-icon"},"\uD83D\uDCAC")," Tchat")),
+            e("a",{href:"tchat.html",className:"mob-btn active"},e("span",{className:"mob-icon"},"\uD83D\uDCAC")," Tchat"),
+            user && e("a",{href:"index.html#medias",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83D\uDCF7")," M\u00E9dias"),
+            user && user.role==='coach' && e("a",{href:"index.html#coffre",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83D\uDD10")," Coffre")),
+          user && e("div",{className:"mob-section"},
+            e("a",{href:"index.html#messagerie",className:"mob-btn"},e("span",{className:"mob-icon"},"\u2709\uFE0F")," Messagerie")),
           authMobile,
           e("div",{className:"mob-section"},
             e("div",{className:"mob-label"},"Suivez-nous"),
