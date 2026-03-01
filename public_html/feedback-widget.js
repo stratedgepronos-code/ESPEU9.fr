@@ -37,7 +37,20 @@
 .fb-success-msg{font-size:16px;font-weight:600;color:#1a6b2e;margin-bottom:6px}\
 .fb-success-sub{font-size:13px;color:#6b7280}\
 .fb-error{background:rgba(220,38,38,0.08);border:1px solid #dc2626;color:#dc2626;padding:8px 14px;border-radius:10px;font-size:13px;margin-bottom:12px}\
-@media(max-width:480px){.fb-fab{bottom:16px;right:16px}.fb-fab-btn{width:48px;height:48px}.fb-modal{border-radius:16px}.fb-modal-head{border-radius:16px 16px 0 0;padding:16px 18px 12px}.fb-modal-body{padding:16px 18px 20px}}';
+@media(max-width:600px){\
+.fb-fab{bottom:16px;right:16px}\
+.fb-fab-btn{width:48px;height:48px}\
+.fb-fab-btn svg{width:22px;height:22px}\
+body.has-chat-form .fb-fab{bottom:90px}\
+.fb-overlay{align-items:flex-end}\
+.fb-modal{width:100vw;max-width:100%;border-radius:20px 20px 0 0;max-height:85vh}\
+.fb-modal-head{border-radius:20px 20px 0 0;padding:16px 18px 12px}\
+.fb-modal-body{padding:16px 18px 20px}\
+.fb-type{padding:12px 6px;font-size:14px}\
+.fb-type-icon{font-size:24px}\
+.fb-textarea{min-height:100px;font-size:16px}\
+.fb-submit{padding:16px;font-size:16px}\
+}';
 
   var style = document.createElement('style');
   style.textContent = CSS;
