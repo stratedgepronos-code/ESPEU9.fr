@@ -4381,6 +4381,7 @@ function App() {
                                 React.createElement("span", { className: "nav-dropdown-num" }, "#", p.num),
                                 React.createElement("span", null, p.firstName, " ", p.lastName),
                                 p.cap && React.createElement("span", { className: "nav-dropdown-cap" }, "\u2605"))))))) : (React.createElement("button", { key: t, className: `nav-btn ${tab === t && !selectedPlayer && !selectedMatch ? "active" : ""}`, onClick: () => switchTab(t) }, TAB_LABELS[t])))),
+                        React.createElement("a", { href: "tchat.html", className: "nav-btn", style: { textDecoration: "none" } }, "\uD83D\uDCAC Tchat"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
                         user && user.role === "coach" && React.createElement("button", { className: `nav-btn ${tab === "coffre" ? "active" : ""}`, onClick: () => switchTab("coffre") }, "\uD83D\uDD10 Coffre"),
                         user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
@@ -4439,7 +4440,9 @@ function App() {
                                 React.createElement("button", { className: "mob-btn" + (tab === "joueurs" ? " active" : ""), onClick: () => switchTab("joueurs") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC3"), "Joueurs"),
                                 React.createElement("button", { className: "mob-btn" + (tab === "matchs" ? " active" : ""), onClick: () => switchTab("matchs") },
-                                    React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Matchs")),
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Matchs"),
+                                React.createElement("a", { href: "tchat.html", className: "mob-btn", style: { textDecoration: "none", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", fontFamily: "inherit", fontSize: 15, color: "inherit", cursor: "pointer", textAlign: "left" }, onClick: () => setMobileMenuOpen(false) },
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCAC"), "Tchat")),
                             // Account
                             user ? React.createElement("div", { className: "mob-section" },
                                 React.createElement("div", { className: "mob-label" }, "Espace membre"),

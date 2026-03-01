@@ -2277,5 +2277,70 @@ case 'vault_delete':
     echo json_encode(['success'=>true]);
     break;
 
+// ═══ TCHAT PUBLIC (connectés : post + suppr propre ; coach : suppr tout) ═══
+case 'chat_list':
+    $db = getDB();
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS chat_messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            display_name VARCHAR(120) NOT NULL,
+            role VARCHAR(20) NOT NULL DEFAULT 'parent',
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_created (created_at),
+            INDEX idx_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Exception $e) {}
+    $limit = min(200, max(20, (int)($_GET['limit'] ?? 80)));
+    $st = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages ORDER BY created_at DESC LIMIT " . $limit);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode(['success' => true, 'messages' => array_reverse($rows), 'user_id' => $uid, 'is_admin' => ($role === 'coach')]);
+    break;
+
+case 'chat_post':
+    if (!$uid) { http_response_code(403); echo json_encode(['error' => 'Connecte-toi pour poster']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $content = trim((string)($in['content'] ?? ''));
+    if ($content === '') { echo json_encode(['error' => 'Message vide']); break; }
+    if (mb_strlen($content) > 8000) { echo json_encode(['error' => 'Message trop long']); break; }
+    $displayName = isset($_SESSION['display_name']) ? $_SESSION['display_name'] : 'Utilisateur';
+    $userRole = $role ?: 'parent';
+    $db = getDB();
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS chat_messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            display_name VARCHAR(120) NOT NULL,
+            role VARCHAR(20) NOT NULL DEFAULT 'parent',
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_created (created_at),
+            INDEX idx_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Exception $e) {}
+    $st = $db->prepare("INSERT INTO chat_messages (user_id, display_name, role, content) VALUES (:uid, :dn, :role, :content)");
+    $st->execute([':uid' => $uid, ':dn' => $displayName, ':role' => $userRole, ':content' => $content]);
+    $id = (int)$db->lastInsertId();
+    $row = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages WHERE id = $id")->fetch(PDO::FETCH_ASSOC);
+    echo json_encode(['success' => true, 'message' => $row]);
+    break;
+
+case 'chat_delete':
+    if (!$uid) { http_response_code(403); echo json_encode(['error' => 'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $msgId = (int)($in['id'] ?? 0);
+    if ($msgId <= 0) { echo json_encode(['error' => 'ID invalide']); break; }
+    $db = getDB();
+    $st = $db->prepare("SELECT user_id FROM chat_messages WHERE id = :id");
+    $st->execute([':id' => $msgId]);
+    $row = $st->fetch();
+    if (!$row) { echo json_encode(['error' => 'Message introuvable']); break; }
+    $canDelete = ($row['user_id'] == $uid) || ($role === 'coach');
+    if (!$canDelete) { http_response_code(403); echo json_encode(['error' => 'Tu ne peux supprimer que tes messages']); break; }
+    $db->prepare("DELETE FROM chat_messages WHERE id = :id")->execute([':id' => $msgId]);
+    echo json_encode(['success' => true]);
+    break;
+
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
 }
