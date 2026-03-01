@@ -8,6 +8,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      REMOTE_PATH: /home/u527192911/domains/espeu9.fr/public_html
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,5 +22,5 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || '65002' }}
           local_path: ./public_html/*
-          remote_path: /home/u527192911/domains/espeu9.fr/public_html
+          remote_path: ${{ env.REMOTE_PATH }}
           sftp_only: true
