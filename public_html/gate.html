@@ -515,8 +515,8 @@
         p.className = 'particle';
         p.style.left = Math.random() * 100 + '%';
         p.style.bottom = '-4px';
-        p.style.animationDuration = (6 + Math.random() * 10) + 's';
-        p.style.animationDelay = (Math.random() * 12) + 's';
+        p.style.animationDuration = (5 + Math.random() * 8) + 's';
+        p.style.animationDelay = (i < 15 ? 0 : Math.random() * 3) + 's';
         p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
         if (Math.random() > 0.7) p.style.background = 'rgba(200,168,50,0.7)';
         c.appendChild(p);
