@@ -91,13 +91,13 @@ function buildUserResponse($user) {
 }
 
 /*
- * ═══ CONFIGURATION EMAIL ═══
+ * ═══ CONFIGURATION EMAIL (définie dans config.php) ═══
  */
-if (!defined('SMTP_ENABLED')) define('SMTP_ENABLED', true);
-if (!defined('SMTP_HOST'))    define('SMTP_HOST', 'smtp.hostinger.com');
+if (!defined('SMTP_ENABLED')) define('SMTP_ENABLED', false);
+if (!defined('SMTP_HOST'))    define('SMTP_HOST', '');
 if (!defined('SMTP_PORT'))    define('SMTP_PORT', 587);
-if (!defined('SMTP_USER'))    define('SMTP_USER', 'noreply@espeu9.fr');
-if (!defined('SMTP_PASS'))    define('SMTP_PASS', 'qx2Z&fSKO^sqjhYD');
+if (!defined('SMTP_USER'))    define('SMTP_USER', '');
+if (!defined('SMTP_PASS'))    define('SMTP_PASS', '');
 
 function sendEmailNotif($toEmail, $subject, $body) {
     if (!$toEmail) return false;
@@ -321,6 +321,9 @@ case 'get_player_info':
     break;
 
 case 'get_all':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') {
+        http_response_code(403); echo json_encode(['error' => 'Accès réservé au coach']); break;
+    }
     try {
         $db = getDB();
         $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'player'"); $stmt->execute();
@@ -413,7 +416,7 @@ case 'register':
         echo json_encode(['success'=>true,'user'=>['id'=>(int)$newId,'username'=>$username,'role'=>'parent',
             'display_name'=>$displayName,'email'=>$email?:null,'player_id'=>(int)$playerId,'parent_type'=>$parentType]]);
     } catch(PDOException $e){
-        if($e->getCode()==23000){http_response_code(409);echo json_encode(['error'=>"L'identifiant '$username' existe déjà"]);}
+        if($e->getCode()==23000){http_response_code(409);echo json_encode(['error'=>"Cet identifiant est d\u00e9j\u00e0 pris. Choisis-en un autre."]);}
         else{http_response_code(500);echo json_encode(['error'=>'Erreur création compte']);}
     }
     break;
@@ -468,6 +471,11 @@ case 'forgot_password':
 
 case 'reset_password':
     if($_SERVER['REQUEST_METHOD']!=='POST'){http_response_code(405);echo json_encode(['error'=>'POST requis']);break;}
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    if (!checkRateLimit($clientIp, 'reset_pwd', 5, 900)) {
+        http_response_code(429); echo json_encode(['error' => 'Trop de tentatives. Réessaye dans 15 minutes.']); break;
+    }
+    recordAttempt($clientIp, 'reset_pwd');
     $in=json_decode(file_get_contents('php://input'),true);
     $token=trim($in['token']??'');
     $newPassword=$in['password']??'';

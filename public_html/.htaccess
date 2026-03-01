@@ -1,0 +1,45 @@
+# ═══ ESPE U9 — Protection serveur ═══
+
+# Bloquer l'accès direct aux fichiers sensibles
+<FilesMatch "^(config\.php|web_push\.php|push-debug\.php|composer\.json|composer\.lock|\.cursorrules)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Bloquer l'accès au dossier vendor
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^vendor/ - [F,L]
+</IfModule>
+
+# Empêcher le listing des répertoires
+Options -Indexes
+
+# Empêcher l'exécution PHP dans le dossier uploads
+<IfModule mod_rewrite.c>
+    RewriteRule ^uploads/.*\.php$ - [F,L]
+</IfModule>
+
+# Forcer HTTPS
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://espeu9.fr data: blob:; connect-src 'self' https://espeu9.fr; frame-src https://open.spotify.com https://www.youtube.com https://youtube.com;"
+</IfModule>
+
+# Cacher la version du serveur
+ServerSignature Off

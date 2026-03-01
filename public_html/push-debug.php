@@ -1,6 +1,11 @@
 <?php
 require_once 'config.php';
 require_once 'web_push.php';
+session_start();
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') {
+    http_response_code(403);
+    die('<h1>Acc&egrave;s interdit</h1><p>Connecte-toi en tant que coach pour acc&eacute;der au debug push.</p><a href="gate.html">Connexion</a>');
+}
 header('Content-Type: text/html; charset=utf-8');
 ?><!DOCTYPE html>
 <html><head>
