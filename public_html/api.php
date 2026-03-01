@@ -834,6 +834,7 @@ case 'save_convocations':
                     $st3=$db->prepare("INSERT INTO messages (sender_id,recipient_id,subject,body,msg_type,related_match_id) VALUES(:s,:r,:sub,:b,'convocation',:mid)");
                     $st3->execute([':s'=>$coachId,':r'=>$parent['id'],':sub'=>$sub,':b'=>$body,':mid'=>$matchId]);
                     if($parent['email']) sendEmailNotif($parent['email'],$sub,nl2br(htmlspecialchars($body)));
+                    sendPushToUser((int)$parent['id'], '🏀 ' . $sub, mb_substr($body, 0, 120), '#messagerie');
                     $sent++;
                 }
             }
@@ -1245,6 +1246,21 @@ case 'respond_convocation':
         $st = $db->prepare("INSERT INTO convocation_responses (match_id, player_id, user_id, response) VALUES (:mid, :pid, :uid, :r) ON DUPLICATE KEY UPDATE response = :r2, user_id = :uid2, updated_at = CURRENT_TIMESTAMP");
         $st->execute([':mid' => $matchId, ':pid' => $playerId, ':uid' => $uid, ':r' => $response, ':r2' => $response, ':uid2' => $uid]);
         echo json_encode(['success' => true, 'response' => $response]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'delete_convocation_response':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $matchId = (int)($in['match_id'] ?? 0);
+    $playerId = (int)($in['player_id'] ?? 0);
+    if (!$matchId || !$playerId) { http_response_code(400); echo json_encode(['error' => 'match_id et player_id requis']); break; }
+    try {
+        $db = getDB();
+        $st = $db->prepare("DELETE FROM convocation_responses WHERE match_id = :mid AND player_id = :pid");
+        $st->execute([':mid' => $matchId, ':pid' => $playerId]);
+        echo json_encode(['success' => true, 'deleted' => $st->rowCount()]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 

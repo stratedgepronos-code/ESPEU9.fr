@@ -3156,6 +3156,16 @@ function ConvocationPanel({ upcoming, user }) {
             if(d.success){ setResponses(prev=>({...prev,[playerId]:{response:resp,date:new Date().toISOString()}})); setCoachEditing(null); }
         }).catch(()=>{});
     };
+    const [deletingResponse, setDeletingResponse] = useState(null);
+    const handleDeleteResponse = (playerId) => {
+        if(!confirm("Supprimer la r\u00E9ponse de ce joueur ? Il pourra r\u00E9pondre \u00E0 nouveau (utile pour retester la notif push).")) return;
+        setDeletingResponse(playerId);
+        fetch(API_URL+"?action=delete_convocation_response",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:playerId})})
+        .then(r=>r.json()).then(d=>{
+            setDeletingResponse(null);
+            if(d.success){ setResponses(prev=>{ const next={...prev}; delete next[playerId]; return next; }); setCoachEditing(null); }
+        }).catch(()=>setDeletingResponse(null));
+    };
     const cbStyle = { width: 20, height: 20, cursor: isCoach?"pointer":"default", accentColor: "#1a6b2e" };
     const convokedPlayers = PLAYERS.filter(p => isConvoked(p.id));
     const gouterLabel = gouterPlayer === "coach" ? "Coach Alex" : gouterPlayer === "ext" ? "Ext\u00E9rieur \u2013 pas de go\u00FBter" : null;
@@ -3181,15 +3191,16 @@ function ConvocationPanel({ upcoming, user }) {
                     "#", p.num, " ", p.firstName,
                     isCoach && !isEditing && React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", marginLeft: 6 } }, "\u270F\uFE0F")),
                 // Mini edit buttons when coach clicks on player
-                isEditing && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+                isEditing && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" } },
                     pResp !== "present" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "present"), style: miniBtn("rgba(22,163,74,0.1)", "#16a34a", "#16a34a") }, "\u2705"),
                     pResp !== "attente" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "attente"), style: miniBtn("rgba(234,179,8,0.1)", "#d97706", "#d97706") }, "\u23F3"),
-                    pResp !== "absent" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "absent"), style: miniBtn("rgba(220,38,38,0.1)", "#dc2626", "#dc2626") }, "\u274C")));
+                    pResp !== "absent" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "absent"), style: miniBtn("rgba(220,38,38,0.1)", "#dc2626", "#dc2626") }, "\u274C"),
+                    pResp && React.createElement("button", { onClick: () => handleDeleteResponse(p.id), disabled: deletingResponse === p.id, style: { ...miniBtn("rgba(100,100,100,0.1)", "#71717a", "#71717a"), fontSize: 10 }, title: "Supprimer la r\u00E9ponse (pour retester la notif push)" }, deletingResponse === p.id ? "..." : "\u232B Suppr.")));
         };
 
         return React.createElement("div", { style: { marginTop: 20, borderTop: "1px solid var(--border)", paddingTop: 16 } },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 6 } }, "\uD83D\uDCCA R\u00E9ponses des joueurs"),
-            isCoach && React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 12 } }, "Touche un joueur pour modifier sa r\u00E9ponse \u270F\uFE0F"),
+            isCoach && React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 12 } }, "Clique sur un joueur pour modifier sa r\u00E9ponse, ou \u00AB Suppr. \u00BB pour la supprimer (retester la notif push) \u270F\uFE0F"),
             // Présents
             presentsIds.length > 0 && React.createElement("div", { style: { marginBottom: 12 } },
                 React.createElement("div", { style: { ...btnPresent, background: "rgba(22,163,74,0.12)", color: "#16a34a", marginBottom: 8, display: "inline-flex" } }, "\u2705 Pr\u00E9sents (", presentsIds.length, ")"),
