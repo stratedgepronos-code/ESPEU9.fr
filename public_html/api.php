@@ -633,7 +633,7 @@ case 'send_push':
                     $del=$db->prepare("DELETE FROM push_subscriptions WHERE id=:id");
                     $del->execute([':id'=>$sub['id']]);
                 }
-                $errors[]=['endpoint'=>substr($sub['endpoint'],-30),'code'=>$code,'error'=>$result['error']??''];
+                $errors[]=['endpoint'=>substr($sub['endpoint'],-30),'code'=>$code,'error'=>$result['error']??'','log'=>$result['log']??[]];
             }
         }
         echo json_encode(['success'=>true,'sent'=>$sent,'failed'=>$failed,'total'=>count($subs),'errors'=>array_slice($errors,0,5)]);

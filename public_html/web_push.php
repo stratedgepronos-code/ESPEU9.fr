@@ -1,217 +1,25 @@
 <?php
 /**
- * ESPE BASKET U9 — Web Push Notification Helper
- * Envoi de notifications push sans bibliothèque externe
- * Nécessite: PHP 7.4+, openssl, gmp (ou bcmath)
+ * ESPE BASKET U9 — Web Push v3.0
+ * Implémentation robuste avec logging d'erreurs
  */
 
-// ═══ CLÉS VAPID — Ne pas modifier ═══
-define('VAPID_PUBLIC_KEY', 'BKux74q_3ayYXtGDcNlZUN0qwZMkcPX93qxNY9hpngeH2Mpk-oLytRRfzIfyy2V8TM1cmc9CyrqNmGrtgvHtVuA');
-define('VAPID_PRIVATE_KEY', 'ZKFkKhcGwueezbCjZNAmnyyC_Xx326CO52xHkAVbQbU');
-define('VAPID_SUBJECT', 'https://espeu9.fr');
+if (!defined('VAPID_PUBLIC_KEY'))  define('VAPID_PUBLIC_KEY',  'BKux74q_3ayYXtGDcNlZUN0qwZMkcPX93qxNY9hpngeH2Mpk-oLytRRfzIfyy2V8TM1cmc9CyrqNmGrtgvHtVuA');
+if (!defined('VAPID_PRIVATE_KEY')) define('VAPID_PRIVATE_KEY', 'ZKFkKhcGwueezbCjZNAmnyyC_Xx326CO52xHkAVbQbU');
+if (!defined('VAPID_SUBJECT'))    define('VAPID_SUBJECT',     'https://espeu9.fr');
 
-/**
- * Envoie une notification push à un abonné
- */
-function sendWebPush($subscription, $payload) {
-    $endpoint = $subscription['endpoint'];
-    $userPublicKey = $subscription['keys']['p256dh'];
-    $userAuthToken = $subscription['keys']['auth'];
-    
-    $payloadJson = json_encode($payload);
-    
-    // Encrypt payload
-    $encrypted = encryptPayload($payloadJson, $userPublicKey, $userAuthToken);
-    if (!$encrypted) return ['success' => false, 'error' => 'Encryption failed'];
-    
-    // Build VAPID headers
-    $audience = parse_url($endpoint, PHP_URL_SCHEME) . '://' . parse_url($endpoint, PHP_URL_HOST);
-    $vapidHeaders = createVapidAuth($audience);
-    if (!$vapidHeaders) return ['success' => false, 'error' => 'VAPID auth failed'];
-    
-    // Send request
-    $headers = [
-        'Content-Type: application/octet-stream',
-        'Content-Encoding: aes128gcm',
-        'Content-Length: ' . strlen($encrypted['ciphertext']),
-        'TTL: 86400',
-        'Urgency: high',
-        'Authorization: vapid t=' . $vapidHeaders['token'] . ', k=' . VAPID_PUBLIC_KEY,
-    ];
-    
-    $ch = curl_init($endpoint);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $encrypted['ciphertext'],
-        CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_SSL_VERIFYPEER => true,
-    ]);
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    
-    if ($error) return ['success' => false, 'error' => $error, 'code' => 0];
-    
-    return [
-        'success' => $httpCode >= 200 && $httpCode < 300,
-        'code' => $httpCode,
-        'response' => $response
-    ];
+$_PUSH_LOG = [];
+
+function pushLog($msg) {
+    global $_PUSH_LOG;
+    $_PUSH_LOG[] = $msg;
 }
 
-/**
- * Encrypt push payload (aes128gcm)
- */
-function encryptPayload($payload, $userPublicKeyB64, $userAuthB64) {
-    $userPublicKey = base64url_decode($userPublicKeyB64);
-    $userAuth = base64url_decode($userAuthB64);
-    
-    if (strlen($userPublicKey) !== 65 || strlen($userAuth) !== 16) return false;
-    
-    // Generate local key pair
-    $localKey = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
-    if (!$localKey) return false;
-    
-    $localDetails = openssl_pkey_get_details($localKey);
-    $localPublicKey = chr(4) . str_pad($localDetails['ec']['x'], 32, chr(0), STR_PAD_LEFT) 
-                            . str_pad($localDetails['ec']['y'], 32, chr(0), STR_PAD_LEFT);
-    
-    // ECDH shared secret
-    $sharedSecret = computeECDH($localKey, $userPublicKey);
-    if (!$sharedSecret) return false;
-    
-    // Generate salt
-    $salt = random_bytes(16);
-    
-    // Key derivation
-    $ikm = hkdf($userAuth, $sharedSecret, "WebPush: info\0" . $userPublicKey . $localPublicKey, 32);
-    $prk = hash_hmac('sha256', $ikm, $salt, true);
-    $contentKey = hkdf_expand($prk, "Content-Encoding: aes128gcm\0", 16);
-    $nonce = hkdf_expand($prk, "Content-Encoding: nonce\0", 12);
-    
-    // Pad payload
-    $padded = $payload . chr(2) . str_repeat(chr(0), 0);
-    
-    // Encrypt with AES-128-GCM
-    $tag = '';
-    $encrypted = openssl_encrypt($padded, 'aes-128-gcm', $contentKey, OPENSSL_RAW_DATA, $nonce, $tag, '', 16);
-    if ($encrypted === false) return false;
-    
-    // Build aes128gcm header: salt(16) + rs(4) + idlen(1) + keyid(65) + ciphertext
-    $rs = pack('N', 4096);
-    $header = $salt . $rs . chr(65) . $localPublicKey;
-    
-    return ['ciphertext' => $header . $encrypted . $tag];
+function getPushLog() {
+    global $_PUSH_LOG;
+    return $_PUSH_LOG;
 }
 
-/**
- * Compute ECDH shared secret
- */
-function computeECDH($localPrivKey, $remotePublicKeyBin) {
-    // Extract x,y from uncompressed point (04 || x || y)
-    $x = substr($remotePublicKeyBin, 1, 32);
-    $y = substr($remotePublicKeyBin, 33, 32);
-    
-    // Build PEM for the remote public key
-    $hexX = bin2hex($x);
-    $hexY = bin2hex($y);
-    
-    // ASN.1 DER encoding for EC public key on prime256v1
-    $der = hex2bin(
-        '3059301306072a8648ce3d020106082a8648ce3d030107034200' 
-        . '04' . $hexX . $hexY
-    );
-    
-    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64) . "-----END PUBLIC KEY-----\n";
-    $remotePubKey = openssl_pkey_get_public($pem);
-    if (!$remotePubKey) return false;
-    
-    $shared = openssl_pkey_derive($localPrivKey, $remotePubKey, 32);
-    return $shared;
-}
-
-/**
- * HKDF extract + expand
- */
-function hkdf($salt, $ikm, $info, $length) {
-    $prk = hash_hmac('sha256', $ikm, $salt, true);
-    return hkdf_expand($prk, $info, $length);
-}
-
-function hkdf_expand($prk, $info, $length) {
-    $output = '';
-    $counter = 1;
-    $prev = '';
-    while (strlen($output) < $length) {
-        $prev = hash_hmac('sha256', $prev . $info . chr($counter), $prk, true);
-        $output .= $prev;
-        $counter++;
-    }
-    return substr($output, 0, $length);
-}
-
-/**
- * Create VAPID JWT auth
- */
-function createVapidAuth($audience) {
-    $header = base64url_encode(json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
-    $payload = base64url_encode(json_encode([
-        'aud' => $audience,
-        'exp' => time() + 43200,
-        'sub' => VAPID_SUBJECT,
-    ]));
-    
-    $data = $header . '.' . $payload;
-    
-    // Build EC private key PEM
-    $privKeyRaw = base64url_decode(VAPID_PRIVATE_KEY);
-    $pubKeyRaw = base64url_decode(VAPID_PUBLIC_KEY);
-    
-    // Build DER for EC private key
-    $der = hex2bin('30770201010420') 
-         . $privKeyRaw 
-         . hex2bin('a00a06082a8648ce3d030107a14403420004') 
-         . $pubKeyRaw;
-    
-    $pem = "-----BEGIN EC PRIVATE KEY-----\n" . chunk_split(base64_encode($der), 64) . "-----END EC PRIVATE KEY-----\n";
-    
-    $key = openssl_pkey_get_private($pem);
-    if (!$key) return false;
-    
-    $signature = '';
-    if (!openssl_sign($data, $signature, $key, OPENSSL_ALGO_SHA256)) return false;
-    
-    // Convert DER signature to raw R||S format
-    $rawSig = derToRaw($signature);
-    
-    return ['token' => $data . '.' . base64url_encode($rawSig)];
-}
-
-/**
- * Convert DER signature to raw R||S (64 bytes)
- */
-function derToRaw($der) {
-    $pos = 2;
-    $rLen = ord($der[$pos + 1]);
-    $r = substr($der, $pos + 2, $rLen);
-    $pos = $pos + 2 + $rLen;
-    $sLen = ord($der[$pos + 1]);
-    $s = substr($der, $pos + 2, $sLen);
-    
-    // Pad/trim to 32 bytes
-    $r = str_pad(ltrim($r, chr(0)), 32, chr(0), STR_PAD_LEFT);
-    $s = str_pad(ltrim($s, chr(0)), 32, chr(0), STR_PAD_LEFT);
-    
-    return $r . $s;
-}
-
-/**
- * Base64 URL-safe encoding/decoding
- */
 function base64url_encode($data) {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
@@ -219,3 +27,254 @@ function base64url_encode($data) {
 function base64url_decode($data) {
     return base64_decode(strtr($data, '-_', '+/') . str_repeat('=', (4 - strlen($data) % 4) % 4));
 }
+
+function sendWebPush($subscription, $payload) {
+    global $_PUSH_LOG;
+    $_PUSH_LOG = [];
+
+    $endpoint = $subscription['endpoint'] ?? '';
+    $p256dh   = $subscription['keys']['p256dh'] ?? '';
+    $auth     = $subscription['keys']['auth'] ?? '';
+
+    if (!$endpoint || !$p256dh || !$auth) {
+        pushLog('ERREUR: données subscription incomplètes');
+        return ['success' => false, 'error' => 'Subscription data missing', 'log' => getPushLog()];
+    }
+
+    $payloadJson = is_string($payload) ? $payload : json_encode($payload, JSON_UNESCAPED_UNICODE);
+    pushLog('Payload: ' . strlen($payloadJson) . ' bytes');
+
+    // 1) Encrypt
+    $encrypted = wpEncrypt($payloadJson, $p256dh, $auth);
+    if (!$encrypted) {
+        return ['success' => false, 'error' => 'Encryption failed', 'log' => getPushLog()];
+    }
+    pushLog('Encryption OK: ' . strlen($encrypted) . ' bytes');
+
+    // 2) VAPID
+    $audience = parse_url($endpoint, PHP_URL_SCHEME) . '://' . parse_url($endpoint, PHP_URL_HOST);
+    $jwt = wpCreateJWT($audience);
+    if (!$jwt) {
+        return ['success' => false, 'error' => 'VAPID JWT failed', 'log' => getPushLog()];
+    }
+    pushLog('JWT OK');
+
+    // 3) HTTP POST
+    $headers = [
+        'Content-Type: application/octet-stream',
+        'Content-Encoding: aes128gcm',
+        'Content-Length: ' . strlen($encrypted),
+        'TTL: 2419200',
+        'Urgency: high',
+        'Authorization: vapid t=' . $jwt . ', k=' . VAPID_PUBLIC_KEY,
+    ];
+
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $encrypted,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr  = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlErr) {
+        pushLog('CURL error: ' . $curlErr);
+        return ['success' => false, 'error' => 'curl: ' . $curlErr, 'code' => 0, 'log' => getPushLog()];
+    }
+
+    pushLog("HTTP $httpCode — response: " . substr($response, 0, 200));
+
+    return [
+        'success'  => ($httpCode >= 200 && $httpCode < 300),
+        'code'     => $httpCode,
+        'response' => $response,
+        'log'      => getPushLog(),
+    ];
+}
+
+/**
+ * AES-128-GCM encryption per RFC 8291 / RFC 8188
+ */
+function wpEncrypt($payload, $userPubB64, $userAuthB64) {
+    $uaPublic = base64url_decode($userPubB64);
+    $uaAuth   = base64url_decode($userAuthB64);
+
+    if (strlen($uaPublic) !== 65) { pushLog('p256dh décodé: ' . strlen($uaPublic) . ' bytes (attendu 65)'); return false; }
+    if (strlen($uaAuth)   !== 16) { pushLog('auth décodé: ' . strlen($uaAuth) . ' bytes (attendu 16)');     return false; }
+
+    // Ephemeral EC key pair (application server)
+    $asKey = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
+    if (!$asKey) { pushLog('openssl_pkey_new() failed: ' . openssl_error_string()); return false; }
+
+    $asDetails = openssl_pkey_get_details($asKey);
+    $asPublic  = "\x04"
+        . str_pad($asDetails['ec']['x'], 32, "\x00", STR_PAD_LEFT)
+        . str_pad($asDetails['ec']['y'], 32, "\x00", STR_PAD_LEFT);
+
+    pushLog('Ephemeral key OK: ' . strlen($asPublic) . ' bytes');
+
+    // ECDH: shared secret
+    $ecdhSecret = wpECDH($asKey, $uaPublic);
+    if ($ecdhSecret === false) { pushLog('ECDH failed'); return false; }
+    pushLog('ECDH OK: ' . strlen($ecdhSecret) . ' bytes');
+
+    // Salt (random 16 bytes)
+    $salt = random_bytes(16);
+
+    // ── Key derivation (RFC 8291 §3.4) ──
+    // Step 1: IKM from auth secret + ECDH
+    $keyInfo = "WebPush: info\x00" . $uaPublic . $asPublic;
+    $ikm = wpHKDF($uaAuth, $ecdhSecret, $keyInfo, 32);
+
+    // Step 2: PRK from salt + IKM (RFC 8188)
+    $prk = hash_hmac('sha256', $ikm, $salt, true);
+
+    // Step 3: Content encryption key & nonce
+    $cek   = wpHKDFExpand($prk, "Content-Encoding: aes128gcm\x00", 16);
+    $nonce = wpHKDFExpand($prk, "Content-Encoding: nonce\x00", 12);
+
+    // ── Encrypt (AES-128-GCM) ──
+    // Padding delimiter: 0x02 = final record
+    $padded = $payload . "\x02";
+
+    $tag = '';
+    $ciphertext = openssl_encrypt($padded, 'aes-128-gcm', $cek, OPENSSL_RAW_DATA, $nonce, $tag, '', 16);
+    if ($ciphertext === false) { pushLog('AES-GCM encrypt failed: ' . openssl_error_string()); return false; }
+
+    pushLog('AES-GCM OK: cipher=' . strlen($ciphertext) . ' tag=' . strlen($tag));
+
+    // ── Build aes128gcm content (RFC 8188 §2) ──
+    // Header: salt(16) || rs(4, uint32 BE) || idlen(1) || keyid(idlen)
+    $rs     = pack('N', 4096);
+    $header = $salt . $rs . chr(65) . $asPublic;
+
+    return $header . $ciphertext . $tag;
+}
+
+/**
+ * ECDH shared secret via openssl_pkey_derive
+ */
+function wpECDH($localPrivKey, $remotePublicKeyBin) {
+    if (!function_exists('openssl_pkey_derive')) {
+        pushLog('openssl_pkey_derive() non disponible (PHP 7.3+ requis)');
+        return false;
+    }
+
+    $x = substr($remotePublicKeyBin, 1, 32);
+    $y = substr($remotePublicKeyBin, 33, 32);
+
+    // ASN.1 DER for EC public key on P-256
+    $der = hex2bin('3059301306072a8648ce3d020106082a8648ce3d030107034200')
+         . "\x04" . $x . $y;
+
+    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64) . "-----END PUBLIC KEY-----\n";
+    $remotePubKey = openssl_pkey_get_public($pem);
+    if (!$remotePubKey) {
+        pushLog('Clé publique remote invalide: ' . openssl_error_string());
+        return false;
+    }
+
+    $secret = openssl_pkey_derive($localPrivKey, $remotePubKey, 32);
+    if ($secret === false) {
+        pushLog('openssl_pkey_derive() a échoué: ' . openssl_error_string());
+        return false;
+    }
+    return $secret;
+}
+
+/**
+ * HKDF Extract + Expand (RFC 5869)
+ */
+function wpHKDF($salt, $ikm, $info, $length) {
+    $prk = hash_hmac('sha256', $ikm, $salt, true);
+    return wpHKDFExpand($prk, $info, $length);
+}
+
+function wpHKDFExpand($prk, $info, $length) {
+    $t   = '';
+    $out = '';
+    for ($i = 1; strlen($out) < $length; $i++) {
+        $t = hash_hmac('sha256', $t . $info . chr($i), $prk, true);
+        $out .= $t;
+    }
+    return substr($out, 0, $length);
+}
+
+/**
+ * Create VAPID JWT (ES256)
+ */
+function wpCreateJWT($audience) {
+    $header  = base64url_encode('{"typ":"JWT","alg":"ES256"}');
+    $claims  = base64url_encode(json_encode([
+        'aud' => $audience,
+        'exp' => time() + 86400,
+        'sub' => VAPID_SUBJECT,
+    ]));
+    $unsigned = $header . '.' . $claims;
+
+    // Build EC private key PEM
+    $privRaw = base64url_decode(VAPID_PRIVATE_KEY);
+    $pubRaw  = base64url_decode(VAPID_PUBLIC_KEY);
+
+    if (strlen($privRaw) !== 32) { pushLog('VAPID private key: ' . strlen($privRaw) . ' bytes (attendu 32)'); return false; }
+    if (strlen($pubRaw)  !== 65) { pushLog('VAPID public key: '  . strlen($pubRaw)  . ' bytes (attendu 65)'); return false; }
+
+    $der = hex2bin('30770201010420')
+         . $privRaw
+         . hex2bin('a00a06082a8648ce3d030107a14403420004')
+         . $pubRaw;
+
+    $pem = "-----BEGIN EC PRIVATE KEY-----\n" . chunk_split(base64_encode($der), 64) . "-----END EC PRIVATE KEY-----\n";
+    $key = openssl_pkey_get_private($pem);
+    if (!$key) { pushLog('VAPID PEM invalide: ' . openssl_error_string()); return false; }
+
+    $sig = '';
+    if (!openssl_sign($unsigned, $sig, $key, OPENSSL_ALGO_SHA256)) {
+        pushLog('openssl_sign failed: ' . openssl_error_string());
+        return false;
+    }
+
+    // DER → raw R||S (64 bytes)
+    $raw = wpDerToRaw($sig);
+    if (!$raw || strlen($raw) !== 64) { pushLog('Signature raw: ' . ($raw ? strlen($raw) : 'false') . ' bytes (attendu 64)'); return false; }
+
+    return $unsigned . '.' . base64url_encode($raw);
+}
+
+/**
+ * Convert DER ECDSA signature → R || S (each 32 bytes, big-endian)
+ */
+function wpDerToRaw($der) {
+    if (strlen($der) < 8) return false;
+    if (ord($der[0]) !== 0x30) return false;
+
+    $offset = 2;
+
+    // R
+    if (ord($der[$offset]) !== 0x02) return false;
+    $rLen = ord($der[$offset + 1]);
+    $r = substr($der, $offset + 2, $rLen);
+    $offset += 2 + $rLen;
+
+    // S
+    if ($offset >= strlen($der) || ord($der[$offset]) !== 0x02) return false;
+    $sLen = ord($der[$offset + 1]);
+    $s = substr($der, $offset + 2, $sLen);
+
+    // Normalize to 32 bytes each
+    $r = str_pad(ltrim($r, "\x00"), 32, "\x00", STR_PAD_LEFT);
+    $s = str_pad(ltrim($s, "\x00"), 32, "\x00", STR_PAD_LEFT);
+
+    return $r . $s;
+}
+
+// Legacy aliases
+function createVapidAuth($audience) { $jwt = wpCreateJWT($audience); return $jwt ? ['token' => $jwt] : false; }
+function encryptPayload($p, $pub, $auth) { return ($r = wpEncrypt($p, $pub, $auth)) ? ['ciphertext' => $r] : false; }
