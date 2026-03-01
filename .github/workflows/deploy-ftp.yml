@@ -1,4 +1,4 @@
-# Déploiement automatique vers Hostinger (FTP) à chaque push sur main
+# Déploiement automatique vers Hostinger via SFTP (SSH port 65002)
 name: Deploy to FTP (Hostinger)
 
 on:
@@ -12,16 +12,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via SFTP (SSH)
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./public_html/
-          server-dir: public_html/
-          exclude: |
-            **/.git*
-            **/.cursor*
-            **/config.php
-            **/*.md
+          server: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || '65002' }}
+          local_path: ./public_html/*
+          remote_path: ${{ secrets.SSH_REMOTE_PATH }}
+          sftp_only: true

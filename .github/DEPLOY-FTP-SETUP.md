@@ -1,39 +1,35 @@
-# Configurer le déploiement automatique Git → FTP (Hostinger)
+# Déploiement automatique Git → Hostinger (SFTP / SSH)
 
-À chaque **push sur la branche `main`**, GitHub envoie automatiquement le contenu de `public_html/` sur ton FTP Hostinger.
+À chaque **push sur `main`**, GitHub envoie le contenu de `public_html/` sur ton hébergement via **SFTP** (SSH port 65002). On n’utilise plus le FTP classique.
 
-## 1. Récupérer tes identifiants FTP
+## 1. Où trouver les infos
 
-Dans ton **panneau Hostinger** :
-- Va dans **Fichiers** (ou **FTP**) / **Comptes FTP**
-- Note : **serveur FTP** (ex. `ftp.espeu9.fr` ou `ftp.hostinger.com`), **utilisateur** et **mot de passe**
+Dans **Hostinger** → **Détails sur SSH** (ou **Avancé** → **Accès SSH**) :
+- **IP** : 178.16.128.35 (ou l’IP indiquée)
+- **Port** : 65002
+- **Nom d’utilisateur** : u527192911 (ou le tien)
+- **Mot de passe** : celui de la connexion SSH (bouton « Changer » si besoin)
 
-## 2. Ajouter les secrets dans GitHub
+Le **chemin distant** sur Hostinger est en général :  
+`/home/u527192911/domains/espeu9.fr/public_html`  
+(à confirmer dans le gestionnaire de fichiers Hostinger en regardant le chemin complet de `public_html`).
 
-1. Ouvre : **https://github.com/stratedgepronos-code/ESPEU9.fr**
-2. **Settings** → **Secrets and variables** → **Actions**
-3. Clique sur **New repository secret** et crée **4 secrets** :
+## 2. Secrets GitHub
 
-| Nom du secret    | Exemple / valeur |
-|------------------|------------------|
-| `FTP_SERVER`     | `ftp.espeu9.fr` ou l’hôte FTP indiqué par Hostinger |
-| `FTP_USERNAME`   | Ton identifiant FTP |
-| `FTP_PASSWORD`   | Ton mot de passe FTP |
-| `FTP_REMOTE_PATH`| Chemin distant. Souvent `public_html` ou `.` (voir ci‑dessous) |
+Va dans le dépôt → **Settings** → **Secrets and variables** → **Actions**, puis crée ces secrets :
 
-### Valeur de `FTP_REMOTE_PATH`
+| Secret             | Valeur |
+|--------------------|--------|
+| `SSH_HOST`         | `178.16.128.35` (l’IP SSH Hostinger) |
+| `SSH_USERNAME`     | `u527192911` (ton utilisateur SSH) |
+| `SSH_PASSWORD`     | Le mot de passe SSH (celui de « Détails sur SSH ») |
+| `SSH_REMOTE_PATH`  | `/home/u527192911/domains/espeu9.fr/public_html` (adapter si ton chemin est différent) |
+| `SSH_PORT`         | (optionnel) `65002` — utilisé par défaut si absent |
 
-- Si en te connectant en FTP tu arrives **directement dans le dossier du site** (où se trouvent `index.html`, etc.) → mets **`.`**
-- Si tu arrives dans un dossier parent et tu vois un sous-dossier **public_html** → mets **`public_html`**
+Tu peux supprimer les anciens secrets FTP (`FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`) s’ils existent.
 
-(Sur Hostinger, c’est souvent **`public_html`** ou **`.`** selon le type de compte.)
+## 3. Vérifier
 
-## 3. Vérifier que ça marche
-
-Après avoir enregistré les 4 secrets :
-
-1. Fais un petit changement dans le projet (ou un push vide).
-2. Va dans l’onglet **Actions** du dépôt GitHub.
-3. Tu dois voir un workflow **“Deploy to FTP (Hostinger)”** qui se lance et passe au vert.
-
-Une fois les secrets corrects, chaque push sur `main` enverra automatiquement les fichiers vers ton FTP.
+1. Enregistre les secrets ci‑dessus.
+2. Fais un push sur `main` (ou relance le workflow dans l’onglet **Actions**).
+3. Le job « Deploy to FTP (Hostinger) » doit passer au vert et le site être à jour sur espeu9.fr.
