@@ -191,15 +191,26 @@ body {
 (function(){
   var e = React.createElement;
   var PLAYERS = [
-    {id:1,num:6,firstName:"Malone",lastName:"HAUTION",cap:true},
-    {id:2,num:8,firstName:"Tristan",lastName:"COLLARD"},
-    {id:3,num:9,firstName:"Gaspard",lastName:"HAMM"},
-    {id:4,num:10,firstName:"Amine",lastName:"SLAH"},
-    {id:5,num:11,firstName:"Diego",lastName:"FRANCART"},
-    {id:6,num:12,firstName:"Jonas",lastName:"DELE"},
-    {id:7,num:13,firstName:"Marceau",lastName:"FALZON"},
-    {id:8,num:14,firstName:"Robin",lastName:"FISCHESSER"}
+    {id:1,num:6,firstName:"Malone",lastName:"HAUTION",cap:true,photoKey:"haution"},
+    {id:2,num:8,firstName:"Tristan",lastName:"COLLARD",photoKey:"collard"},
+    {id:3,num:9,firstName:"Gaspard",lastName:"HAMM",photoKey:"hamm"},
+    {id:4,num:10,firstName:"Amine",lastName:"SLAH",photoKey:"slah"},
+    {id:5,num:11,firstName:"Diego",lastName:"FRANCART",photoKey:"francart"},
+    {id:6,num:12,firstName:"Jonas",lastName:"DELE",photoKey:"dele"},
+    {id:7,num:13,firstName:"Marceau",lastName:"FALZON",photoKey:"falzon"},
+    {id:8,num:14,firstName:"Robin",lastName:"FISCHESSER",photoKey:"fischesser"}
   ];
+  var PLAYER_PHOTOS = {
+    haution:"https://espeu9.fr/images/player-haution.jpg",
+    collard:"https://espeu9.fr/images/player-collard.jpg",
+    hamm:"https://espeu9.fr/images/player-hamm.jpg",
+    slah:"https://espeu9.fr/images/player-slah.jpg",
+    francart:"https://espeu9.fr/images/player-francart.jpg",
+    dele:"https://espeu9.fr/images/player-dele.jpg",
+    falzon:"https://espeu9.fr/images/player-falzon.jpg",
+    fischesser:"https://espeu9.fr/images/player-fischesser.jpg"
+  };
+  var COACH_PHOTO = "https://espeu9.fr/images/coach-photo.jpg";
   var FB="https://www.facebook.com/espebasketchalonsenchampagne/";
   var IG="https://www.instagram.com/espe_basket51/";
   var SITE="https://www.espebasketchalons.fr/";
@@ -220,14 +231,15 @@ body {
         .then(function(){window.location.href='index.html';});
     }
 
+    var playerMatch = user && user.player_id ? PLAYERS.find(function(p){return p.id===user.player_id;}) : null;
     var authDesktop = user
       ? e("div",{className:"nav-auth",style:{cursor:"pointer"},onClick:function(){window.location.href='index.html#compte';}},
-          user.role==='coach'
-            ? e("div",{style:{position:"relative"}},
-                e("div",{style:{width:32,height:32,borderRadius:"50%",background:"var(--green-700)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,border:"2px solid #f59e0b",boxShadow:"0 0 6px rgba(245,158,11,0.3)"}},user.display_name?user.display_name.charAt(0).toUpperCase():"C"),
-                e("span",{style:{position:"absolute",top:-4,left:-4,transform:"rotate(-25deg)",fontSize:10,lineHeight:1,filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.3))",zIndex:1}},"\uD83D\uDC51"))
-            : e("div",{style:{width:32,height:32,borderRadius:"50%",background:"var(--green-700)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,border:"2px solid var(--gold-light)"}},user.display_name?user.display_name.charAt(0).toUpperCase():"U"),
-          e("span",{className:"nav-auth-name"},user.display_name||user.username),
+          playerMatch
+            ? e("img",{src:PLAYER_PHOTOS[playerMatch.photoKey],alt:"",style:{width:32,height:32,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--gold-light)"}})
+            : e("div",{style:{position:"relative"}},
+                e("img",{src:COACH_PHOTO,alt:"Coach",style:{width:32,height:32,borderRadius:"50%",objectFit:"cover",border:"2px solid #f59e0b",boxShadow:"0 0 6px rgba(245,158,11,0.3)"}}),
+                e("span",{style:{position:"absolute",top:-4,left:-4,transform:"rotate(-25deg)",fontSize:10,lineHeight:1,filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.3))",zIndex:1}},"\uD83D\uDC51")),
+          e("span",{className:"nav-auth-name"},playerMatch ? playerMatch.firstName : (user.display_name||user.username)),
           e("button",{className:"nav-auth-btn logout",onClick:function(ev){ev.stopPropagation();handleLogout();}},"D\u00E9co"))
       : e("a",{href:"index.html#connexion",className:"nav-auth-btn login",style:{textDecoration:"none"}},"\uD83D\uDD12 Connexion");
 
@@ -235,8 +247,10 @@ body {
       ? e("div",{className:"mob-section"},
           e("div",{className:"mob-label"},"Mon compte"),
           e("a",{href:"index.html#compte",className:"mob-btn"},
-            e("span",{className:"mob-icon"},user.role==='coach'?"\uD83D\uDC51":"\uD83D\uDC64"),
-            " ",user.display_name||user.username),
+            playerMatch
+              ? e("img",{src:PLAYER_PHOTOS[playerMatch.photoKey],alt:"",style:{width:28,height:28,borderRadius:"50%",objectFit:"cover",border:"2px solid var(--gold-light)",marginRight:4}})
+              : e("img",{src:COACH_PHOTO,alt:"",style:{width:28,height:28,borderRadius:"50%",objectFit:"cover",border:"2px solid #f59e0b",marginRight:4}}),
+            " ",playerMatch ? playerMatch.firstName : (user.display_name||user.username)),
           e("button",{className:"mob-btn",onClick:handleLogout,style:{color:"var(--red)",border:"none",background:"transparent",fontFamily:"inherit"}},
             e("span",{className:"mob-icon"},"\uD83D\uDEAA")," D\u00E9connexion"))
       : e("div",{className:"mob-section"},
