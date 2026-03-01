@@ -51,9 +51,13 @@ body {
 .nav-social { display:flex; align-items:center; gap:8px; margin-left:12px; }
 .nav-social-link { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:var(--surface2); color:var(--green-700); transition:all 0.2s; text-decoration:none; }
 .nav-social-link:hover { background:var(--green-700); color:white; }
-.nav-auth-btn { padding:6px 14px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all 0.2s; text-decoration:none; display:inline-block; }
+.nav-auth { display:flex; align-items:center; gap:10px; margin-left:12px; background:#f0f0f0; padding:4px 10px 4px 8px; border-radius:10px; }
+.nav-auth-name { font-size:13px; color:var(--text); white-space:nowrap; font-weight:600; }
+.nav-auth-btn { padding:6px 14px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all 0.2s; text-decoration:none; display:inline-block; font-family:'Outfit',sans-serif; }
 .nav-auth-btn.login { background:var(--gold-light); color:var(--green-900); }
 .nav-auth-btn.login:hover { background:#f0d96a; }
+.nav-auth-btn.logout { background:#e8e8e8; color:#555; }
+.nav-auth-btn.logout:hover { background:#d4d4d4; color:#333; }
 
 /* HAMBURGER */
 .nav-hamburger { display:none; background:none; border:none; cursor:pointer; padding:8px; flex-direction:column; gap:5px; z-index:200; }
@@ -202,6 +206,42 @@ body {
 
   function Nav(){
     var _s = React.useState(false), mobOpen=_s[0], setMob=_s[1];
+    var _u = React.useState(null), user=_u[0], setUser=_u[1];
+
+    React.useEffect(function(){
+      fetch('api.php?action=check_session',{credentials:'same-origin'})
+        .then(function(r){return r.json();})
+        .then(function(d){if(d.logged_in&&d.user)setUser(d.user);})
+        .catch(function(){});
+    },[]);
+
+    function handleLogout(){
+      fetch('api.php?action=logout',{credentials:'same-origin'})
+        .then(function(){window.location.href='index.html';});
+    }
+
+    var authDesktop = user
+      ? e("div",{className:"nav-auth",style:{cursor:"pointer"},onClick:function(){window.location.href='index.html#compte';}},
+          user.role==='coach'
+            ? e("div",{style:{position:"relative"}},
+                e("div",{style:{width:32,height:32,borderRadius:"50%",background:"var(--green-700)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,border:"2px solid #f59e0b",boxShadow:"0 0 6px rgba(245,158,11,0.3)"}},user.display_name?user.display_name.charAt(0).toUpperCase():"C"),
+                e("span",{style:{position:"absolute",top:-4,left:-4,transform:"rotate(-25deg)",fontSize:10,lineHeight:1,filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.3))",zIndex:1}},"\uD83D\uDC51"))
+            : e("div",{style:{width:32,height:32,borderRadius:"50%",background:"var(--green-700)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,border:"2px solid var(--gold-light)"}},user.display_name?user.display_name.charAt(0).toUpperCase():"U"),
+          e("span",{className:"nav-auth-name"},user.display_name||user.username),
+          e("button",{className:"nav-auth-btn logout",onClick:function(ev){ev.stopPropagation();handleLogout();}},"D\u00E9co"))
+      : e("a",{href:"index.html#connexion",className:"nav-auth-btn login",style:{textDecoration:"none"}},"\uD83D\uDD12 Connexion");
+
+    var authMobile = user
+      ? e("div",{className:"mob-section"},
+          e("div",{className:"mob-label"},"Mon compte"),
+          e("a",{href:"index.html#compte",className:"mob-btn"},
+            e("span",{className:"mob-icon"},user.role==='coach'?"\uD83D\uDC51":"\uD83D\uDC64"),
+            " ",user.display_name||user.username),
+          e("button",{className:"mob-btn",onClick:handleLogout,style:{color:"var(--red)",border:"none",background:"transparent",fontFamily:"inherit"}},
+            e("span",{className:"mob-icon"},"\uD83D\uDEAA")," D\u00E9connexion"))
+      : e("div",{className:"mob-section"},
+          e("a",{href:"index.html#connexion",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83D\uDD12")," Connexion"));
+
     return e(React.Fragment, null,
       e("nav",{className:"nav"},
         e("div",{className:"nav-inner"},
@@ -220,8 +260,8 @@ body {
                     p.cap && e("span",{className:"nav-dropdown-cap"},"\u2605"));
                 }))),
             e("a",{href:"index.html#matchs",className:"nav-btn"},"Matchs"),
-            e("a",{href:"tchat.html",className:"nav-btn active"},"💬 Tchat"),
-            e("a",{href:"index.html#connexion",className:"nav-auth-btn login"},"🔒 Connexion"),
+            e("a",{href:"tchat.html",className:"nav-btn active"},"\uD83D\uDCAC Tchat"),
+            authDesktop,
             e("div",{className:"nav-social"},
               e("a",{href:FB,target:"_blank",rel:"noopener noreferrer",title:"Facebook",className:"nav-social-link"},
                 e("svg",{width:20,height:20,viewBox:"0 0 24 24",fill:"currentColor"},e("path",{d:"M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"}))),
@@ -235,12 +275,11 @@ body {
         e("div",{className:"nav-mobile-panel",onClick:function(ev){ev.stopPropagation()}},
           e("div",{className:"mob-section"},
             e("div",{className:"mob-label"},"Navigation"),
-            e("a",{href:"index.html",className:"mob-btn"},e("span",{className:"mob-icon"},"🏠")," Accueil"),
-            e("a",{href:"index.html#joueurs",className:"mob-btn"},e("span",{className:"mob-icon"},"🏃")," Joueurs"),
-            e("a",{href:"index.html#matchs",className:"mob-btn"},e("span",{className:"mob-icon"},"🏀")," Matchs"),
-            e("a",{href:"tchat.html",className:"mob-btn active"},e("span",{className:"mob-icon"},"💬")," Tchat")),
-          e("div",{className:"mob-section"},
-            e("a",{href:"index.html#connexion",className:"mob-btn"},e("span",{className:"mob-icon"},"🔒")," Connexion")),
+            e("a",{href:"index.html",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83C\uDFE0")," Accueil"),
+            e("a",{href:"index.html#joueurs",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83C\uDFC3")," Joueurs"),
+            e("a",{href:"index.html#matchs",className:"mob-btn"},e("span",{className:"mob-icon"},"\uD83C\uDFC0")," Matchs"),
+            e("a",{href:"tchat.html",className:"mob-btn active"},e("span",{className:"mob-icon"},"\uD83D\uDCAC")," Tchat")),
+          authMobile,
           e("div",{className:"mob-section"},
             e("div",{className:"mob-label"},"Suivez-nous"),
             e("div",{style:{display:"flex",gap:16,paddingLeft:4}},
