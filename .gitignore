@@ -1,0 +1,12 @@
+# Configuration sensible (mots de passe, clés API)
+public_html/config.php
+
+# Fichiers système / éditeur
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# Uploads utilisateur (optionnel : décommenter si non versionnés)
+# public_html/uploads/

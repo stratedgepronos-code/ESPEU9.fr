@@ -1,0 +1,7 @@
+# Interdire l'exécution de scripts PHP dans le dossier uploads
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# Ne pas lister les fichiers
+Options -Indexes
