@@ -2292,10 +2292,15 @@ case 'chat_list':
             INDEX idx_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Exception $e) {}
+    // Purge des messages de plus de 2 mois
+    try {
+        $db->exec("DELETE FROM chat_messages WHERE created_at < DATE_SUB(NOW(), INTERVAL 2 MONTH)");
+    } catch (Exception $e) {}
     $limit = min(200, max(20, (int)($_GET['limit'] ?? 80)));
-    $st = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages ORDER BY created_at DESC LIMIT " . $limit);
+    // Ordre chronologique : plus anciens en premier (affichés en bas, les nouveaux montent)
+    $st = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages ORDER BY created_at ASC LIMIT " . $limit);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode(['success' => true, 'messages' => array_reverse($rows), 'user_id' => $uid, 'is_admin' => ($role === 'coach')]);
+    echo json_encode(['success' => true, 'messages' => $rows, 'user_id' => $uid, 'is_admin' => ($role === 'coach')]);
     break;
 
 case 'chat_post':

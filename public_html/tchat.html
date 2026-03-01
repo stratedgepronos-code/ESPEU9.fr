@@ -35,42 +35,84 @@
       display: flex;
       flex-direction: column;
     }
-    .tchat-header {
+    /* Nav comme sur le site */
+    .nav {
       position: sticky;
       top: 0;
-      z-index: 50;
-      background: linear-gradient(135deg, var(--green-900) 0%, #1a5c2c 50%, var(--green-700) 100%);
-      color: #fff;
-      padding: 16px 20px;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 4px;
+      height: 68px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
       gap: 12px;
-      box-shadow: var(--shadow-lg);
-    }
-    .tchat-header a {
-      color: #fff;
+      margin-right: auto;
       text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      color: inherit;
     }
-    .tchat-header a:hover { opacity: 0.9; }
-    .tchat-title {
+    .nav-logo img { width: 44px; height: 44px; object-fit: contain; }
+    .nav-logo-text {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.6rem;
+      font-size: 22px;
       letter-spacing: 2px;
+      color: var(--green-900);
     }
-    .tchat-user-badge {
-      font-size: 12px;
-      background: rgba(255,255,255,0.2);
-      padding: 4px 10px;
-      border-radius: 20px;
+    .nav-btn {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+      white-space: nowrap;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
     }
-    .tchat-user-badge.coach { background: rgba(245,158,11,0.4); }
+    .nav-btn:hover { color: var(--text); background: var(--surface2); }
+    .nav-btn.active { color: var(--green-700); background: #e8f5e9; }
+    .nav-auth { display: flex; align-items: center; gap: 12px; }
+    .nav-auth-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .nav-auth-btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .nav-auth-btn.login { background: var(--green-700); color: #fff; }
+    .nav-auth-btn.logout { background: var(--surface2); color: var(--text-dim); }
+    @media (max-width: 768px) {
+      .nav { padding: 0 12px; }
+      .nav-inner { height: 56px; }
+      .nav-logo img { width: 36px; height: 36px; }
+      .nav-logo-text { font-size: 16px; }
+      .nav-desktop-items { display: none !important; }
+      .nav-auth-name { display: none; }
+    }
     .tchat-main {
       flex: 1;
       max-width: 720px;
@@ -80,15 +122,25 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
+      overflow: hidden;
+    }
+    .tchat-messages-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     .tchat-messages {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 12px;
-      padding-bottom: 12px;
+      padding: 12px 0 12px 0;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .tchat-msg {
       background: var(--surface);
@@ -293,15 +345,33 @@
   </style>
 </head>
 <body>
-  <header class="tchat-header">
-    <a href="index.html">&larr; Retour</a>
-    <span class="tchat-title">TCHAT U9</span>
-    <span class="tchat-user-badge" id="userBadge">—</span>
-  </header>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <img src="/images/logo-espe.png" alt="ESPE">
+        <span class="nav-logo-text">ESPE BASKET - U9</span>
+      </a>
+      <div class="nav-desktop-items">
+        <a href="index.html#accueil" class="nav-btn">Accueil</a>
+        <a href="index.html#joueurs" class="nav-btn">Joueurs</a>
+        <a href="index.html#matchs" class="nav-btn">Matchs</a>
+        <a href="tchat.html" class="nav-btn active">Tchat</a>
+        <span id="navAuth">
+          <a href="index.html#connexion" class="nav-auth-btn login" id="navLogin">Connexion</a>
+          <span id="navUserWrap" style="display:none">
+            <span class="nav-auth-name" id="navUserName">—</span>
+            <a href="index.html" class="nav-auth-btn logout">Déco</a>
+          </span>
+        </span>
+      </div>
+    </div>
+  </nav>
 
   <main class="tchat-main">
     <div id="errorBox"></div>
-    <div class="tchat-messages" id="messages"></div>
+    <div class="tchat-messages-wrap">
+      <div class="tchat-messages" id="messages"></div>
+    </div>
     <div class="tchat-form-wrap" id="formWrap" style="display:none">
       <form class="tchat-form" id="chatForm">
         <div class="tchat-input-wrap">
@@ -334,7 +404,9 @@
   const chatForm = document.getElementById('chatForm');
   const input = document.getElementById('input');
   const sendBtn = document.getElementById('sendBtn');
-  const userBadge = document.getElementById('userBadge');
+  const navLogin = document.getElementById('navLogin');
+  const navUserWrap = document.getElementById('navUserWrap');
+  const navUserName = document.getElementById('navUserName');
 
   let user = null;
   let currentUserId = 0;
@@ -443,16 +515,20 @@
             if (data.user_id) {
               formWrap.style.display = 'block';
               loginPrompt.style.display = 'none';
-              userBadge.textContent = user ? (user.display_name || user.username) : 'Connecté';
+              if (navLogin) navLogin.style.display = 'none';
+              if (navUserWrap) { navUserWrap.style.display = 'inline-flex'; navUserWrap.style.alignItems = 'center'; navUserWrap.style.gap = '12px'; }
+              if (navUserName) navUserName.textContent = user ? (user.display_name || user.username) : 'Connecté';
             } else {
-            formWrap.style.display = 'none';
-            loginPrompt.style.display = 'block';
-            userBadge.textContent = 'Invité';
-          }
+              formWrap.style.display = 'none';
+              loginPrompt.style.display = 'block';
+              if (navLogin) navLogin.style.display = 'inline-flex';
+              if (navUserWrap) navUserWrap.style.display = 'none';
+            }
           messagesEl.innerHTML = data.messages.length === 0
             ? '<div class="tchat-empty"><div class="tchat-empty-icon">💬</div>Aucun message. Sois le premier à écrire&nbsp;!</div>'
             : data.messages.map(function(m) { return renderMessage(m, data.user_id, isAdmin); }).join('');
           bindDeleteButtons();
+          scrollToBottom();
         } else {
           showError(data.error || 'Erreur chargement');
         }
@@ -463,6 +539,12 @@
       });
   }
 
+  function scrollToBottom() {
+    requestAnimationFrame(function() {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+  }
+
   function checkSession() {
     fetch(API + '?action=check_session', { credentials: 'same-origin' })
       .then(function(r) { return r.json(); })
@@ -470,8 +552,9 @@
         if (data.logged_in && data.user) {
           user = data.user;
           isAdmin = data.user.role === 'coach';
-          userBadge.textContent = data.user.display_name || data.user.username || 'Connecté';
-          if (data.user.role === 'coach') userBadge.classList.add('coach');
+          if (navUserName) navUserName.textContent = data.user.display_name || data.user.username || 'Connecté';
+          if (navLogin) navLogin.style.display = 'none';
+          if (navUserWrap) { navUserWrap.style.display = 'inline-flex'; navUserWrap.style.alignItems = 'center'; navUserWrap.style.gap = '12px'; }
         }
       });
   }
@@ -522,7 +605,7 @@
           var div = document.createElement('div');
           div.innerHTML = html;
           messagesEl.appendChild(div.firstElementChild);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
+          scrollToBottom();
           bindDeleteButtons();
         } else showError(data.error || 'Erreur envoi');
       })
@@ -547,13 +630,12 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.success || !data.messages) return;
-        var currentScroll = messagesEl.scrollHeight - messagesEl.scrollTop;
-        var wasAtBottom = currentScroll <= messagesEl.clientHeight + 50;
+        var wasAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop <= messagesEl.clientHeight + 80;
         messagesEl.innerHTML = data.messages.length === 0
           ? '<div class="tchat-empty"><div class="tchat-empty-icon">💬</div>Aucun message.</div>'
           : data.messages.map(function(m) { return renderMessage(m, data.user_id, data.is_admin); }).join('');
         bindDeleteButtons();
-        if (wasAtBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (wasAtBottom) scrollToBottom();
       });
   }, 4000);
 })();
