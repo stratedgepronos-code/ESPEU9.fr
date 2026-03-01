@@ -2295,7 +2295,7 @@ case 'chat_list':
     // Nettoyage auto : supprimer les messages de plus de 2 mois
     try { $db->exec("DELETE FROM chat_messages WHERE created_at < DATE_SUB(NOW(), INTERVAL 2 MONTH)"); } catch (Exception $e) {}
     $limit = min(200, max(20, (int)($_GET['limit'] ?? 100)));
-    $st = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages ORDER BY created_at ASC LIMIT " . $limit);
+    $st = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages ORDER BY created_at DESC LIMIT " . $limit);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'messages' => $rows, 'user_id' => $uid, 'is_admin' => ($role === 'coach')]);
     break;
