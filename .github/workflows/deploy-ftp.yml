@@ -12,6 +12,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install PHP dependencies (web-push)
+        run: |
+          cd public_html && composer install --no-dev --no-interaction --prefer-dist
+
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh

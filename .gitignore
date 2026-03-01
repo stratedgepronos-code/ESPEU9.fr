@@ -10,3 +10,6 @@ Thumbs.db
 
 # Uploads utilisateur (optionnel : décommenter si non versionnés)
 # public_html/uploads/
+
+# Composer (installé en CI)
+public_html/vendor/
