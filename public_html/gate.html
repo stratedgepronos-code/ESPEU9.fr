@@ -4,263 +4,388 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Accès membres — ESPE Basket U9</title>
-  <meta name="theme-color" content="#0a1f0d">
+  <meta name="theme-color" content="#050d07">
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --green-900: #0a1f0d; --green-800: #0f3d1a; --green-700: #1a6b2e; --green-500: #228b38;
-      --gold: #c8a832; --gold-light: #e8cc5a; --text: #e8f0ea; --text-dim: #9cb5a4; --border: rgba(255,255,255,0.08);
+      --bg: #050d07;
+      --green-900: #071a0b; --green-800: #0f3d1a; --green-700: #1a6b2e; --green-600: #1e8035;
+      --green-500: #22a83d; --green-400: #34d058; --green-glow: rgba(34,168,61,0.35);
+      --gold: #c8a832; --gold-light: #e8cc5a;
+      --text: #eaf5ec; --text-dim: #7a9b82; --text-muted: #4a6b52;
+      --border: rgba(255,255,255,0.06); --border-hover: rgba(255,255,255,0.12);
+      --card-bg: rgba(10,40,18,0.55);
+      --input-bg: rgba(0,0,0,0.35);
     }
     html { height: 100%; }
     body {
-      min-height: 100%;
+      min-height: 100vh;
       font-family: 'Outfit', sans-serif;
-      background: var(--green-900);
+      background: var(--bg);
       color: var(--text);
       overflow-x: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 16px;
+      padding: 32px 16px;
       position: relative;
     }
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: 
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(26,107,46,0.25) 0%, transparent 50%),
-        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(200,168,50,0.08) 0%, transparent 45%),
-        linear-gradient(180deg, #0a1f0d 0%, #0d2b14 50%, #0a1f0d 100%);
-      pointer-events: none;
-      z-index: 0;
+
+    /* ── ANIMATED BACKGROUND ── */
+    .bg-layer {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
     }
-    .gate-wrap { position: relative; z-index: 1; width: 100%; max-width: 440px; }
-    .logo-block {
-      text-align: center;
-      margin-bottom: 32px;
+    .bg-gradient {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 120% 60% at 50% -30%, rgba(26,107,46,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 50% at 20% 110%, rgba(34,168,61,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 40% at 90% 80%, rgba(200,168,50,0.04) 0%, transparent 40%);
     }
-    .logo-block img {
-      width: 72px;
-      height: 72px;
-      object-fit: contain;
-      filter: drop-shadow(0 4px 20px rgba(26,107,46,0.4));
+    .bg-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(26,107,46,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26,107,46,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 70%);
+    }
+    .orb {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0;
+      animation: orbFloat 8s ease-in-out infinite;
+    }
+    .orb-1 { width: 400px; height: 400px; background: rgba(26,107,46,0.12); top: -10%; left: 30%; animation-delay: 0s; }
+    .orb-2 { width: 300px; height: 300px; background: rgba(34,208,88,0.06); bottom: 10%; right: -5%; animation-delay: 3s; }
+    .orb-3 { width: 200px; height: 200px; background: rgba(200,168,50,0.05); top: 50%; left: -5%; animation-delay: 5s; }
+    @keyframes orbFloat {
+      0%, 100% { opacity: 0.3; transform: translateY(0) scale(1); }
+      50% { opacity: 0.7; transform: translateY(-30px) scale(1.1); }
+    }
+
+    /* ── PARTICLES ── */
+    .particles { position: absolute; inset: 0; }
+    .particle {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: rgba(34,168,61,0.5);
+      border-radius: 50%;
+      animation: particleRise linear infinite;
+    }
+    @keyframes particleRise {
+      0% { opacity: 0; transform: translateY(0) scale(0); }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-100vh) scale(1); }
+    }
+
+    /* ── MAIN WRAPPER ── */
+    .gate-wrap {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 460px;
+      animation: fadeSlideUp 0.8s ease-out both;
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── LOGO ── */
+    .logo-block { text-align: center; margin-bottom: 28px; }
+    .logo-img-wrap {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      width: 90px; height: 90px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(26,107,46,0.25), rgba(10,30,14,0.6));
+      border: 1px solid rgba(26,107,46,0.2);
+      box-shadow: 0 0 50px rgba(26,107,46,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+      position: relative;
+      animation: logoPulse 4s ease-in-out infinite;
+    }
+    @keyframes logoPulse {
+      0%, 100% { box-shadow: 0 0 50px rgba(26,107,46,0.15), inset 0 1px 0 rgba(255,255,255,0.05); }
+      50% { box-shadow: 0 0 70px rgba(26,107,46,0.25), 0 0 120px rgba(34,168,61,0.08), inset 0 1px 0 rgba(255,255,255,0.05); }
+    }
+    .logo-img-wrap img {
+      width: 60px; height: 60px; object-fit: contain;
+      filter: drop-shadow(0 2px 10px rgba(26,107,46,0.3));
     }
     .logo-title {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(2rem, 6vw, 2.75rem);
-      letter-spacing: 0.2em;
-      color: #fff;
-      margin-top: 12px;
-      text-shadow: 0 0 40px rgba(26,107,46,0.3);
+      font-size: clamp(2.5rem, 7vw, 3.25rem);
+      letter-spacing: 0.18em;
+      margin-top: 16px;
+      background: linear-gradient(135deg, #fff 0%, #a8d5b0 50%, var(--gold-light) 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 20px rgba(26,107,46,0.2));
     }
     .logo-sub {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
-      letter-spacing: 0.35em;
-      color: var(--gold-light);
-      margin-top: 4px;
-      opacity: 0.9;
-    }
-    .badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      color: var(--gold);
-      background: rgba(200,168,50,0.12);
-      padding: 6px 14px;
-      border-radius: 20px;
-      margin-bottom: 28px;
-      margin-left: 6px;
-      margin-right: 6px;
-      border: 1px solid rgba(200,168,50,0.25);
-    }
-    .badge-season {
-      background: rgba(26,107,46,0.35);
-      color: var(--text);
-      border-color: rgba(255,255,255,0.12);
-      font-weight: 600;
-    }
-    .headline {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(1.75rem, 4vw, 2.25rem);
-      line-height: 1.15;
-      text-align: center;
-      margin-bottom: 8px;
-      color: #fff;
-      letter-spacing: 0.02em;
-    }
-    .headline-sub {
-      font-size: 14px;
+      letter-spacing: 0.5em;
       color: var(--text-dim);
-      text-align: center;
-      margin-bottom: 28px;
-      line-height: 1.5;
+      margin-top: 2px;
     }
+
+    /* ── BADGES ── */
+    .badges { text-align: center; margin-bottom: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 6px 14px; border-radius: 100px;
+      border: 1px solid rgba(200,168,50,0.25);
+      background: rgba(200,168,50,0.08);
+      color: var(--gold);
+    }
+    .badge-green {
+      border-color: rgba(34,168,61,0.25);
+      background: rgba(34,168,61,0.08);
+      color: var(--green-400);
+    }
+
+    /* ── HERO TEXT ── */
+    .hero { text-align: center; margin-bottom: 32px; animation: fadeSlideUp 0.8s ease-out 0.15s both; }
+    .hero h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.8rem, 5vw, 2.5rem);
+      line-height: 1.1;
+      color: #fff;
+      letter-spacing: 0.01em;
+      margin-bottom: 12px;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--green-400), var(--gold-light));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 15px; color: var(--text-dim); line-height: 1.6; max-width: 360px; margin: 0 auto;
+    }
+
+    /* ── FEATURES STRIP ── */
+    .features {
+      display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;
+      margin-bottom: 32px; animation: fadeSlideUp 0.8s ease-out 0.25s both;
+    }
+    .feat {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500; color: var(--text-dim);
+    }
+    .feat-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(26,107,46,0.15); font-size: 14px;
+    }
+
+    /* ── CARD ── */
     .card {
-      background: rgba(15,61,26,0.6);
-      backdrop-filter: blur(20px);
+      background: var(--card-bg);
+      backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
       border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 28px 24px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      border-radius: 28px;
+      padding: 32px 28px;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02) inset;
+      position: relative;
+      overflow: hidden;
+      animation: fadeSlideUp 0.8s ease-out 0.3s both;
     }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    }
+    .card::after {
+      content: '';
+      position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(ellipse at 50% 0%, rgba(26,107,46,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* ── TABS ── */
     .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 24px;
-      background: rgba(0,0,0,0.2);
-      padding: 4px;
-      border-radius: 14px;
+      display: flex; gap: 4px; margin-bottom: 28px; position: relative; z-index: 1;
+      background: rgba(0,0,0,0.3); padding: 4px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.04);
     }
     .tab {
-      flex: 1;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 10px;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      background: transparent;
-      color: var(--text-dim);
-      transition: all 0.25s ease;
+      flex: 1; padding: 13px 16px; border: none; border-radius: 12px;
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer; background: transparent; color: var(--text-muted);
+      transition: all 0.3s ease; position: relative;
     }
-    .tab:hover { color: var(--text); }
-    .tab.active { background: var(--green-700); color: #fff; }
-    .panel { display: none; }
-    .panel.active { display: block; }
-    .field {
-      margin-bottom: 16px;
-    }
-    .field label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-dim);
-      margin-bottom: 6px;
-    }
-    .field input, .field select {
-      width: 100%;
-      padding: 14px 18px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(0,0,0,0.25);
+    .tab:hover { color: var(--text-dim); }
+    .tab.active {
+      background: linear-gradient(135deg, var(--green-700), var(--green-600));
       color: #fff;
-      font-family: inherit;
-      font-size: 15px;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(26,107,46,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
     }
-    .field input::placeholder { color: rgba(255,255,255,0.35); }
+    .panel { display: none; position: relative; z-index: 1; }
+    .panel.active { display: block; animation: panelIn 0.35s ease-out; }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── FIELDS ── */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 8px;
+    }
+    .input-wrap {
+      position: relative; display: flex; align-items: center;
+    }
+    .input-icon {
+      position: absolute; left: 16px; font-size: 16px; opacity: 0.45; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .input-wrap:focus-within .input-icon { opacity: 0.8; }
+    .field input, .field select {
+      width: 100%; padding: 15px 18px 15px 46px;
+      border: 1px solid var(--border); border-radius: 14px;
+      background: var(--input-bg); color: #fff;
+      font-family: inherit; font-size: 15px;
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+    }
+    .field select { padding-left: 18px; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a9b82' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 16px center;
+    }
+    .field input::placeholder { color: rgba(255,255,255,0.25); }
     .field input:focus, .field select:focus {
       outline: none;
       border-color: var(--green-500);
-      box-shadow: 0 0 0 3px rgba(26,107,46,0.2);
+      box-shadow: 0 0 0 3px rgba(34,168,61,0.15), 0 0 20px rgba(34,168,61,0.05);
+      background: rgba(0,0,0,0.45);
     }
-    .field select option { background: #0f3d1a; color: #fff; }
+    .field select option { background: #0a2812; color: #fff; }
+    .toggle-pass {
+      position: absolute; right: 14px; background: none; border: none;
+      color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 4px;
+      transition: color 0.2s;
+    }
+    .toggle-pass:hover { color: var(--text); }
+
     .row { display: flex; gap: 12px; }
     .row .field { flex: 1; }
+
     .remember {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      color: var(--text-dim);
+      display: flex; align-items: center; gap: 10px; margin-bottom: 22px;
+      font-size: 13px; color: var(--text-dim); cursor: pointer;
     }
-    .remember input { width: 18px; height: 18px; accent-color: var(--green-700); }
+    .remember input[type="checkbox"] {
+      width: 18px; height: 18px; accent-color: var(--green-600);
+      border-radius: 4px; cursor: pointer;
+    }
+
+    /* ── BUTTON ── */
     .btn-primary {
-      width: 100%;
-      padding: 16px 24px;
-      border: none;
-      border-radius: 14px;
-      font-family: inherit;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      background: linear-gradient(135deg, var(--green-700) 0%, #165a28 100%);
-      color: #fff;
-      transition: transform 0.1s, box-shadow 0.2s;
-      box-shadow: 0 4px 20px rgba(26,107,46,0.35);
-      letter-spacing: 0.03em;
+      width: 100%; padding: 16px 24px; border: none; border-radius: 14px;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      background: linear-gradient(135deg, var(--green-600) 0%, var(--green-700) 100%);
+      color: #fff; letter-spacing: 0.04em;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(26,107,46,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      position: relative; overflow: hidden;
     }
-    .btn-primary:hover {
-      box-shadow: 0 6px 28px rgba(26,107,46,0.45);
-      transform: translateY(-1px);
+    .btn-primary::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+      opacity: 0; transition: opacity 0.2s;
     }
+    .btn-primary:hover { transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(26,107,46,0.4), inset 0 1px 0 rgba(255,255,255,0.1); }
+    .btn-primary:hover::before { opacity: 1; }
     .btn-primary:active { transform: translateY(0); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-text { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    /* ── MESSAGES ── */
     .error-msg {
-      background: rgba(220,38,38,0.15);
-      border: 1px solid rgba(220,38,38,0.4);
-      color: #fca5a5;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      margin-bottom: 16px;
-      display: none;
+      background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.3);
+      color: #fca5a5; padding: 12px 16px; border-radius: 12px;
+      font-size: 13px; margin-bottom: 16px; display: none;
     }
-    .error-msg.show { display: block; }
+    .error-msg.show { display: flex; align-items: center; gap: 8px; }
     .success-msg {
-      background: rgba(34,197,94,0.15);
-      border: 1px solid rgba(34,197,94,0.4);
-      color: #86efac;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      margin-bottom: 16px;
-      display: none;
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+      color: #86efac; padding: 12px 16px; border-radius: 12px;
+      font-size: 13px; margin-bottom: 16px; display: none;
     }
-    .success-msg.show { display: block; }
+    .success-msg.show { display: flex; align-items: center; gap: 8px; }
+
+    /* ── FOOTER ── */
     .footer-text {
-      text-align: center;
-      font-size: 13px;
-      color: var(--text-dim);
-      margin-top: 24px;
-      line-height: 1.6;
+      text-align: center; font-size: 13px; color: var(--text-muted);
+      margin-top: 28px; line-height: 1.6;
+      animation: fadeSlideUp 0.8s ease-out 0.45s both;
     }
-    .footer-text a { color: var(--gold-light); text-decoration: none; font-weight: 600; }
-    .footer-text a:hover { text-decoration: underline; }
+    .footer-text a { color: var(--gold); text-decoration: none; font-weight: 600; transition: color 0.2s; }
+    .footer-text a:hover { color: var(--gold-light); }
     .copyright {
-      text-align: center;
-      font-size: 11px;
-      color: rgba(255,255,255,0.35);
-      margin-top: 32px;
-      letter-spacing: 0.05em;
+      text-align: center; font-size: 11px; color: rgba(255,255,255,0.2);
+      margin-top: 20px; letter-spacing: 0.08em;
+      animation: fadeSlideUp 0.8s ease-out 0.5s both;
     }
-    @media (max-width: 480px) {
-      .card { padding: 22px 18px; }
-      .logo-block img { width: 56px; height: 56px; }
-      .tabs { flex-direction: row; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 500px) {
+      body { padding: 20px 12px; }
+      .card { padding: 24px 18px; border-radius: 22px; }
+      .logo-img-wrap { width: 70px; height: 70px; border-radius: 18px; }
+      .logo-img-wrap img { width: 46px; height: 46px; }
+      .logo-title { font-size: 2rem; }
+      .features { gap: 12px; }
+      .feat { font-size: 11px; }
+      .feat-icon { width: 24px; height: 24px; font-size: 12px; }
     }
   </style>
 </head>
 <body>
+  <div class="bg-layer">
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="particles" id="particles"></div>
+  </div>
+
   <div class="gate-wrap">
     <div class="logo-block">
-      <img src="/images/logo-espe.png" alt="ESPE" onerror="this.style.display='none'">
+      <div class="logo-img-wrap">
+        <img src="/images/logo-espe.png" alt="ESPE" onerror="this.style.display='none'">
+      </div>
       <div class="logo-title">ESPE BASKET</div>
-      <div class="logo-sub">U9 · Châlons</div>
+      <div class="logo-sub">U9 &middot; Ch&acirc;lons</div>
     </div>
-    <div style="text-align: center;">
-      <span class="badge">Espace membres</span>
-      <span class="badge badge-season">Saison 2025-2026</span>
+
+    <div class="badges">
+      <span class="badge">&#127942; Espace membres</span>
+      <span class="badge badge-green">&#127936; Saison 2025-2026</span>
     </div>
-    <h1 class="headline">L'espace des familles</h1>
-    <p class="headline-sub">Convocations, messagerie et actualités de l'équipe.<br>Connecte-toi ou crée ton compte.</p>
+
+    <div class="hero">
+      <h1>Le grand<br><em>coup d'envoi.</em></h1>
+      <p>Convocations, messagerie et actualit&eacute;s de l'&eacute;quipe.<br>Connecte-toi ou cr&eacute;e ton compte pour acc&eacute;der.</p>
+    </div>
+
+    <div class="features">
+      <div class="feat"><div class="feat-icon">&#128227;</div><span>Convocations</span></div>
+      <div class="feat"><div class="feat-icon">&#128172;</div><span>Tchat &amp; Messagerie</span></div>
+      <div class="feat"><div class="feat-icon">&#127941;</div><span>Stats &amp; Matchs</span></div>
+      <div class="feat"><div class="feat-icon">&#128247;</div><span>M&eacute;dias</span></div>
+    </div>
 
     <div class="card">
       <div class="tabs">
         <button type="button" class="tab active" data-tab="login">Connexion</button>
-        <button type="button" class="tab" data-tab="register">Créer un compte</button>
+        <button type="button" class="tab" data-tab="register">Cr&eacute;er un compte</button>
       </div>
 
       <div id="errBox" class="error-msg"></div>
@@ -270,17 +395,26 @@
         <form id="formLogin">
           <div class="field">
             <label for="loginUser">Identifiant</label>
-            <input type="text" id="loginUser" name="username" placeholder="Identifiant" required autocomplete="username">
+            <div class="input-wrap">
+              <span class="input-icon">&#128100;</span>
+              <input type="text" id="loginUser" name="username" placeholder="Ton identifiant" required autocomplete="username">
+            </div>
           </div>
           <div class="field">
             <label for="loginPass">Mot de passe</label>
-            <input type="password" id="loginPass" name="password" placeholder="••••••••" required autocomplete="current-password">
+            <div class="input-wrap">
+              <span class="input-icon">&#128274;</span>
+              <input type="password" id="loginPass" name="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password">
+              <button type="button" class="toggle-pass" data-target="loginPass" aria-label="Voir le mot de passe">&#128065;</button>
+            </div>
           </div>
           <label class="remember">
             <input type="checkbox" id="loginRemember" name="remember">
             <span>Se souvenir de moi</span>
           </label>
-          <button type="submit" class="btn-primary" id="btnLogin">Accéder à l'espace</button>
+          <button type="submit" class="btn-primary" id="btnLogin">
+            <span class="btn-text">&#9889; Acc&eacute;der &agrave; l'espace</span>
+          </button>
         </form>
       </div>
 
@@ -288,20 +422,30 @@
         <form id="formRegister">
           <div class="field">
             <label for="regUser">Identifiant</label>
-            <input type="text" id="regUser" name="username" placeholder="Identifiant" required minlength="3" maxlength="50" autocomplete="username">
+            <div class="input-wrap">
+              <span class="input-icon">&#128100;</span>
+              <input type="text" id="regUser" name="username" placeholder="Identifiant" required minlength="3" maxlength="50" autocomplete="username">
+            </div>
           </div>
           <div class="field">
             <label for="regPass">Mot de passe</label>
-            <input type="password" id="regPass" name="password" placeholder="6 caractères minimum" required minlength="6" autocomplete="new-password">
+            <div class="input-wrap">
+              <span class="input-icon">&#128274;</span>
+              <input type="password" id="regPass" name="password" placeholder="6 caract&egrave;res minimum" required minlength="6" autocomplete="new-password">
+              <button type="button" class="toggle-pass" data-target="regPass" aria-label="Voir le mot de passe">&#128065;</button>
+            </div>
           </div>
           <div class="field">
             <label for="regEmail">Email (optionnel)</label>
-            <input type="email" id="regEmail" name="email" placeholder="email@exemple.fr" autocomplete="email">
+            <div class="input-wrap">
+              <span class="input-icon">&#9993;</span>
+              <input type="email" id="regEmail" name="email" placeholder="email@exemple.fr" autocomplete="email">
+            </div>
           </div>
           <div class="field">
             <label for="regPlayer">Mon enfant (joueur)</label>
             <select id="regPlayer" name="player_id" required>
-              <option value="">— Choisir un joueur —</option>
+              <option value="">&mdash; Choisir un joueur &mdash;</option>
               <option value="1" data-name="Malone HAUTION">#6 Malone HAUTION</option>
               <option value="2" data-name="Tristan COLLARD">#8 Tristan COLLARD</option>
               <option value="3" data-name="Gaspard HAMM">#9 Gaspard HAMM</option>
@@ -321,29 +465,56 @@
               </select>
             </div>
           </div>
-          <button type="submit" class="btn-primary" id="btnRegister" style="margin-top: 8px;">Créer mon compte</button>
+          <button type="submit" class="btn-primary" id="btnRegister" style="margin-top: 4px;">
+            <span class="btn-text">&#127942; Cr&eacute;er mon compte</span>
+          </button>
         </form>
       </div>
     </div>
 
-    <p class="footer-text">Mot de passe oublié ? <a href="index.html#connexion">Demander un lien</a> (depuis l’app).</p>
-    <p class="copyright">© 2026 ESPE Basket Châlons · U9</p>
+    <p class="footer-text">Mot de passe oubli&eacute; ? <a href="index.html#connexion">R&eacute;initialiser</a></p>
+    <p class="copyright">&copy; 2026 ESPE Basket Ch&acirc;lons &middot; U9</p>
   </div>
 
   <script>
+    /* ── Particles ── */
+    (function(){
+      var c = document.getElementById('particles');
+      for (var i = 0; i < 30; i++) {
+        var p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.bottom = '-4px';
+        p.style.animationDuration = (6 + Math.random() * 10) + 's';
+        p.style.animationDelay = (Math.random() * 12) + 's';
+        p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+        if (Math.random() > 0.7) p.style.background = 'rgba(200,168,50,0.4)';
+        c.appendChild(p);
+      }
+    })();
+
+    /* ── Toggle password visibility ── */
+    document.querySelectorAll('.toggle-pass').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var inp = document.getElementById(btn.dataset.target);
+        if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '\uD83D\uDE48'; }
+        else { inp.type = 'password'; btn.textContent = '\uD83D\uDC41'; }
+      });
+    });
+
+    /* ── Main logic ── */
     (function() {
       var API = 'api.php';
-      // Si déjà connecté, rediriger vers l'accueil
       fetch(API + '?action=check_session', { credentials: 'same-origin' })
         .then(function(r) { return r.json(); })
         .then(function(d) { if (d.logged_in) { window.location.href = 'index.html'; return; } initForms(); })
         .catch(function() { initForms(); });
 
       function initForms() {
-      var errBox = document.getElementById('errBox');
-      var okBox = document.getElementById('okBox');
-      function showErr(m) { errBox.textContent = m || ''; errBox.classList.toggle('show', !!m); okBox.classList.remove('show'); }
-      function showOk(m) { okBox.textContent = m || ''; okBox.classList.toggle('show', !!m); errBox.classList.remove('show'); }
+        var errBox = document.getElementById('errBox');
+        var okBox = document.getElementById('okBox');
+        function showErr(m) { errBox.textContent = m || ''; errBox.classList.toggle('show', !!m); okBox.classList.remove('show'); }
+        function showOk(m) { okBox.textContent = m || ''; okBox.classList.toggle('show', !!m); errBox.classList.remove('show'); }
 
         document.querySelectorAll('.tab').forEach(function(t) {
           t.addEventListener('click', function() {
@@ -352,72 +523,56 @@
             document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
             t.classList.add('active');
             document.getElementById('panel-' + tab).classList.add('active');
-            showErr('');
-            showOk('');
+            showErr(''); showOk('');
           });
         });
 
         document.getElementById('formLogin').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var user = document.getElementById('loginUser').value.trim();
-        var pass = document.getElementById('loginPass').value;
-        if (!user || !pass) { showErr('Remplis tous les champs.'); return; }
-        var btn = document.getElementById('btnLogin');
-        btn.disabled = true;
-        showErr('');
-        fetch(API + '?action=login', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: user, password: pass })
-        })
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            btn.disabled = false;
-            if (d.success) {
-              showOk('Connexion réussie. Redirection…');
-              setTimeout(function() { window.location.href = 'index.html'; }, 600);
-            } else { showErr(d.error || 'Identifiant ou mot de passe incorrect'); }
+          e.preventDefault();
+          var user = document.getElementById('loginUser').value.trim();
+          var pass = document.getElementById('loginPass').value;
+          if (!user || !pass) { showErr('Remplis tous les champs.'); return; }
+          var btn = document.getElementById('btnLogin');
+          btn.disabled = true; showErr('');
+          fetch(API + '?action=login', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
           })
-          .catch(function() { btn.disabled = false; showErr('Erreur réseau.'); });
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              btn.disabled = false;
+              if (d.success) { showOk('Connexion r\u00E9ussie. Redirection\u2026'); setTimeout(function() { window.location.href = 'index.html'; }, 600); }
+              else { showErr(d.error || 'Identifiant ou mot de passe incorrect'); }
+            })
+            .catch(function() { btn.disabled = false; showErr('Erreur r\u00E9seau.'); });
         });
 
         document.getElementById('formRegister').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var user = document.getElementById('regUser').value.trim();
-        var pass = document.getElementById('regPass').value;
-        var email = document.getElementById('regEmail').value.trim();
-        var playerId = document.getElementById('regPlayer').value;
-        var playerOpt = document.getElementById('regPlayer').selectedOptions[0];
-        var playerName = playerOpt && playerOpt.dataset.name ? playerOpt.dataset.name : '';
-        var parentType = document.getElementById('regParentType').value;
-        if (!user || !pass) { showErr('Identifiant et mot de passe requis.'); return; }
-        if (!playerId) { showErr('Choisis un joueur (ton enfant).'); return; }
-        var btn = document.getElementById('btnRegister');
-        btn.disabled = true;
-        showErr('');
-        fetch(API + '?action=register', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: user,
-            password: pass,
-            email: email || undefined,
-            player_id: parseInt(playerId, 10),
-            parent_type: parentType,
-            player_name: playerName
+          e.preventDefault();
+          var user = document.getElementById('regUser').value.trim();
+          var pass = document.getElementById('regPass').value;
+          var email = document.getElementById('regEmail').value.trim();
+          var playerId = document.getElementById('regPlayer').value;
+          var playerOpt = document.getElementById('regPlayer').selectedOptions[0];
+          var playerName = playerOpt && playerOpt.dataset.name ? playerOpt.dataset.name : '';
+          var parentType = document.getElementById('regParentType').value;
+          if (!user || !pass) { showErr('Identifiant et mot de passe requis.'); return; }
+          if (!playerId) { showErr('Choisis un joueur (ton enfant).'); return; }
+          var btn = document.getElementById('btnRegister');
+          btn.disabled = true; showErr('');
+          fetch(API + '?action=register', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass, email: email || undefined, player_id: parseInt(playerId, 10), parent_type: parentType, player_name: playerName })
           })
-        })
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            btn.disabled = false;
-            if (d.success) {
-              showOk('Compte créé ! Redirection…');
-              setTimeout(function() { window.location.href = 'index.html'; }, 600);
-            } else { showErr(d.error || 'Erreur création compte'); }
-          })
-          .catch(function() { btn.disabled = false; showErr('Erreur réseau.'); });
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              btn.disabled = false;
+              if (d.success) { showOk('Compte cr\u00E9\u00E9 ! Redirection\u2026'); setTimeout(function() { window.location.href = 'index.html'; }, 600); }
+              else { showErr(d.error || 'Erreur cr\u00E9ation compte'); }
+            })
+            .catch(function() { btn.disabled = false; showErr('Erreur r\u00E9seau.'); });
         });
       }
     })();
