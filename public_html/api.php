@@ -455,7 +455,7 @@ case 'forgot_password':
             $st3=$db->prepare("INSERT INTO password_resets (user_id,token,expires_at) VALUES(:uid,:tok,:exp)");
             $st3->execute([':uid'=>$user['id'],':tok'=>$token,':exp'=>$expires]);
             // Send email
-            $resetUrl="https://espeu9.fr/#reset/".$token;
+            $resetUrl="https://espeu9.fr/gate.html#reset/".$token;
             $body="<p>Bonjour <strong>".$user['display_name']."</strong>,</p>";
             $body.="<p>Tu as demandé la réinitialisation de ton mot de passe.</p>";
             $body.="<p style='text-align:center;margin:24px 0'><a href='".$resetUrl."' style='display:inline-block;padding:14px 28px;background:#1a6b2e;color:white;text-decoration:none;border-radius:10px;font-weight:bold;font-size:16px'>Réinitialiser mon mot de passe</a></p>";
