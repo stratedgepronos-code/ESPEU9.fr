@@ -9,673 +9,642 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --green-900: #0f3d1a;
-      --green-700: #1a6b2e;
-      --green-500: #228b38;
-      --green-400: #2da847;
-      --gold: #c8a832;
-      --gold-light: #e8cc5a;
-      --bg: #f5f6f8;
-      --surface: #ffffff;
-      --surface2: #f0f1f4;
-      --border: #e0e2e8;
-      --text: #1a1d25;
-      --text-dim: #6b7280;
-      --red: #dc2626;
-      --shadow: 0 2px 8px rgba(0,0,0,0.06);
-      --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
-    }
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+<style>
+/* ───── RESET ───── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
-    body {
-      font-family: 'Outfit', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-    }
+/* ───── VARIABLES (copie exacte index.html) ───── */
+:root {
+  --green-900: #0f3d1a;
+  --green-700: #1a6b2e;
+  --green-500: #228b38;
+  --green-400: #2da847;
+  --gold: #c8a832;
+  --gold-light: #e8cc5a;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface2: #f0f1f4;
+  --border: #e0e2e8;
+  --text: #1a1d25;
+  --text-dim: #6b7280;
+  --text-light: #9ca3af;
+  --red: #dc2626;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.08);
+}
 
-    /* ── NAV PRINCIPALE (identique au site) ── */
-    .nav {
-      flex-shrink: 0;
-      position: relative;
-      z-index: 100;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      box-shadow: var(--shadow);
-    }
-    .nav-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      height: 64px;
-    }
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-right: auto;
-      text-decoration: none;
-    }
-    .nav-logo img { width: 40px; height: 40px; object-fit: contain; }
-    .nav-logo-text {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 20px;
-      letter-spacing: 2px;
-      color: var(--green-900);
-    }
-    .nav-btn {
-      padding: 8px 14px;
-      border: none;
-      background: transparent;
-      color: var(--text-dim);
-      font-family: 'Outfit', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: all 0.2s;
-      white-space: nowrap;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-    }
-    .nav-btn:hover { color: var(--text); background: var(--surface2); }
-    .nav-btn.active { color: var(--green-700); background: #e8f5e9; }
-    @media (max-width: 640px) {
-      .nav { padding: 0 12px; }
-      .nav-inner { height: 52px; gap: 2px; }
-      .nav-logo-text { font-size: 16px; }
-      .nav-logo img { width: 32px; height: 32px; }
-      .nav-btn { padding: 6px 8px; font-size: 11px; letter-spacing: 0.5px; }
-    }
+/* ───── LAYOUT CHAT (hauteur écran fixe, messages scrollables) ───── */
+html { height: 100%; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;          /* empêche le scroll global */
+}
 
-    /* ── BARRE TCHAT ── */
-    .tchat-bar {
-      flex-shrink: 0;
-      background: linear-gradient(135deg, var(--green-900) 0%, #1a5c2c 60%, var(--green-700) 100%);
-      color: #fff;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .tchat-bar-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.3rem;
-      letter-spacing: 2px;
-    }
-    .tchat-bar-meta {
-      font-size: 12px;
-      color: rgba(255,255,255,0.75);
-    }
-    .tchat-user-badge {
-      font-size: 12px;
-      background: rgba(255,255,255,0.18);
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-weight: 600;
-    }
-    .tchat-user-badge.coach { background: rgba(245,158,11,0.45); }
+/* ───── NAV (CSS copié exactement de index.html) ───── */
+.nav {
+  flex-shrink: 0;
+  position: relative;        /* pas sticky ici, flex-shrink suffit */
+  z-index: 100;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 68px;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+  cursor: pointer;
+  text-decoration: none;
+}
+.nav-logo img { width: 44px; height: 44px; object-fit: contain; }
+.nav-logo-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--green-900);
+}
+.nav-btn {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface2); }
+.nav-btn.active { color: var(--green-700); background: #e8f5e9; }
+.nav-desktop-items { display: contents; }
 
-    /* ── CONTENEUR PRINCIPAL ── */
-    .tchat-wrap {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-    }
-    .tchat-inner {
-      flex: 1;
-      max-width: 760px;
-      width: 100%;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-      padding: 0 16px;
-    }
+/* HAMBURGER */
+.nav-hamburger {
+  display: none;
+  background: none; border: none; cursor: pointer; padding: 8px;
+  flex-direction: column; gap: 5px; z-index: 200;
+}
+.nav-hamburger span {
+  display: block; width: 22px; height: 2px; background: var(--green-900);
+  border-radius: 2px; transition: all 0.3s;
+}
+.nav-hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px,5px); }
+.nav-hamburger.open span:nth-child(2) { opacity: 0; }
+.nav-hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px,-5px); }
 
-    /* ── MESSAGES ── */
-    .tchat-messages {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 16px 0 8px;
-      min-height: 0;
-      -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
-    }
-    .tchat-messages::-webkit-scrollbar { width: 4px; }
-    .tchat-messages::-webkit-scrollbar-track { background: transparent; }
-    .tchat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+/* MOBILE PANEL */
+.nav-mobile-menu {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); z-index: 150; opacity: 0;
+  transition: opacity 0.3s; pointer-events: none;
+}
+.nav-mobile-menu.open { opacity: 1; pointer-events: auto; }
+.nav-mobile-panel {
+  position: absolute; top: 0; right: 0; width: 280px; height: 100%;
+  background: white; box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+  padding: 80px 20px 20px; overflow-y: auto;
+  transform: translateX(100%); transition: transform 0.3s ease;
+}
+.nav-mobile-menu.open .nav-mobile-panel { transform: translateX(0); }
+.mob-section { margin-bottom: 24px; }
+.mob-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text-dim); font-weight: 700; margin-bottom: 10px; padding-left: 4px;
+}
+.mob-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px 16px; border: none; background: transparent;
+  font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600;
+  color: var(--text); cursor: pointer; border-radius: 10px;
+  text-decoration: none; transition: background 0.15s;
+}
+.mob-btn:hover { background: var(--surface2); }
+.mob-btn.active { background: #e8f5e9; color: var(--green-700); }
+.mob-icon { font-size: 20px; width: 28px; text-align: center; }
 
-    .tchat-msg {
-      background: var(--surface);
-      border-radius: 14px;
-      padding: 12px 16px;
-      box-shadow: var(--shadow);
-      border-left: 4px solid var(--green-700);
-      animation: msgIn 0.22s ease;
-      word-break: break-word;
-      overflow: hidden;
-    }
-    @keyframes msgIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .tchat-msg.coach { border-left-color: #f59e0b; }
+/* RESPONSIVE NAV */
+@media (max-width: 600px) {
+  .nav { padding: 0 12px; }
+  .nav-inner { gap: 2px; height: 56px; }
+  .nav-logo img { width: 36px; height: 36px; }
+  .nav-logo-text { font-size: 16px; letter-spacing: 1px; }
+  .nav-logo { gap: 8px; }
+  .nav-desktop-items { display: none !important; }
+  .nav-hamburger { display: flex; }
+  .nav-mobile-menu { display: block; }
+}
 
-    .tchat-msg-header {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 6px;
-    }
-    .tchat-msg-name {
-      font-weight: 700;
-      font-size: 14px;
-      color: var(--green-700);
-    }
-    .tchat-msg.coach .tchat-msg-name { color: #b45309; }
-    .tchat-msg-role {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-dim);
-      background: var(--surface2);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .tchat-msg-time {
-      font-size: 11px;
-      color: var(--text-dim);
-      margin-left: auto;
-    }
-    .tchat-msg-body {
-      font-size: 15px;
-      line-height: 1.55;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    .tchat-msg-body a {
-      color: var(--green-700);
-      text-decoration: none;
-      font-weight: 600;
-      word-break: break-all;
-    }
-    .tchat-msg-body a:hover { text-decoration: underline; }
-    .tchat-msg-body .msg-image {
-      max-width: 100%;
-      max-height: 320px;
-      border-radius: 10px;
-      margin-top: 8px;
-      display: block;
-      object-fit: contain;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .tchat-msg-body .msg-embed {
-      margin-top: 10px;
-      border-radius: 10px;
-      overflow: hidden;
-      max-width: 100%;
-      background: #000;
-    }
-    .tchat-msg-body .msg-embed iframe {
-      width: 100%;
-      height: 200px;
-      border: none;
-      display: block;
-    }
-    .tchat-msg-actions {
-      margin-top: 8px;
-      display: flex;
-      justify-content: flex-end;
-    }
-    .tchat-msg-actions button {
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      font-size: 11px;
-      cursor: pointer;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-family: inherit;
-      transition: all 0.15s;
-    }
-    .tchat-msg-actions button:hover { background: rgba(220,38,38,0.1); color: var(--red); }
+/* ───── BARRE TCHAT ───── */
+.tchat-bar {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--green-900) 0%, #1a5c2c 60%, var(--green-700) 100%);
+  color: #fff;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tchat-bar-left { display: flex; flex-direction: column; }
+.tchat-bar-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.25rem; letter-spacing: 2px; }
+.tchat-bar-sub { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+.user-badge {
+  font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,0.18);
+  padding: 4px 12px; border-radius: 20px;
+}
+.user-badge.coach { background: rgba(245,158,11,0.4); }
 
-    .tchat-empty {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-dim);
-      font-size: 15px;
-      padding: 40px 20px;
-      text-align: center;
-    }
-    .tchat-empty-icon { font-size: 44px; margin-bottom: 12px; opacity: 0.45; }
+/* ───── ZONE DE CHAT (remplit le reste de l'écran) ───── */
+.chat-page {
+  flex: 1;
+  min-height: 0;            /* crucial pour flex + overflow */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-center {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
 
-    /* ── ZONE DE SAISIE ── */
-    .tchat-form-wrap {
-      flex-shrink: 0;
-      background: var(--bg);
-      padding: 10px 0 14px;
-      border-top: 1px solid var(--border);
-    }
-    .tchat-error {
-      background: rgba(220,38,38,0.09);
-      border: 1px solid var(--red);
-      color: var(--red);
-      padding: 8px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-    .tchat-form {
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-    }
-    .tchat-input-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-    .tchat-input {
-      width: 100%;
-      min-height: 46px;
-      max-height: 110px;
-      padding: 11px 16px;
-      border: 2px solid var(--border);
-      border-radius: 22px;
-      font-family: inherit;
-      font-size: 15px;
-      resize: none;
-      line-height: 1.4;
-      background: var(--surface);
-      color: var(--text);
-      transition: border-color 0.2s, box-shadow 0.2s;
-      overflow-y: auto;
-    }
-    .tchat-input:focus {
-      outline: none;
-      border-color: var(--green-700);
-      box-shadow: 0 0 0 4px rgba(26,107,46,0.1);
-    }
-    .tchat-input::placeholder { color: var(--text-dim); }
-    .tchat-hint { font-size: 11px; color: var(--text-dim); padding-left: 4px; }
-    .tchat-send {
-      flex-shrink: 0;
-      width: 46px;
-      height: 46px;
-      border-radius: 50%;
-      border: none;
-      background: var(--green-700);
-      color: #fff;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s, transform 0.1s;
-      box-shadow: 0 2px 8px rgba(26,107,46,0.3);
-    }
-    .tchat-send:hover { background: var(--green-500); }
-    .tchat-send:active { transform: scale(0.93); }
-    .tchat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ───── MESSAGES ───── */
+.messages-list {
+  flex: 1;
+  min-height: 0;            /* OBLIGATOIRE pour scroll interne */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 8px;
+}
+.messages-list::-webkit-scrollbar { width: 4px; }
+.messages-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-    /* ── INVITE DE CONNEXION ── */
-    .tchat-login-prompt {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-    .tchat-login-card {
-      max-width: 380px;
-      width: 100%;
-      padding: 28px 24px;
-      background: var(--surface);
-      border-radius: 18px;
-      box-shadow: var(--shadow-lg);
-      text-align: center;
-      border: 2px solid var(--green-700);
-    }
-    .tchat-login-card h2 {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.6rem;
-      color: var(--green-700);
-      margin-bottom: 10px;
-    }
-    .tchat-login-card p { color: var(--text-dim); font-size: 14px; margin-bottom: 20px; line-height: 1.6; }
-    .tchat-login-card a {
-      display: inline-block;
-      padding: 12px 28px;
-      background: var(--green-700);
-      color: #fff;
-      font-weight: 700;
-      text-decoration: none;
-      border-radius: 12px;
-      font-size: 15px;
-      transition: background 0.2s;
-    }
-    .tchat-login-card a:hover { background: var(--green-500); }
+.msg-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--green-700);
+  word-break: break-word;
+}
+.msg-card.is-coach { border-left-color: #f59e0b; }
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-card.new { animation: msgIn 0.22s ease; }
 
-    .tchat-loading {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-dim);
-      font-size: 15px;
-    }
-  </style>
+.msg-head {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px; margin-bottom: 6px;
+}
+.msg-name { font-weight: 700; font-size: 14px; color: var(--green-700); }
+.msg-card.is-coach .msg-name { color: #b45309; }
+.msg-role {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-dim); background: var(--surface2);
+  padding: 2px 6px; border-radius: 4px;
+}
+.msg-time { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+.msg-body { font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
+.msg-body a { color: var(--green-700); font-weight: 600; word-break: break-all; }
+.msg-body a:hover { text-decoration: underline; }
+.msg-body .m-img {
+  display: block; max-width: 100%; max-height: 300px;
+  border-radius: 10px; margin-top: 8px; object-fit: contain;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.msg-body .m-embed {
+  margin-top: 10px; border-radius: 10px; overflow: hidden;
+  max-width: 100%; background: #000; line-height: 0;
+}
+.msg-body .m-embed iframe { width: 100%; height: 200px; border: none; display: block; }
+.msg-actions { display: flex; justify-content: flex-end; margin-top: 7px; }
+.msg-del {
+  background: none; border: none; color: var(--text-dim); font-size: 11px;
+  font-family: inherit; font-weight: 600; cursor: pointer;
+  padding: 3px 8px; border-radius: 6px; transition: all 0.15s;
+}
+.msg-del:hover { background: rgba(220,38,38,0.1); color: var(--red); }
+
+.chat-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--text-dim); text-align: center; padding: 32px;
+}
+.chat-empty-icon { font-size: 44px; opacity: 0.4; margin-bottom: 10px; }
+
+/* ───── ZONE DE SAISIE ───── */
+.chat-form-zone {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  padding: 10px 0 12px;
+}
+.chat-error {
+  background: rgba(220,38,38,0.09); border: 1px solid var(--red);
+  color: var(--red); padding: 8px 14px; border-radius: 10px;
+  font-size: 13px; margin-bottom: 8px;
+}
+.chat-form { display: flex; gap: 10px; align-items: flex-end; }
+.chat-input-col { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.chat-textarea {
+  width: 100%;
+  min-height: 46px; max-height: 110px;
+  padding: 11px 16px;
+  border: 2px solid var(--border);
+  border-radius: 22px;
+  font-family: inherit; font-size: 15px;
+  resize: none; line-height: 1.4;
+  background: var(--surface); color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow-y: hidden;
+}
+.chat-textarea:focus {
+  outline: none; border-color: var(--green-700);
+  box-shadow: 0 0 0 3px rgba(26,107,46,0.12);
+}
+.chat-textarea::placeholder { color: var(--text-dim); }
+.chat-hint { font-size: 11px; color: var(--text-dim); padding-left: 4px; }
+.chat-send {
+  flex-shrink: 0; width: 46px; height: 46px;
+  border-radius: 50%; border: none;
+  background: var(--green-700); color: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(26,107,46,0.3);
+  transition: background 0.2s, transform 0.1s;
+}
+.chat-send:hover { background: var(--green-500); }
+.chat-send:active { transform: scale(0.93); }
+.chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ───── INVITE CONNEXION ───── */
+.login-wall {
+  flex: 1; display: flex; align-items: center;
+  justify-content: center; padding: 24px;
+}
+.login-card {
+  max-width: 360px; width: 100%;
+  background: var(--surface); border-radius: 18px;
+  box-shadow: var(--shadow-lg); padding: 28px 24px;
+  text-align: center; border: 2px solid var(--green-700);
+}
+.login-card h2 {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem;
+  color: var(--green-700); margin-bottom: 10px;
+}
+.login-card p { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+.login-card a {
+  display: inline-block; padding: 12px 28px;
+  background: var(--green-700); color: #fff;
+  font-weight: 700; text-decoration: none; border-radius: 12px; font-size: 15px;
+}
+.login-card a:hover { background: var(--green-500); }
+
+.loading-zone {
+  flex: 1; display: flex; align-items: center;
+  justify-content: center; color: var(--text-dim); font-size: 15px;
+}
+</style>
 </head>
 <body>
 
-  <!-- NAV PRINCIPALE (identique au site) -->
-  <nav class="nav">
-    <div class="nav-inner">
-      <a href="index.html" class="nav-logo">
-        <img src="/images/logo-espe.png" alt="ESPE" onerror="this.src='/logo.png'">
-        <span class="nav-logo-text">ESPE BASKET · U9</span>
-      </a>
-      <a href="index.html#accueil" class="nav-btn">Accueil</a>
+<!-- ════ NAV (identique au site) ════ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <img src="/images/logo-espe.png" alt="ESPE" onerror="this.src='/logo.png'">
+      <span class="nav-logo-text">ESPE BASKET - U9</span>
+    </a>
+    <div class="nav-desktop-items">
+      <a href="index.html" class="nav-btn">Accueil</a>
       <a href="index.html#joueurs" class="nav-btn">Joueurs</a>
       <a href="index.html#matchs" class="nav-btn">Matchs</a>
       <a href="tchat.html" class="nav-btn active">💬 Tchat</a>
     </div>
-  </nav>
-
-  <!-- BARRE TCHAT -->
-  <div class="tchat-bar">
-    <div>
-      <div class="tchat-bar-title">💬 Tchat U9</div>
-      <div class="tchat-bar-meta">Messages conservés 2 mois</div>
-    </div>
-    <span class="tchat-user-badge" id="userBadge">—</span>
+    <button class="nav-hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
+</nav>
 
-  <!-- CONTENU PRINCIPAL -->
-  <div class="tchat-wrap">
-    <div class="tchat-inner">
+<!-- Mobile menu -->
+<div class="nav-mobile-menu" id="mobileMenu" onclick="closeMobileMenu()">
+  <div class="nav-mobile-panel" onclick="event.stopPropagation()">
+    <div class="mob-section">
+      <div class="mob-label">Navigation</div>
+      <a href="index.html" class="mob-btn"><span class="mob-icon">🏠</span> Accueil</a>
+      <a href="index.html#joueurs" class="mob-btn"><span class="mob-icon">🏃</span> Joueurs</a>
+      <a href="index.html#matchs" class="mob-btn"><span class="mob-icon">🏀</span> Matchs</a>
+      <a href="tchat.html" class="mob-btn active"><span class="mob-icon">💬</span> Tchat</a>
+    </div>
+  </div>
+</div>
 
-      <!-- Loading -->
-      <div class="tchat-loading" id="loading">Chargement…</div>
+<!-- ════ BARRE TCHAT ════ -->
+<div class="tchat-bar">
+  <div class="tchat-bar-left">
+    <span class="tchat-bar-title">💬 Tchat de l'équipe</span>
+    <span class="tchat-bar-sub">Messages supprimés automatiquement après 2 mois</span>
+  </div>
+  <span class="user-badge" id="userBadge">—</span>
+</div>
 
-      <!-- Non connecté -->
-      <div class="tchat-login-prompt" id="loginPrompt" style="display:none">
-        <div class="tchat-login-card">
-          <h2>Connecte-toi</h2>
-          <p>Le tchat est réservé aux membres (parents &amp; coach). Connecte-toi pour envoyer des messages.</p>
-          <a href="index.html#connexion">Se connecter</a>
+<!-- ════ CORPS DU TCHAT ════ -->
+<div class="chat-page">
+  <div class="chat-center">
+
+    <!-- Chargement -->
+    <div class="loading-zone" id="loadingZone">Chargement…</div>
+
+    <!-- Non connecté -->
+    <div class="login-wall" id="loginWall" style="display:none">
+      <div class="login-card">
+        <h2>Connecte-toi</h2>
+        <p>Le tchat est réservé aux membres (parents &amp; coach). Connecte-toi pour envoyer des messages et participer aux discussions.</p>
+        <a href="index.html#connexion">Se connecter</a>
+      </div>
+    </div>
+
+    <!-- Liste des messages (anciens en haut, récents en bas) -->
+    <div class="messages-list" id="messagesList" style="display:none"></div>
+
+    <!-- Zone de saisie -->
+    <div class="chat-form-zone" id="chatFormZone" style="display:none">
+      <div id="errBox"></div>
+      <form class="chat-form" id="chatForm">
+        <div class="chat-input-col">
+          <textarea class="chat-textarea" id="msgInput" rows="1"
+            placeholder="Écris un message… image, YouTube, Spotify ou lien web."></textarea>
+          <span class="chat-hint">Images, liens et musiques (YouTube, Spotify) s'affichent automatiquement · Entrée pour envoyer</span>
         </div>
-      </div>
-
-      <!-- Messages -->
-      <div class="tchat-messages" id="messages" style="display:none"></div>
-
-      <!-- Formulaire -->
-      <div class="tchat-form-wrap" id="formWrap" style="display:none">
-        <div id="errorBox"></div>
-        <form class="tchat-form" id="chatForm">
-          <div class="tchat-input-wrap">
-            <textarea class="tchat-input" id="chatInput"
-              placeholder="Écris un message… image, lien YouTube/Spotify ou lien web." rows="1"></textarea>
-            <span class="tchat-hint">Images, liens et musiques (YouTube, Spotify) s'affichent automatiquement.</span>
-          </div>
-          <button type="submit" class="tchat-send" id="sendBtn" title="Envoyer" aria-label="Envoyer">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
-        </form>
-      </div>
-
+        <button type="submit" class="chat-send" id="sendBtn" title="Envoyer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </form>
     </div>
+
   </div>
+</div>
 
-  <script>
-(function () {
-  'use strict';
-  const API = 'api.php';
-  const messagesEl = document.getElementById('messages');
-  const formWrap   = document.getElementById('formWrap');
-  const loginPrompt= document.getElementById('loginPrompt');
-  const loadingEl  = document.getElementById('loading');
-  const errorBox   = document.getElementById('errorBox');
-  const chatForm   = document.getElementById('chatForm');
-  const chatInput  = document.getElementById('chatInput');
-  const sendBtn    = document.getElementById('sendBtn');
-  const userBadge  = document.getElementById('userBadge');
+<script>
+/* ──────────────────── HAMBURGER MOBILE ──────────────────── */
+var hamburger = document.getElementById('hamburger');
+var mobileMenu = document.getElementById('mobileMenu');
+hamburger.addEventListener('click', function() {
+  var open = mobileMenu.classList.toggle('open');
+  hamburger.classList.toggle('open', open);
+});
+function closeMobileMenu() {
+  mobileMenu.classList.remove('open');
+  hamburger.classList.remove('open');
+}
 
-  let currentUserId = 0;
-  let isAdmin = false;
+/* ──────────────────── TCHAT ──────────────────── */
+(function() {
+  var API          = 'api.php';
+  var list         = document.getElementById('messagesList');
+  var formZone     = document.getElementById('chatFormZone');
+  var loginWall    = document.getElementById('loginWall');
+  var loadingZone  = document.getElementById('loadingZone');
+  var errBox       = document.getElementById('errBox');
+  var chatForm     = document.getElementById('chatForm');
+  var msgInput     = document.getElementById('msgInput');
+  var sendBtn      = document.getElementById('sendBtn');
+  var userBadge    = document.getElementById('userBadge');
 
-  /* ── Utilitaires ── */
+  var myId   = 0;
+  var isAdmin = false;
+
+  /* ── helpers ── */
   function esc(s) {
-    const d = document.createElement('div');
-    d.textContent = String(s);
-    return d.innerHTML;
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
-  function showError(msg) {
-    errorBox.innerHTML = msg ? '<div class="tchat-error">' + esc(msg) + '</div>' : '';
+  function showErr(msg) {
+    errBox.innerHTML = msg ? '<div class="chat-error">' + esc(msg) + '</div>' : '';
   }
-  function isAtBottom() {
-    return messagesEl.scrollHeight - messagesEl.scrollTop <= messagesEl.clientHeight + 60;
+  function atBottom() {
+    return list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   }
-  function scrollToBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  function goBottom() { list.scrollTop = list.scrollHeight; }
 
-  /* ── Rendu du contenu (médias) ── */
-  const isImg = u => /\.(jpe?g|png|gif|webp|avif|svg)(\?.*)?$/i.test(u);
-  const isYT  = u => /youtube\.com\/watch|youtu\.be\//i.test(u);
-  const isSP  = u => /open\.spotify\.com\/(track|album|playlist)\//i.test(u);
+  /* ── détection médias ── */
+  function isImg(u) { return /\.(jpe?g|png|gif|webp|avif|svg)(\?.*)?$/i.test(u); }
+  function isYT(u)  { return /youtube\.com\/watch|youtu\.be\//i.test(u); }
+  function isSP(u)  { return /open\.spotify\.com\/(track|album|playlist)\//i.test(u); }
+  function ytId(u)  { var m = u.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/); return m ? m[1] : ''; }
+  function spEmb(u) { var m = u.match(/open\.spotify\.com\/(track|album|playlist)\/([A-Za-z0-9]+)/i); return m ? 'https://open.spotify.com/embed/'+m[1]+'/'+m[2] : ''; }
 
-  function ytEmbed(u) {
-    const m = u.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-    return m ? 'https://www.youtube.com/embed/' + m[1] : '';
-  }
-  function spEmbed(u) {
-    const m = u.match(/open\.spotify\.com\/(track|album|playlist)\/([A-Za-z0-9]+)/i);
-    return m ? 'https://open.spotify.com/embed/' + m[1] + '/' + m[2] : '';
-  }
-
-  function renderContent(content) {
+  function renderBody(content) {
     if (!content) return '';
-    const urlRe = /(https?:\/\/[^\s<>"]+)/gi;
-    const parts = [];
-    let last = 0, m;
-    while ((m = urlRe.exec(content)) !== null) {
-      const before = content.slice(last, m.index);
-      if (before) parts.push({ t: 'text', v: before });
-      const url = m[0].replace(/[.,;:!?)>]+$/, '');
-      if (isImg(url))     parts.push({ t: 'img',  v: url });
-      else if (isYT(url)) parts.push({ t: 'yt',   v: url });
-      else if (isSP(url)) parts.push({ t: 'sp',   v: url });
-      else                parts.push({ t: 'link', v: url });
+    var re = /(https?:\/\/[^\s<>"]+)/gi;
+    var parts = [], last = 0, m;
+    while ((m = re.exec(content)) !== null) {
+      var before = content.slice(last, m.index);
+      if (before) parts.push({t:'text', v:before});
+      var url = m[0].replace(/[.,;:!?)>]+$/, '');
+      if (isImg(url))     parts.push({t:'img',  v:url});
+      else if (isYT(url)) parts.push({t:'yt',   v:url});
+      else if (isSP(url)) parts.push({t:'sp',   v:url});
+      else                parts.push({t:'link', v:url});
       last = m.index + url.length;
     }
-    if (last < content.length) parts.push({ t: 'text', v: content.slice(last) });
+    if (last < content.length) parts.push({t:'text', v:content.slice(last)});
 
     return parts.map(function(p) {
-      if (p.t === 'text') return esc(p.v).replace(/\n/g, '<br>');
-      if (p.t === 'link') return '<a href="' + esc(p.v) + '" target="_blank" rel="noopener noreferrer">' + esc(p.v) + '</a>';
-      if (p.t === 'img')  return '<img src="' + esc(p.v) + '" class="msg-image" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
-      if (p.t === 'yt') {
-        const e = ytEmbed(p.v);
-        return e ? '<div class="msg-embed"><iframe src="' + esc(e) + '" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture"></iframe></div>'
-                 : '<a href="' + esc(p.v) + '" target="_blank" rel="noopener noreferrer">' + esc(p.v) + '</a>';
+      if (p.t === 'text') return esc(p.v).replace(/\n/g,'<br>');
+      if (p.t === 'link') return '<a href="'+esc(p.v)+'" target="_blank" rel="noopener noreferrer">'+esc(p.v)+'</a>';
+      if (p.t === 'img')  return '<img src="'+esc(p.v)+'" class="m-img" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+      if (p.t === 'yt')  {
+        var id = ytId(p.v);
+        return id
+          ? '<div class="m-embed"><iframe src="https://www.youtube.com/embed/'+id+'" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture"></iframe></div>'
+          : '<a href="'+esc(p.v)+'" target="_blank" rel="noopener noreferrer">'+esc(p.v)+'</a>';
       }
       if (p.t === 'sp') {
-        const e = spEmbed(p.v);
-        return e ? '<div class="msg-embed"><iframe src="' + esc(e) + '" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>'
-                 : '<a href="' + esc(p.v) + '" target="_blank" rel="noopener noreferrer">' + esc(p.v) + '</a>';
+        var emb = spEmb(p.v);
+        return emb
+          ? '<div class="m-embed"><iframe src="'+emb+'" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>'
+          : '<a href="'+esc(p.v)+'" target="_blank" rel="noopener noreferrer">'+esc(p.v)+'</a>';
       }
       return '';
     }).join('');
   }
 
-  /* ── Rendu d'un message ── */
-  function renderMsg(m, uid, admin) {
-    const own   = m.user_id == uid;
-    const del   = own || admin;
-    const coach = m.role === 'coach';
-    const dt    = m.created_at ? new Date(m.created_at) : null;
-    const time  = dt ? dt.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' }) + ' ' +
-                       dt.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
-    const roleLabel = coach ? '👑 Coach' : 'Parent';
-    return (
-      '<div class="tchat-msg' + (coach ? ' coach' : '') + '" data-id="' + m.id + '">' +
-        '<div class="tchat-msg-header">' +
-          '<span class="tchat-msg-name">' + esc(m.display_name) + '</span>' +
-          '<span class="tchat-msg-role">' + roleLabel + '</span>' +
-          '<span class="tchat-msg-time">' + time + '</span>' +
-        '</div>' +
-        '<div class="tchat-msg-body">' + renderContent(m.content) + '</div>' +
-        (del ? '<div class="tchat-msg-actions"><button class="btn-delete" data-id="' + m.id + '" type="button">🗑 Supprimer</button></div>' : '') +
-      '</div>'
-    );
+  function msgHTML(m, isNew) {
+    var coach = (m.role === 'role') || m.role === 'coach';
+    var own   = (m.user_id == myId);
+    var del   = own || isAdmin;
+    var dt    = m.created_at ? new Date(m.created_at.replace(' ','T')) : null;
+    var time  = dt
+      ? dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})
+        + ' ' + dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+      : '';
+    var roleLabel = m.role === 'coach' ? '👑 Coach' : 'Parent';
+    return '<div class="msg-card'+(m.role==='coach'?' is-coach':'')+(isNew?' new':'')+'" data-id="'+m.id+'">'
+      + '<div class="msg-head">'
+        + '<span class="msg-name">'+esc(m.display_name)+'</span>'
+        + '<span class="msg-role">'+roleLabel+'</span>'
+        + '<span class="msg-time">'+time+'</span>'
+      + '</div>'
+      + '<div class="msg-body">'+renderBody(m.content)+'</div>'
+      + (del ? '<div class="msg-actions"><button class="msg-del" data-id="'+m.id+'" type="button">🗑 Supprimer</button></div>' : '')
+    + '</div>';
   }
 
-  /* ── Supprimer un message ── */
-  function bindDelete() {
-    messagesEl.querySelectorAll('.btn-delete').forEach(function(btn) {
+  /* ── boutons supprimer ── */
+  function bindDel() {
+    list.querySelectorAll('.msg-del').forEach(function(btn) {
       btn.onclick = function() {
         var id = parseInt(btn.dataset.id, 10);
         if (!id || !confirm('Supprimer ce message ?')) return;
-        fetch(API + '?action=chat_delete', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: id })
-        }).then(function(r){ return r.json(); }).then(function(data) {
-          if (data.success) {
-            var el = messagesEl.querySelector('[data-id="' + id + '"]');
+        fetch(API+'?action=chat_delete', {
+          method:'POST', credentials:'same-origin',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({id:id})
+        }).then(function(r){return r.json();}).then(function(d) {
+          if (d.success) {
+            var el = list.querySelector('[data-id="'+id+'"]');
             if (el) el.remove();
-            if (!messagesEl.querySelector('.tchat-msg')) messagesEl.innerHTML = emptyHtml();
-          } else showError(data.error || 'Erreur');
+            if (!list.querySelector('.msg-card')) showEmpty();
+          } else showErr(d.error || 'Erreur');
         });
       };
     });
   }
 
-  function emptyHtml() {
-    return '<div class="tchat-empty"><div class="tchat-empty-icon">💬</div>Aucun message. Sois le premier à écrire&nbsp;!</div>';
+  function showEmpty() {
+    list.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">💬</div>Aucun message. Sois le premier à écrire&nbsp;!</div>';
   }
 
-  /* ── Charger les messages ── */
+  /* ── appliquer les données reçues ── */
   function applyData(data, firstLoad) {
-    currentUserId = data.user_id || 0;
+    myId    = data.user_id || 0;
     isAdmin = !!data.is_admin;
 
-    loadingEl.style.display = 'none';
+    loadingZone.style.display = 'none';
 
-    if (currentUserId) {
-      messagesEl.style.display = 'flex';
-      formWrap.style.display = 'block';
-      loginPrompt.style.display = 'none';
+    if (myId) {
+      list.style.display      = 'flex';
+      formZone.style.display  = 'block';
+      loginWall.style.display = 'none';
     } else {
-      messagesEl.style.display = 'none';
-      formWrap.style.display = 'none';
-      loginPrompt.style.display = 'flex';
+      list.style.display      = 'none';
+      formZone.style.display  = 'none';
+      loginWall.style.display = 'flex';
     }
 
-    const wasBottom = isAtBottom();
-    messagesEl.innerHTML = data.messages && data.messages.length
-      ? data.messages.map(function(msg){ return renderMsg(msg, currentUserId, isAdmin); }).join('')
-      : emptyHtml();
-    bindDelete();
+    var wasBottom = firstLoad || atBottom();
 
-    if (firstLoad || wasBottom) scrollToBottom();
+    if (!data.messages || data.messages.length === 0) {
+      showEmpty();
+    } else {
+      /* Rend tous les messages en ordre ASC (plus ancien en haut, récent en bas) */
+      list.innerHTML = data.messages.map(function(m){ return msgHTML(m, false); }).join('');
+      bindDel();
+    }
+
+    if (wasBottom) goBottom();
   }
 
-  function loadMessages(firstLoad) {
-    fetch(API + '?action=chat_list&limit=150', { credentials: 'same-origin' })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data.success) applyData(data, firstLoad);
-        else { loadingEl.style.display = 'none'; showError(data.error || 'Erreur'); }
+  /* ── chargement ── */
+  function load(first) {
+    fetch(API+'?action=chat_list&limit=150', {credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (d.success) applyData(d, first);
+        else { loadingZone.style.display='none'; showErr(d.error||'Erreur'); }
       })
-      .catch(function(){ loadingEl.style.display = 'none'; showError('Connexion impossible.'); });
+      .catch(function(){ loadingZone.style.display='none'; showErr('Connexion impossible.'); });
   }
 
-  /* ── Session ── */
-  function checkSession() {
-    fetch(API + '?action=check_session', { credentials: 'same-origin' })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data.logged_in && data.user) {
-          userBadge.textContent = data.user.display_name || data.user.username;
-          if (data.user.role === 'coach') userBadge.classList.add('coach');
-        } else {
-          userBadge.textContent = 'Non connecté';
-        }
-      });
-  }
+  /* ── session ── */
+  fetch(API+'?action=check_session', {credentials:'same-origin'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.logged_in && d.user) {
+        userBadge.textContent = d.user.display_name || d.user.username || 'Connecté';
+        if (d.user.role === 'coach') userBadge.classList.add('coach');
+      } else {
+        userBadge.textContent = 'Non connecté';
+      }
+    });
 
-  /* ── Envoi ── */
+  /* ── envoi ── */
   chatForm.addEventListener('submit', function(e) {
     e.preventDefault();
-    var text = chatInput.value.trim();
+    var text = msgInput.value.trim();
     if (!text) return;
-    if (!currentUserId) { showError('Connecte-toi pour envoyer un message.'); return; }
+    if (!myId) { showErr('Connecte-toi pour envoyer un message.'); return; }
     sendBtn.disabled = true;
-    showError('');
-    fetch(API + '?action=chat_post', {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: text })
-    }).then(function(r){ return r.json(); }).then(function(data){
+    showErr('');
+    fetch(API+'?action=chat_post', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({content:text})
+    }).then(function(r){return r.json();}).then(function(d) {
       sendBtn.disabled = false;
-      if (data.success && data.message) {
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-        var empty = messagesEl.querySelector('.tchat-empty');
+      if (d.success && d.message) {
+        msgInput.value = '';
+        msgInput.style.height = 'auto';
+        var empty = list.querySelector('.chat-empty');
         if (empty) empty.remove();
-        var div = document.createElement('div');
-        div.innerHTML = renderMsg(data.message, currentUserId, isAdmin);
-        messagesEl.appendChild(div.firstElementChild);
-        bindDelete();
-        scrollToBottom();
-      } else showError(data.error || 'Erreur envoi');
-    }).catch(function(){ sendBtn.disabled = false; showError('Erreur réseau.'); });
+        var tmp = document.createElement('div');
+        tmp.innerHTML = msgHTML(d.message, true);
+        list.appendChild(tmp.firstElementChild);
+        bindDel();
+        goBottom();
+      } else showErr(d.error || 'Erreur envoi');
+    }).catch(function(){ sendBtn.disabled=false; showErr('Erreur réseau.'); });
   });
 
-  /* ── Auto-resize textarea ── */
-  chatInput.addEventListener('input', function() {
-    chatInput.style.height = 'auto';
-    chatInput.style.height = Math.min(chatInput.scrollHeight, 110) + 'px';
+  /* ── auto-resize textarea ── */
+  msgInput.addEventListener('input', function() {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 110) + 'px';
+    if (msgInput.scrollHeight > 110) msgInput.style.overflowY = 'auto';
+    else msgInput.style.overflowY = 'hidden';
   });
-  chatInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatForm.requestSubmit(); }
+  msgInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
   });
 
-  /* ── Init + polling ── */
-  loadMessages(true);
-  checkSession();
-  setInterval(function(){ loadMessages(false); }, 5000);
+  /* ── init + polling ── */
+  load(true);
+  setInterval(function(){ load(false); }, 5000);
 })();
-  </script>
+</script>
 </body>
 </html>
