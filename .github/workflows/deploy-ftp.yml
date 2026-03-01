@@ -1,4 +1,4 @@
-# Déploiement automatique vers Hostinger via SFTP (SSH port 65002)
+# Déploiement automatique vers Hostinger via SSH (rsync, port 65002)
 name: Deploy to FTP (Hostinger)
 
 on:
@@ -8,19 +8,23 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      REMOTE_PATH: /home/u527192911/domains/espeu9.fr/public_html
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy via SFTP (SSH)
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.5
-        with:
-          server: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || '65002' }}
-          local_path: ./public_html/*
-          remote_path: ${{ env.REMOTE_PATH }}
-          sftp_only: true
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Deploy via rsync (SSH)
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USERNAME }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
+          REMOTE_PATH: /home/u527192911/domains/espeu9.fr/public_html
+        run: |
+          sshpass -e rsync -avz --delete \
+            -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=no" \
+            --exclude='.git' --exclude='.cursorrules' --exclude='config.php' \
+            ./public_html/ \
+            ${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/
