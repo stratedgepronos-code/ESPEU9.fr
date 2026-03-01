@@ -18,7 +18,7 @@ jobs:
       - name: Deploy via rsync (SSH)
         env:
           SSHPASS: ${{ secrets.SSH_PASSWORD }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_HOST: 178.16.128.35
           SSH_USER: ${{ secrets.SSH_USERNAME }}
           SSH_PORT: ${{ secrets.SSH_PORT || '65002' }}
           REMOTE_PATH: /home/u527192911/domains/espeu9.fr/public_html
