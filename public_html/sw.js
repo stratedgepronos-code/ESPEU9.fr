@@ -8,8 +8,8 @@ self.addEventListener('push', function(event) {
     var title = '🏀 ESPE U9';
     var options = {
         body: 'Nouvelle notification',
-        icon: '/logo-espe.png',
-        badge: '/logo-espe.png',
+        icon: 'https://espeu9.fr/images/logo-espe.png',
+        badge: 'https://espeu9.fr/images/logo-espe.png',
         vibrate: [200, 100, 200],
         tag: 'espe-u9-' + Date.now(),
         renotify: true,

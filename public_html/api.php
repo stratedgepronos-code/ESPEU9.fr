@@ -182,6 +182,75 @@ function notifyAllParents($subject, $htmlBody) {
     } catch (Exception $e) { /* Pas de blocage si erreur email */ }
 }
 
+// ═══ PUSH HELPER — Envoie une notification push à un utilisateur ═══
+function sendPushToUser($recipientId, $title, $body, $url = '#messagerie') {
+    try {
+        require_once 'web_push.php';
+        $db = getDB();
+        $st = $db->prepare("SELECT * FROM push_subscriptions WHERE user_id = :uid");
+        $st->execute([':uid' => $recipientId]);
+        $subs = $st->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($subs)) return 0;
+
+        $payload = [
+            'title' => $title,
+            'body' => mb_substr($body, 0, 200),
+            'icon' => 'https://espeu9.fr/images/logo-espe.png',
+            'badge' => 'https://espeu9.fr/images/logo-espe.png',
+            'data' => ['url' => $url]
+        ];
+
+        $sent = 0;
+        foreach ($subs as $sub) {
+            $subscription = ['endpoint' => $sub['endpoint'], 'keys' => ['p256dh' => $sub['p256dh'], 'auth' => $sub['auth']]];
+            $result = sendWebPush($subscription, $payload);
+            if ($result['success']) {
+                $sent++;
+            } else {
+                $code = $result['code'] ?? 0;
+                if ($code == 404 || $code == 410) {
+                    $db->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $sub['id']]);
+                }
+            }
+        }
+        return $sent;
+    } catch (Exception $e) { return 0; }
+}
+
+// ═══ PUSH HELPER — Envoie une notification push à TOUS les abonnés ═══
+function sendPushToAll($title, $body, $url = '#accueil') {
+    try {
+        require_once 'web_push.php';
+        $db = getDB();
+        $st = $db->query("SELECT * FROM push_subscriptions");
+        $subs = $st->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($subs)) return 0;
+
+        $payload = [
+            'title' => $title,
+            'body' => mb_substr($body, 0, 200),
+            'icon' => 'https://espeu9.fr/images/logo-espe.png',
+            'badge' => 'https://espeu9.fr/images/logo-espe.png',
+            'data' => ['url' => $url]
+        ];
+
+        $sent = 0;
+        foreach ($subs as $sub) {
+            $subscription = ['endpoint' => $sub['endpoint'], 'keys' => ['p256dh' => $sub['p256dh'], 'auth' => $sub['auth']]];
+            $result = sendWebPush($subscription, $payload);
+            if ($result['success']) {
+                $sent++;
+            } else {
+                $code = $result['code'] ?? 0;
+                if ($code == 404 || $code == 410) {
+                    $db->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $sub['id']]);
+                }
+            }
+        }
+        return $sent;
+    } catch (Exception $e) { return 0; }
+}
+
 switch ($action) {
 
 // ═══ FAILLE 1 — Données personnelles côté serveur uniquement ═══
@@ -551,7 +620,7 @@ case 'send_push':
         $subs=$st->fetchAll(PDO::FETCH_ASSOC);
         if(count($subs)===0){echo json_encode(['success'=>false,'error'=>'Aucun abonn\u00e9']);break;}
         $sent=0; $failed=0; $errors=[];
-        $payload=['title'=>$title,'body'=>$body,'icon'=>'/logo.png','badge'=>'/logo.png','data'=>['url'=>$url]];
+        $payload=['title'=>$title,'body'=>$body,'icon'=>'https://espeu9.fr/images/logo-espe.png','badge'=>'https://espeu9.fr/images/logo-espe.png','data'=>['url'=>$url]];
         foreach($subs as $sub){
             $subscription=['endpoint'=>$sub['endpoint'],'keys'=>['p256dh'=>$sub['p256dh'],'auth'=>$sub['auth']]];
             $result=sendWebPush($subscription,$payload);
@@ -621,10 +690,12 @@ case 'send_message':
             else { http_response_code(404); echo json_encode(['error'=>'Destinataire non trouvé']); break; }
         }
         $sent=0;
+        $senderName = $_SESSION['display_name'] ?? 'Quelqu\'un';
         foreach($recipients as $rec){
             $st=$db->prepare("INSERT INTO messages (sender_id,recipient_id,subject,body,msg_type,parent_msg_id) VALUES(:s,:r,:sub,:b,:t,:p)");
             $st->execute([':s'=>$_SESSION['user_id'],':r'=>$rec['id'],':sub'=>$subject,':b'=>$body,':t'=>$msgType,':p'=>$parentMsgId]);
             if($rec['email']) sendEmailNotif($rec['email'],$subject?:'Nouveau message',nl2br(htmlspecialchars($body)));
+            sendPushToUser((int)$rec['id'], '✉️ ' . $senderName, $subject ?: mb_substr($body, 0, 100), '#messagerie');
             $sent++;
         }
         echo json_encode(['success'=>true,'messages_sent'=>$sent]);
@@ -2326,6 +2397,30 @@ case 'chat_post':
     $id = (int)$db->lastInsertId();
     $row = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages WHERE id = $id")->fetch(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'message' => $row]);
+
+    // Push notification à tous les abonnés sauf l'expéditeur
+    try {
+        require_once 'web_push.php';
+        $pushDb = getDB();
+        $pst = $pushDb->prepare("SELECT * FROM push_subscriptions WHERE user_id != :uid");
+        $pst->execute([':uid' => $uid]);
+        $pushSubs = $pst->fetchAll(PDO::FETCH_ASSOC);
+        $preview = mb_substr(strip_tags($content), 0, 120);
+        $pushPayload = [
+            'title' => '💬 ' . $displayName,
+            'body' => $preview,
+            'icon' => 'https://espeu9.fr/images/logo-espe.png',
+            'badge' => 'https://espeu9.fr/images/logo-espe.png',
+            'data' => ['url' => 'https://espeu9.fr/tchat.html']
+        ];
+        foreach ($pushSubs as $ps) {
+            $sub = ['endpoint' => $ps['endpoint'], 'keys' => ['p256dh' => $ps['p256dh'], 'auth' => $ps['auth']]];
+            $res = sendWebPush($sub, $pushPayload);
+            if (!$res['success'] && (($res['code'] ?? 0) == 404 || ($res['code'] ?? 0) == 410)) {
+                $pushDb->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $ps['id']]);
+            }
+        }
+    } catch (Exception $e) {}
     break;
 
 case 'chat_delete':

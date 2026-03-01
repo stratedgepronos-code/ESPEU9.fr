@@ -218,6 +218,7 @@ body {
   function Nav(){
     var _s = React.useState(false), mobOpen=_s[0], setMob=_s[1];
     var _u = React.useState(null), user=_u[0], setUser=_u[1];
+    var _uc = React.useState(0), unreadCount=_uc[0], setUnreadCount=_uc[1];
 
     React.useEffect(function(){
       fetch('api.php?action=check_session',{credentials:'same-origin'})
@@ -226,12 +227,33 @@ body {
         .catch(function(){});
     },[]);
 
+    React.useEffect(function(){
+      if(!user) return;
+      function fetchUnread(){fetch('api.php?action=unread_count',{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){setUnreadCount(d.count||0);}).catch(function(){});}
+      fetchUnread();
+      var iv=setInterval(fetchUnread,30000);
+      return function(){clearInterval(iv);};
+    },[user]);
+
     function handleLogout(){
       fetch('api.php?action=logout',{credentials:'same-origin'})
         .then(function(){window.location.href='index.html';});
     }
 
     var playerMatch = user && user.player_id ? PLAYERS.find(function(p){return p.id===user.player_id;}) : null;
+
+    var envelopeSvg = unreadCount > 0
+      ? e("svg",{width:24,height:24,viewBox:"0 0 24 24",fill:"none"},
+          e("path",{d:"M2 10v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-8l-10 5-10-5z",fill:"var(--green-700)"}),
+          e("path",{d:"M22 10l-10 5-10-5V6l10 5 10-5v4z",fill:"var(--green-700)",opacity:0.5}),
+          e("path",{d:"M2 6l10-4 10 4",stroke:"var(--green-700)",strokeWidth:1.5,fill:"none"}))
+      : e("svg",{width:24,height:24,viewBox:"0 0 24 24",fill:"none"},
+          e("rect",{x:2,y:5,width:20,height:14,rx:2,fill:"var(--green-700)"}),
+          e("path",{d:"M2 5l10 7 10-7",stroke:"white",strokeWidth:1.5,fill:"none"}),
+          e("path",{d:"M2 19l7-6M22 19l-7-6",stroke:"white",strokeWidth:1,opacity:0.4,fill:"none"}));
+
+    var unreadBadge = unreadCount > 0 ? e("span",{style:{position:"absolute",top:-4,right:-6,background:"var(--red)",color:"white",fontSize:10,fontWeight:700,borderRadius:"50%",minWidth:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"2px solid white"}},unreadCount) : null;
+
     var authDesktop = user
       ? e("div",{className:"nav-auth",style:{cursor:"pointer"},onClick:function(){window.location.href='index.html#compte';}},
           playerMatch
@@ -241,10 +263,7 @@ body {
                 e("span",{style:{position:"absolute",top:-4,left:-4,transform:"rotate(-25deg)",fontSize:10,lineHeight:1,filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.3))",zIndex:1}},"\uD83D\uDC51")),
           e("span",{className:"nav-auth-name"},playerMatch ? playerMatch.firstName : (user.display_name||user.username)),
           e("a",{href:"index.html#messagerie",onClick:function(ev){ev.stopPropagation();},style:{position:"relative",cursor:"pointer",padding:"4px 6px",display:"flex",alignItems:"center"},title:"Messagerie"},
-            e("svg",{width:24,height:24,viewBox:"0 0 24 24",fill:"none",xmlns:"http://www.w3.org/2000/svg"},
-              e("rect",{x:2,y:5,width:20,height:14,rx:2,fill:"var(--green-700)"}),
-              e("path",{d:"M2 5l10 7 10-7",stroke:"white",strokeWidth:1.5,fill:"none"}),
-              e("path",{d:"M2 19l7-6M22 19l-7-6",stroke:"white",strokeWidth:1,opacity:0.4,fill:"none"}))),
+            envelopeSvg, unreadBadge),
           e("button",{className:"nav-auth-btn logout",onClick:function(ev){ev.stopPropagation();handleLogout();}},"D\u00E9co"))
       : e("a",{href:"index.html#connexion",className:"nav-auth-btn login",style:{textDecoration:"none"}},"\uD83D\uDD12 Connexion");
 
@@ -439,6 +458,13 @@ body {
 
   load(true);
   setInterval(function(){load(false);},5000);
+
+  // Enregistrer le Service Worker pour les push notifications
+  if('serviceWorker' in navigator && 'PushManager' in window){
+    navigator.serviceWorker.register('/sw.js').then(function(reg){
+      reg.update().catch(function(){});
+    }).catch(function(){});
+  }
 })();
 </script>
 <script src="feedback-widget.js"></script>

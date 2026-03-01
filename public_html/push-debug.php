@@ -61,21 +61,21 @@ echo "<p class='" . ($pubOk ? 'ok' : 'fail') . "'>PUBLIC_KEY: " . strlen($pubRaw
 echo "<p class='" . ($privOk ? 'ok' : 'fail') . "'>PRIVATE_KEY: " . strlen($privRaw) . " bytes" . ($privOk ? '' : ' — INVALIDE !') . "</p>";
 
 // Test PEM
-$pemResult = wpCreateVapidPrivateKeyPem();
-if (isset($pemResult['error'])) {
-    echo "<p class='fail'>PEM: " . $pemResult['error'] . "</p>";
-} else {
-    $vpk = openssl_pkey_get_private($pemResult['pem']);
-    echo "<p class='" . ($vpk ? 'ok' : 'fail') . "'>PEM VAPID " . ($vpk ? 'charge' : 'ERREUR: ' . openssl_error_string()) . "</p>";
-}
+$privKeyRaw2 = base64url_decode(VAPID_PRIVATE_KEY);
+$pubKeyRaw2 = base64url_decode(VAPID_PUBLIC_KEY);
+$der2 = hex2bin('30770201010420') . $privKeyRaw2 . hex2bin('a00a06082a8648ce3d030107a14403420004') . $pubKeyRaw2;
+$pem2 = "-----BEGIN EC PRIVATE KEY-----\n" . chunk_split(base64_encode($der2), 64) . "-----END EC PRIVATE KEY-----\n";
+$vpk = openssl_pkey_get_private($pem2);
+echo "<p class='" . ($vpk ? 'ok' : 'fail') . "'>PEM VAPID " . ($vpk ? 'charge' : 'ERREUR: ' . openssl_error_string()) . "</p>";
 
 // 4. JWT test
 echo "<h2>4. Signature VAPID JWT</h2>";
-$tv = wpCreateVapidAuth('https://fcm.googleapis.com/fcm/send/test');
-if (isset($tv['error'])) {
-    echo "<p class='fail'>" . $tv['error'] . "</p>";
+$tv = createVapidAuth('https://fcm.googleapis.com');
+if (!$tv || isset($tv['error'])) {
+    echo "<p class='fail'>" . ($tv['error'] ?? 'createVapidAuth() a retourné false') . "</p>";
 } else {
     echo "<p class='ok'>JWT signe avec succes</p>";
+    echo "<p class='info'>Token: " . substr($tv['token'], 0, 60) . "...</p>";
 }
 
 // 5. Encryption test
@@ -84,11 +84,13 @@ if ($testKey) {
     $fd = openssl_pkey_get_details($testKey);
     $fp = "\x04" . str_pad($fd['ec']['x'], 32, "\x00", STR_PAD_LEFT) . str_pad($fd['ec']['y'], 32, "\x00", STR_PAD_LEFT);
     $fa = random_bytes(16);
-    $enc = wpEncryptPayload('{"title":"Test","body":"Hello"}', $fp, $fa);
-    if (isset($enc['error'])) {
-        echo "<p class='fail'>Encryption: " . $enc['error'] . "</p>";
+    $fakeP256dh = base64url_encode($fp);
+    $fakeAuth = base64url_encode($fa);
+    $enc = encryptPayload('{"title":"Test","body":"Hello"}', $fakeP256dh, $fakeAuth);
+    if (!$enc) {
+        echo "<p class='fail'>Encryption a retourne false</p>";
     } else {
-        echo "<p class='ok'>Encryption reussie (" . strlen($enc['body']) . " bytes)</p>";
+        echo "<p class='ok'>Encryption reussie (" . strlen($enc['ciphertext']) . " bytes)</p>";
     }
 }
 
@@ -161,7 +163,14 @@ if (isset($_POST['send_test']) && count($subs) > 0) {
 
 <h2>9. Resume</h2>
 <?php
-$issues = wpCheckRequirements();
+$issues = [];
+if (!extension_loaded('openssl')) $issues[] = 'Extension openssl manquante';
+if (!function_exists('openssl_pkey_derive')) $issues[] = 'openssl_pkey_derive() manquante (PHP 7.3+ requis)';
+if (!in_array('aes-128-gcm', openssl_get_cipher_methods())) $issues[] = 'aes-128-gcm non disponible';
+if (!$pubOk) $issues[] = 'Cle publique VAPID invalide';
+if (!$privOk) $issues[] = 'Cle privee VAPID invalide';
+if (!$vpk) $issues[] = 'PEM VAPID non chargeable';
+
 if (empty($issues)) {
     echo "<p class='ok' style='font-size:16px;'>Tout est pret !</p>";
     echo "<p class='info'>Si ca ne marche toujours pas, sur ton telephone : Chrome > Parametres > Sites > espeu9.fr > Effacer et reinitialiser. Puis recharge le site et reactive les notifs.</p>";
