@@ -145,7 +145,7 @@ body.has-chat-form .fb-fab{bottom:90px}\
           succ.className = 'fb-success';
           succ.innerHTML = '<div class="fb-success-icon">✅</div>'
             + '<div class="fb-success-msg">Merci pour ton retour !</div>'
-            + '<div class="fb-success-sub">Ton message a bien été envoyé au coach.</div>';
+            + '<div class="fb-success-sub">Ton message a été envoyé dans la messagerie du coach.</div>';
           body.appendChild(succ);
           setTimeout(close, 2500);
         } else {

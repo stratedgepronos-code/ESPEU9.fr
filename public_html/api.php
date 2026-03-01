@@ -2344,8 +2344,9 @@ case 'chat_delete':
     echo json_encode(['success' => true]);
     break;
 
-// ═══ FEEDBACK / REPORT BUG ═══
+// ═══ FEEDBACK / REPORT BUG → messagerie interne vers le(s) coach ═══
 case 'send_feedback':
+    if (!$uid) { http_response_code(403); echo json_encode(['error' => 'Connecte-toi pour envoyer un feedback.']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
     $type = trim((string)($in['type'] ?? ''));
     $message = trim((string)($in['message'] ?? ''));
@@ -2363,48 +2364,31 @@ case 'send_feedback':
 
     $typeLabels = ['bug' => '🐛 Bug', 'idee' => '💡 Idée', 'autre' => '📝 Autre'];
     $typeLabel = $typeLabels[$type] ?? $type;
-    $userName = isset($_SESSION['display_name']) ? $_SESSION['display_name'] : 'Visiteur';
-    $userRole = $role ?: 'non connecté';
-    $date = date('d/m/Y H:i');
+    $userName = isset($_SESSION['display_name']) ? $_SESSION['display_name'] : 'Utilisateur';
 
-    $subject = "=?UTF-8?B?" . base64_encode("[ESPE U9] {$typeLabel} — {$userName}") . "?=";
-    $body  = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-    $body .= "  ESPE U9 — Feedback\n";
-    $body .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-    $body .= "Type     : {$typeLabel}\n";
-    $body .= "De       : {$userName} ({$userRole})\n";
-    $body .= "Page     : {$page}\n";
-    $body .= "Date     : {$date}\n\n";
-    $body .= "── Message ──────────────────────\n\n";
-    $body .= $message . "\n\n";
-    $body .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    $subject = "[Feedback] {$typeLabel}";
+    $body  = "{$typeLabel}\n\n";
+    $body .= $message;
+    if ($page) $body .= "\n\n📍 Page : {$page}";
 
-    $to = 'sortir08.ag@wanadoo.fr';
-    $headers  = "From: noreply@espeu9.fr\r\n";
-    $headers .= "Reply-To: noreply@espeu9.fr\r\n";
-    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-    $headers .= "X-Mailer: ESPE-U9-Feedback\r\n";
+    try {
+        $db = getDB();
+        $st = $db->prepare("SELECT id FROM users WHERE role = 'coach'");
+        $st->execute();
+        $coaches = $st->fetchAll(PDO::FETCH_COLUMN);
 
-    $sent = @mail($to, $subject, $body, $headers);
-    if ($sent) {
-        echo json_encode(['success' => true]);
-    } else {
-        // Fallback : sauvegarder en BDD si mail échoue
-        try {
-            $db = getDB();
-            $db->exec("CREATE TABLE IF NOT EXISTS feedback_log (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                type VARCHAR(20) NOT NULL,
-                user_name VARCHAR(120),
-                user_role VARCHAR(20),
-                page VARCHAR(255),
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-            $st = $db->prepare("INSERT INTO feedback_log (type, user_name, user_role, page, message) VALUES (:t,:n,:r,:p,:m)");
-            $st->execute([':t'=>$type, ':n'=>$userName, ':r'=>$userRole, ':p'=>$page, ':m'=>$message]);
-        } catch (Exception $e) {}
-        echo json_encode(['success' => true, 'note' => 'saved']);
+        if (empty($coaches)) { echo json_encode(['error' => 'Aucun coach trouvé.']); break; }
+
+        $sent = 0;
+        foreach ($coaches as $coachId) {
+            $st = $db->prepare("INSERT INTO messages (sender_id, recipient_id, subject, body, msg_type) VALUES (:s, :r, :sub, :b, 'general')");
+            $st->execute([':s' => $uid, ':r' => $coachId, ':sub' => $subject, ':b' => $body]);
+            $sent++;
+        }
+        echo json_encode(['success' => true, 'sent' => $sent]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Erreur lors de l\'envoi.']);
     }
     break;
 
