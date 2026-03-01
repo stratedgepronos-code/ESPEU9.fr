@@ -2577,6 +2577,120 @@ function CoachPasswordPanel() {
                     React.createElement("input", { type: "email", value: testEmail, onChange: e => setTestEmail(e.target.value), onKeyDown: e => e.key === "Enter" && handleTestEmail(), placeholder: "Ton adresse email", style: inputS }),
                     React.createElement("button", { onClick: handleTestEmail, style: { ...btnS, background: "#1877F2" } }, "\uD83D\uDCE8 Tester")))));
 }
+// ── Panneau Absences (parents) ──
+function AbsencePanel({ user }) {
+    const [absences, setAbsences] = useState([]);
+    const [showForm, setShowForm] = useState(false);
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+    const [reason, setReason] = useState("");
+    const [sending, setSending] = useState(false);
+    const [msg, setMsg] = useState("");
+    const playerId = user.player_id;
+    const player = PLAYERS.find(p => p.id === playerId);
+    const loadAbsences = () => {
+        fetch(API_URL + "?action=get_absences", { credentials: "same-origin" })
+            .then(r => r.json()).then(d => { if (d.success) setAbsences(d.absences || []); });
+    };
+    useEffect(() => { loadAbsences(); }, []);
+    const handleSubmit = () => {
+        if (!dateFrom) { setMsg("Sélectionne au moins une date."); return; }
+        setSending(true); setMsg("");
+        fetch(API_URL + "?action=declare_absence", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ player_id: playerId, date_from: dateFrom, date_to: dateTo || dateFrom, reason })
+        }).then(r => r.json()).then(d => {
+            setSending(false);
+            if (d.success) { setMsg("Absence enregistrée et coach notifié !"); setDateFrom(""); setDateTo(""); setReason(""); setShowForm(false); loadAbsences(); }
+            else setMsg(d.error || "Erreur");
+        }).catch(() => { setSending(false); setMsg("Erreur réseau."); });
+    };
+    const handleDelete = (id) => {
+        fetch(API_URL + "?action=delete_absence", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id })
+        }).then(r => r.json()).then(d => { if (d.success) loadAbsences(); });
+    };
+    const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card-bg)", color: "var(--text-light)", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box" };
+    return React.createElement("div", { style: { marginBottom: 24 } },
+        React.createElement("div", { className: "section-title" }, "\uD83D\uDCC5 Absences / Indisponibilit\u00E9s"),
+        React.createElement("div", { className: "card", style: { padding: 20 } },
+            absences.length === 0 && !showForm && React.createElement("p", { style: { color: "var(--text-dim)", fontSize: 14, margin: 0 } }, "Aucune absence signal\u00E9e."),
+            absences.map(a => React.createElement("div", { key: a.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--border)" } },
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, "\uD83D\uDCC5 ", a.date_from === a.date_to ? a.date_from : a.date_from + " \u2192 " + a.date_to),
+                    a.reason && React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 2 } }, a.reason)),
+                React.createElement("button", { onClick: () => handleDelete(a.id), style: { background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 16 } }, "\u2715"))),
+            showForm && React.createElement("div", { style: { marginTop: 16 } },
+                React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 } },
+                    React.createElement("div", null,
+                        React.createElement("label", { style: { fontSize: 12, color: "var(--text-dim)", display: "block", marginBottom: 4 } }, "Du"),
+                        React.createElement("input", { type: "date", value: dateFrom, onChange: e => setDateFrom(e.target.value), style: inputStyle })),
+                    React.createElement("div", null,
+                        React.createElement("label", { style: { fontSize: 12, color: "var(--text-dim)", display: "block", marginBottom: 4 } }, "Au"),
+                        React.createElement("input", { type: "date", value: dateTo, onChange: e => setDateTo(e.target.value), style: inputStyle }))),
+                React.createElement("input", { type: "text", value: reason, onChange: e => setReason(e.target.value), placeholder: "Motif (optionnel)", maxLength: 500, style: { ...inputStyle, marginBottom: 10 } }),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement("button", { onClick: handleSubmit, disabled: sending, style: { flex: 1, padding: "10px 16px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, sending ? "Envoi..." : "\u2705 Confirmer"),
+                    React.createElement("button", { onClick: () => setShowForm(false), style: { padding: "10px 16px", background: "none", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, cursor: "pointer", color: "var(--text-dim)" } }, "Annuler"))),
+            !showForm && React.createElement("button", { onClick: () => setShowForm(true), style: { marginTop: absences.length > 0 ? 12 : 0, padding: "10px 20px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" } }, "+ Signaler une absence"),
+            msg && React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: msg.includes("Erreur") || msg.includes("Sélectionne") ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)));
+}
+
+// ── Tableau Assiduité (coach) ──
+function AttendancePanel() {
+    const [stats, setStats] = useState(null);
+    const [convoked, setConvoked] = useState({});
+    const [absences, setAbsences] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        Promise.all([
+            fetch(API_URL + "?action=get_attendance_stats", { credentials: "same-origin" }).then(r => r.json()),
+            fetch(API_URL + "?action=get_absences", { credentials: "same-origin" }).then(r => r.json())
+        ]).then(([att, abs]) => {
+            if (att.success) { setStats(att.stats || {}); setConvoked(att.convocations || {}); }
+            if (abs.success) setAbsences(abs.absences || []);
+            setLoading(false);
+        }).catch(() => setLoading(false));
+    }, []);
+    if (loading) return React.createElement("div", { style: { textAlign: "center", padding: 20, color: "var(--text-dim)" } }, "Chargement...");
+    if (!stats) return null;
+    const thStyle = { padding: "8px 6px", textAlign: "center", fontSize: 12, color: "var(--text-dim)", fontWeight: 600, borderBottom: "2px solid var(--border)" };
+    const tdStyle = { padding: "8px 6px", textAlign: "center", fontSize: 13, borderBottom: "1px solid var(--border)" };
+    return React.createElement("div", { style: { marginBottom: 24 } },
+        React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Assiduit\u00E9 des joueurs"),
+        React.createElement("div", { className: "card", style: { padding: 16, overflow: "auto" } },
+            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", { style: { ...thStyle, textAlign: "left" } }, "Joueur"),
+                        React.createElement("th", { style: thStyle }, "Convoc."),
+                        React.createElement("th", { style: thStyle }, "\u2705"),
+                        React.createElement("th", { style: thStyle }, "\u274C"),
+                        React.createElement("th", { style: thStyle }, "\u23F3"),
+                        React.createElement("th", { style: thStyle }, "% Pr\u00E9s."),
+                        React.createElement("th", { style: thStyle }, "Abs. \u00E0 venir"))),
+                React.createElement("tbody", null, PLAYERS.map(p => {
+                    const s = stats[p.id] || { present: 0, absent: 0, attente: 0, total: 0 };
+                    const conv = convoked[p.id] || 0;
+                    const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
+                    const futureAbs = absences.filter(a => a.player_id == p.id).length;
+                    const pctColor = pct >= 80 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
+                    return React.createElement("tr", { key: p.id },
+                        React.createElement("td", { style: { ...tdStyle, textAlign: "left", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 } },
+                            React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
+                            React.createElement("span", null, "#" + p.num + " " + p.firstName)),
+                        React.createElement("td", { style: tdStyle }, conv),
+                        React.createElement("td", { style: { ...tdStyle, color: "#16a34a", fontWeight: 700 } }, s.present),
+                        React.createElement("td", { style: { ...tdStyle, color: "#dc2626", fontWeight: 700 } }, s.absent),
+                        React.createElement("td", { style: { ...tdStyle, color: "#f59e0b" } }, s.attente),
+                        React.createElement("td", { style: { ...tdStyle, fontWeight: 800, color: pctColor } }, pct + "%"),
+                        React.createElement("td", { style: { ...tdStyle, color: futureAbs > 0 ? "#dc2626" : "var(--text-dim)" } }, futureAbs > 0 ? futureAbs + " abs." : "-"));
+                })))));
+}
+
 function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     if (!user) return null;
     const player = user.player_id ? PLAYERS.find(p => p.id === user.player_id) : null;
@@ -2602,6 +2716,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                 React.createElement("div", { className: "player-name" }, p.lastName),
                 React.createElement("div", { className: "player-first" }, p.firstName),
                 p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))),
+            React.createElement(AttendancePanel),
             React.createElement(CoachPushPanel),
             React.createElement(CoachPasswordPanel),
             React.createElement("div", { className: "section-title", style: { marginTop: 32 } }, "\uD83D\uDCF1 Mes notifications"),
@@ -2672,6 +2787,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
         note && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCB Note du coach"),
             React.createElement("div", { className: "card", style: { padding: 20, whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 14 } }, note)),
+        React.createElement(AbsencePanel, { user: user }),
         React.createElement("div", { className: "section-title", style: { marginTop: 24 } }, "\uD83D\uDCF1 Notifications"),
         React.createElement("div", { className: "card", style: { padding: 20 } }, React.createElement(PushNotifToggle)));
 }
@@ -3974,7 +4090,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
                 React.createElement("div", { className: "match-detail-vs", style: { textAlign: "center" } },
                     "J", u.journee, " \u2022 ", u.date, u.heure ? [" \u2022 ", u.heure] : null, " \u2022 ", u.lieu),
                 (displayGymnase || displayRdv) && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)", marginTop: 6, lineHeight: 1.6 } },
-                    displayGymnase && React.createElement("div", null, "\uD83C\uDFDF\uFE0F ", displayGymnase),
+                    displayGymnase && React.createElement("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(displayGymnase + " " + u.lieu), target: "_blank", rel: "noopener noreferrer", style: { color: "var(--green-700)", textDecoration: "none", cursor: "pointer" }, title: "Voir sur Google Maps" }, "\uD83C\uDFDF\uFE0F ", displayGymnase, " \uD83D\uDCCD"),
                     displayRdv && React.createElement("div", null, "\u23F0 RDV : ", displayRdv))),
             isHome ? advTeam : espeTeam),
         React.createElement("div", { style: { textAlign: "center", margin: "16px 0 24px", display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", alignItems: "center" } },
@@ -4863,6 +4979,38 @@ function NewsSection({ user }) {
                 React.createElement("button", { onClick: () => deleteNews(n.id), style: { color: "#dc2626" } }, "\uD83D\uDDD1\uFE0F Supprimer")))));
 }
 
+// ── Anniversaires ──
+function BirthdaySection({ onPlayerClick }) {
+    const today = new Date();
+    const todayD = today.getDate(), todayM = today.getMonth() + 1;
+    const birthdays = PLAYERS.map(p => {
+        const parts = p.dob.split("/");
+        const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+        const isToday = d === todayD && m === todayM;
+        let nextBday = new Date(today.getFullYear(), m - 1, d);
+        if (nextBday < new Date(today.getFullYear(), today.getMonth(), today.getDate())) nextBday.setFullYear(today.getFullYear() + 1);
+        const diff = Math.ceil((nextBday - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+        const age = nextBday.getFullYear() - y;
+        return { ...p, isToday, diff, age, bdayStr: d + "/" + (m < 10 ? "0" : "") + m };
+    }).filter(p => p.diff <= 30 || p.isToday).sort((a, b) => a.diff - b.diff);
+    if (birthdays.length === 0) return null;
+    const MONTHS_SHORT = ["", "jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
+    return React.createElement("div", { style: { marginBottom: 32 } },
+        React.createElement("div", { className: "section-title" }, "\uD83C\uDF82 Anniversaires"),
+        React.createElement("div", { style: { display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 } },
+            birthdays.map(p => {
+                const parts = p.dob.split("/");
+                return React.createElement("div", { key: p.id, onClick: () => onPlayerClick && onPlayerClick(p),
+                    style: { minWidth: 120, background: p.isToday ? "linear-gradient(135deg, var(--green-800), var(--green-700))" : "var(--card-bg)", border: p.isToday ? "2px solid var(--green-500)" : "1px solid var(--border)", borderRadius: 14, padding: "14px 12px", textAlign: "center", cursor: "pointer", position: "relative", overflow: "hidden" } },
+                    p.isToday && React.createElement("div", { style: { position: "absolute", top: -4, right: -4, fontSize: 28, transform: "rotate(15deg)" } }, "\uD83C\uDF89"),
+                    React.createElement("div", { style: { width: 44, height: 44, borderRadius: "50%", overflow: "hidden", margin: "0 auto 8px", border: p.isToday ? "2px solid var(--green-400)" : "2px solid var(--border)" } },
+                        React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: p.firstName, style: { width: "100%", height: "100%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } })),
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 13, color: "var(--text-light)" } }, p.firstName),
+                    React.createElement("div", { style: { fontSize: 11, color: "var(--text-dim)", marginTop: 2 } }, p.isToday ? "\uD83C\uDF82 " + p.age + " ans aujourd'hui !" : parseInt(parts[0]) + " " + MONTHS_SHORT[parseInt(parts[1])] + " • " + p.age + " ans"),
+                    !p.isToday && React.createElement("div", { style: { fontSize: 10, color: "var(--green-500)", marginTop: 4, fontWeight: 600 } }, "dans " + p.diff + " jour" + (p.diff > 1 ? "s" : "")));
+            })));
+}
+
 // ── Upcoming List (merged UPCOMING + custom from DB) ──
 function UpcomingList({ onUpcomingClick, customUpcoming }) {
     const all = [...UPCOMING, ...(customUpcoming || [])].sort((a, b) => {
@@ -4926,6 +5074,7 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                     React.createElement("div", { className: "hero-stat-label" }, "Points encaiss\u00E9s")))),
         // Actualités
         React.createElement(NewsSection, { user: user }),
+        React.createElement(BirthdaySection, { onPlayerClick: onPlayerClick }),
         React.createElement("div", { className: "grid-2", style: { marginBottom: 40 } },
             React.createElement("div", null,
                 React.createElement("div", { className: "section-title" }, "Prochains matchs"),

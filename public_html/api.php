@@ -2511,5 +2511,166 @@ case 'send_feedback':
     }
     break;
 
+// ═══ ABSENCES / INDISPONIBILITÉS ═══
+
+case 'declare_absence':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $playerId = (int)($in['player_id'] ?? 0);
+    $dateFrom = trim($in['date_from'] ?? '');
+    $dateTo = trim($in['date_to'] ?? '');
+    $reason = trim($in['reason'] ?? '');
+    if (!$playerId || !$dateFrom) { http_response_code(400); echo json_encode(['error' => 'player_id et date_from requis']); break; }
+    if (!$dateTo) $dateTo = $dateFrom;
+    if (mb_strlen($reason) > 500) $reason = mb_substr($reason, 0, 500);
+    if ($role !== 'coach') {
+        $userPid = $_SESSION['player_id'] ?? null;
+        if ((int)$userPid !== $playerId) { http_response_code(403); echo json_encode(['error' => 'Pas autorisé']); break; }
+    }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS player_absences (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            user_id INT NOT NULL,
+            date_from DATE NOT NULL,
+            date_to DATE NOT NULL,
+            reason VARCHAR(500) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_player (player_id),
+            INDEX idx_dates (date_from, date_to)
+        )");
+        $st = $db->prepare("INSERT INTO player_absences (player_id, user_id, date_from, date_to, reason) VALUES (:pid, :uid, :df, :dt, :r)");
+        $st->execute([':pid' => $playerId, ':uid' => $uid, ':df' => $dateFrom, ':dt' => $dateTo, ':r' => $reason]);
+        $absId = (int)$db->lastInsertId();
+        $playerName = '';
+        foreach ([1=>'Malone',2=>'Tristan',3=>'Gaspard',4=>'Amine',5=>'Diego',6=>'Jonas',7=>'Marceau',8=>'Robin'] as $pid=>$name) {
+            if ($pid === $playerId) { $playerName = $name; break; }
+        }
+        $coaches = $db->query("SELECT id FROM users WHERE role='coach'")->fetchAll(PDO::FETCH_COLUMN);
+        $senderName = $_SESSION['display_name'] ?? 'Parent';
+        foreach ($coaches as $cid) {
+            $sub = "📅 Absence signalée — " . $playerName;
+            $body = "$senderName signale l'absence de $playerName\n\nDu : $dateFrom\nAu : $dateTo" . ($reason ? "\nMotif : $reason" : "");
+            $db->prepare("INSERT INTO messages (sender_id, recipient_id, subject, body, msg_type) VALUES (:s,:r,:sub,:b,'general')")
+               ->execute([':s'=>$uid, ':r'=>$cid, ':sub'=>$sub, ':b'=>$body]);
+            sendPushToUser((int)$cid, '📅 Absence — ' . $playerName, 'Du ' . $dateFrom . ' au ' . $dateTo, '#messagerie');
+        }
+        echo json_encode(['success' => true, 'id' => $absId]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'get_absences':
+    if (!$uid) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS player_absences (
+            id INT AUTO_INCREMENT PRIMARY KEY, player_id INT NOT NULL, user_id INT NOT NULL,
+            date_from DATE NOT NULL, date_to DATE NOT NULL, reason VARCHAR(500) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_player (player_id), INDEX idx_dates (date_from, date_to)
+        )");
+        if ($role === 'coach') {
+            $st = $db->query("SELECT id, player_id, date_from, date_to, reason, created_at FROM player_absences WHERE date_to >= CURDATE() ORDER BY date_from ASC");
+        } else {
+            $playerId = (int)($_SESSION['player_id'] ?? 0);
+            $st = $db->prepare("SELECT id, player_id, date_from, date_to, reason, created_at FROM player_absences WHERE player_id = :pid AND date_to >= CURDATE() ORDER BY date_from ASC");
+            $st->execute([':pid' => $playerId]);
+        }
+        echo json_encode(['success' => true, 'absences' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'delete_absence':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $absId = (int)($in['id'] ?? 0);
+    if (!$absId) { http_response_code(400); echo json_encode(['error' => 'id requis']); break; }
+    try {
+        $db = getDB();
+        if ($role === 'coach') {
+            $db->prepare("DELETE FROM player_absences WHERE id = :id")->execute([':id' => $absId]);
+        } else {
+            $db->prepare("DELETE FROM player_absences WHERE id = :id AND user_id = :uid")->execute([':id' => $absId, ':uid' => $uid]);
+        }
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+// ═══ ASSIDUITÉ / PRÉSENCE ═══
+
+case 'get_attendance_stats':
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    try {
+        $db = getDB();
+        $st = $db->query("SELECT cr.player_id, cr.match_id, cr.response FROM convocation_responses cr ORDER BY cr.player_id, cr.match_id");
+        $stats = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $pid = (int)$r['player_id'];
+            if (!isset($stats[$pid])) $stats[$pid] = ['present' => 0, 'absent' => 0, 'attente' => 0, 'total' => 0, 'matches' => []];
+            $stats[$pid][$r['response']]++;
+            $stats[$pid]['total']++;
+            $stats[$pid]['matches'][] = ['match_id' => $r['match_id'], 'response' => $r['response']];
+        }
+        $convSt = $db->query("SELECT match_id, player_id FROM convocations WHERE convoked = 1 AND player_id > 0");
+        $convoked = [];
+        while ($r = $convSt->fetch(PDO::FETCH_ASSOC)) {
+            $pid = (int)$r['player_id'];
+            if (!isset($convoked[$pid])) $convoked[$pid] = 0;
+            $convoked[$pid]++;
+        }
+        echo json_encode(['success' => true, 'stats' => $stats, 'convocations' => $convoked]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+// ═══ RAPPEL PUSH CRON ═══
+
+case 'cron_match_reminder':
+    $cronKey = trim($_GET['key'] ?? '');
+    if ($cronKey !== 'espe_cron_2026_secure') { http_response_code(403); echo json_encode(['error' => 'Clé invalide']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS cron_reminders_sent (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            match_id VARCHAR(50) NOT NULL,
+            sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_match (match_id)
+        )");
+        $tomorrow = date('d/m/Y', strtotime('+1 day'));
+        $matchesToRemind = [];
+        $hardcoded = [
+            ['id' => 47, 'date' => '08/03/2026', 'adversaire' => 'Reims Champagne Basket - 2', 'heure' => '11:15', 'lieu' => 'Châlons'],
+            ['id' => 64, 'date' => '21/03/2026', 'adversaire' => 'Avenir Sportif Courtisols', 'heure' => '15:00', 'lieu' => 'Courtisols'],
+            ['id' => 75, 'date' => '28/03/2026', 'adversaire' => 'Assoc. Cormontreuil', 'heure' => '13:00', 'lieu' => 'Cormontreuil'],
+            ['id' => 83, 'date' => '04/04/2026', 'adversaire' => 'Gauloise de Vitry', 'heure' => '', 'lieu' => 'Châlons'],
+        ];
+        foreach ($hardcoded as $m) {
+            if ($m['date'] === $tomorrow) $matchesToRemind[] = $m;
+        }
+        try {
+            $st = $db->query("SELECT id, date, heure, lieu, gymnase, adversaire FROM upcoming_matches");
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                if ($r['date'] === $tomorrow) {
+                    $matchesToRemind[] = ['id' => 'custom_' . $r['id'], 'date' => $r['date'], 'adversaire' => $r['adversaire'], 'heure' => $r['heure'], 'lieu' => $r['lieu']];
+                }
+            }
+        } catch (Exception $e) {}
+        $sent = 0;
+        foreach ($matchesToRemind as $m) {
+            $mid = (string)$m['id'];
+            $check = $db->prepare("SELECT id FROM cron_reminders_sent WHERE match_id = :mid");
+            $check->execute([':mid' => $mid]);
+            if ($check->fetch()) continue;
+            $title = "🏀 Rappel match demain !";
+            $body = "vs " . $m['adversaire'] . " — " . $m['date'] . ($m['heure'] ? " à " . $m['heure'] : "") . " — " . $m['lieu'];
+            sendPushToAll($title, $body, '#accueil');
+            $db->prepare("INSERT INTO cron_reminders_sent (match_id) VALUES (:mid)")->execute([':mid' => $mid]);
+            $sent++;
+        }
+        echo json_encode(['success' => true, 'tomorrow' => $tomorrow, 'matches_found' => count($matchesToRemind), 'reminders_sent' => $sent]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
 }
