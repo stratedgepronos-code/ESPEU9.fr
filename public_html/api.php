@@ -2344,5 +2344,69 @@ case 'chat_delete':
     echo json_encode(['success' => true]);
     break;
 
+// ═══ FEEDBACK / REPORT BUG ═══
+case 'send_feedback':
+    $in = json_decode(file_get_contents('php://input'), true);
+    $type = trim((string)($in['type'] ?? ''));
+    $message = trim((string)($in['message'] ?? ''));
+    $page = trim((string)($in['page'] ?? ''));
+
+    if ($message === '') { echo json_encode(['error' => 'Le message est vide.']); break; }
+    if (mb_strlen($message) > 5000) { echo json_encode(['error' => 'Message trop long (max 5000 caractères).']); break; }
+    if (!in_array($type, ['bug', 'idee', 'autre'])) $type = 'autre';
+
+    // Anti-spam : max 3 feedbacks par session toutes les 10 minutes
+    if (!isset($_SESSION['feedback_ts'])) $_SESSION['feedback_ts'] = [];
+    $_SESSION['feedback_ts'] = array_filter($_SESSION['feedback_ts'], function($t){ return $t > time() - 600; });
+    if (count($_SESSION['feedback_ts']) >= 3) { echo json_encode(['error' => 'Trop de messages envoyés, réessaie dans quelques minutes.']); break; }
+    $_SESSION['feedback_ts'][] = time();
+
+    $typeLabels = ['bug' => '🐛 Bug', 'idee' => '💡 Idée', 'autre' => '📝 Autre'];
+    $typeLabel = $typeLabels[$type] ?? $type;
+    $userName = isset($_SESSION['display_name']) ? $_SESSION['display_name'] : 'Visiteur';
+    $userRole = $role ?: 'non connecté';
+    $date = date('d/m/Y H:i');
+
+    $subject = "=?UTF-8?B?" . base64_encode("[ESPE U9] {$typeLabel} — {$userName}") . "?=";
+    $body  = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    $body .= "  ESPE U9 — Feedback\n";
+    $body .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+    $body .= "Type     : {$typeLabel}\n";
+    $body .= "De       : {$userName} ({$userRole})\n";
+    $body .= "Page     : {$page}\n";
+    $body .= "Date     : {$date}\n\n";
+    $body .= "── Message ──────────────────────\n\n";
+    $body .= $message . "\n\n";
+    $body .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+
+    $to = 'sortir08.ag@wanadoo.fr';
+    $headers  = "From: noreply@espeu9.fr\r\n";
+    $headers .= "Reply-To: noreply@espeu9.fr\r\n";
+    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    $headers .= "X-Mailer: ESPE-U9-Feedback\r\n";
+
+    $sent = @mail($to, $subject, $body, $headers);
+    if ($sent) {
+        echo json_encode(['success' => true]);
+    } else {
+        // Fallback : sauvegarder en BDD si mail échoue
+        try {
+            $db = getDB();
+            $db->exec("CREATE TABLE IF NOT EXISTS feedback_log (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                type VARCHAR(20) NOT NULL,
+                user_name VARCHAR(120),
+                user_role VARCHAR(20),
+                page VARCHAR(255),
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $st = $db->prepare("INSERT INTO feedback_log (type, user_name, user_role, page, message) VALUES (:t,:n,:r,:p,:m)");
+            $st->execute([':t'=>$type, ':n'=>$userName, ':r'=>$userRole, ':p'=>$page, ':m'=>$message]);
+        } catch (Exception $e) {}
+        echo json_encode(['success' => true, 'note' => 'saved']);
+    }
+    break;
+
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
 }
