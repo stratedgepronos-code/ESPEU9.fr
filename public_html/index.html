@@ -2772,7 +2772,7 @@ function TrainingCalendar({ selectedDate, onSelect, maxDate }) {
                         isToday && !sel && React.createElement("div", { style: { position: "absolute", bottom: 3, width: 14, height: 2, borderRadius: 2, background: "var(--green-400)" } }));
                 })),
             selectedDate && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.25)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", textAlign: "center" } },
-                React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(selectedDate))))));
+                React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(selectedDate)))));
 }
 
 function AbsencePanel({ user }) {
@@ -5561,7 +5561,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                             React.createElement("span", null, "\uD83C\uDFC0 Entra\u00EEnements"),
                             React.createElement("span", { style: { color: "var(--green-700)" } }, trainPct + "%")),
                         React.createElement("div", { style: { height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 10, overflow: "hidden" } },
-                            React.createElement("div", { style: { width: trainPct + "%", height: "100%", background: "linear-gradient(90deg, var(--gold), var(--green-700))", borderRadius: 10, transition: "width 0.4s ease" } }))))))),
+                            React.createElement("div", { style: { width: trainPct + "%", height: "100%", background: "linear-gradient(90deg, var(--gold), var(--green-700))", borderRadius: 10, transition: "width 0.4s ease" } })))))),
         React.createElement("div", { className: "section-title" }, "Match par match"),
         React.createElement("div", { className: "card", style: { marginBottom: 24, overflow: "auto" } },
             React.createElement("table", { className: "match-hist-table" },

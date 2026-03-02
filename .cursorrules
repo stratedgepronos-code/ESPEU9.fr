@@ -1,0 +1,9 @@
+# ESPE U9 — Règles projet
+
+## Push automatique à chaque fois
+Dès que tu modifies des fichiers (code, config, etc.), tu dois **à la fin de la tâche** exécuter :
+1. `git add -A`
+2. `git commit -m "description claire des changements"`
+3. `git push`
+
+À faire **systématiquement**, sans que l'utilisateur ait à le demander. Répertoire de travail Git : racine du projet (ESPE U9). Utilise PowerShell : séparer les commandes par `;` si besoin (pas `&&`).

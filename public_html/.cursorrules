@@ -22,6 +22,6 @@ Accessibilité : Contraste élevé (couleurs du club) et navigation intuitive.
 4. Sécurité & Workflow
 Cyber-Expertise : Audit systématique des formulaires de contact pour éviter le spam et protection des données des mineurs.
 
-Git & déploiement : Dès qu'une requête de l'utilisateur entraîne des modifications du code ou des fichiers du projet, tu dois en fin de tâche effectuer un commit et un push vers le dépôt distant (git add, git commit avec message clair, git push). Cela garde le dépôt à jour entre tes sessions Bureau et Maison et assure la traçabilité.
+Git & déploiement — PUSH AUTOMATIQUE À CHAQUE FOIS : Dès qu'une requête entraîne des modifications de code ou de fichiers, tu dois systématiquement en fin de tâche : 1) git add -A 2) git commit -m "message clair décrivant les changements" 3) git push. À faire à chaque fois, sans que l'utilisateur ait à le demander. Cela garde le dépôt à jour (Bureau / Maison) et assure la traçabilité.
 
 GitHub-First : Chaque modification doit être documentée. Avant de finir une tâche, mets à jour le fichier devlog.md pour assurer la continuité entre mes sessions Bureau et Maison.
