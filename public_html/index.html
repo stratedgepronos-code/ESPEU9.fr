@@ -2676,7 +2676,9 @@ function AbsenceCalendar({ dateFrom, dateTo, onSelect, onClear }) {
     const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
     const goToday = () => setViewDate(new Date());
     const rangeDays = () => { if (!dateFrom) return 0; if (!dateTo) return 1; return Math.round((new Date(dateTo) - new Date(dateFrom)) / 86400000) + 1; };
-    return React.createElement("div", { style: { background: "linear-gradient(145deg, #0b1f10 0%, #0d2a15 50%, #071a0b 100%)", border: "1px solid rgba(200,168,50,0.12)", borderRadius: 16, padding: "14px 10px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)", maxWidth: 320, margin: "0 auto" } },
+    return React.createElement("div", { style: { background: "linear-gradient(145deg, #0b1f10 0%, #0d2a15 50%, #071a0b 100%)", border: "1px solid rgba(200,168,50,0.12)", borderRadius: 16, padding: "14px 10px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)", maxWidth: 320, margin: "0 auto", position: "relative", overflow: "hidden" } },
+        React.createElement("img", { src: "/images/logo-espe.png", alt: "", style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "65%", opacity: 0.06, pointerEvents: "none", filter: "grayscale(0.3)" } }),
+        React.createElement("div", { style: { position: "relative", zIndex: 1 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" } },
             React.createElement("button", { onClick: prevMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2039"),
             React.createElement("div", { style: { textAlign: "center" } },
@@ -2719,7 +2721,7 @@ function AbsenceCalendar({ dateFrom, dateTo, onSelect, onClear }) {
                     dateTo && React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(dateTo)),
                     dateTo && React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", marginLeft: 2 } }, rangeDays() + "j")),
                 React.createElement("div", { style: { display: "flex", gap: 4 } },
-                    React.createElement("button", { onClick: () => onClear("all"), title: "Tout effacer", style: { width: 24, height: 24, borderRadius: "50%", background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2715")))));
+                    React.createElement("button", { onClick: () => onClear("all"), title: "Tout effacer", style: { width: 24, height: 24, borderRadius: "50%", background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2715"))))));
 }
 
 function AbsencePanel({ user }) {
