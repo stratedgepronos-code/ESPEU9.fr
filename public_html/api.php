@@ -2685,6 +2685,58 @@ case 'set_training_attendance':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
+case 'get_training_stats':
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS training_presence (id INT AUTO_INCREMENT PRIMARY KEY, session_date DATE NOT NULL, player_id INT NOT NULL, present TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uk_session_player (session_date, player_id))");
+        $st = $db->query("SELECT player_id, session_date, present FROM training_presence ORDER BY player_id, session_date");
+        $byPlayer = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $pid = (int)$r['player_id'];
+            if (!isset($byPlayer[$pid])) $byPlayer[$pid] = ['sessions' => 0, 'present' => 0];
+            $byPlayer[$pid]['sessions']++;
+            if ((int)$r['present']) $byPlayer[$pid]['present']++;
+        }
+        echo json_encode(['success' => true, 'stats' => $byPlayer]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'get_player_presence':
+    if (!$uid) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    $pid = (int)($_GET['player_id'] ?? 0);
+    if ($pid <= 0) { echo json_encode(['success' => false, 'error' => 'player_id requis']); break; }
+    if ($role !== 'coach' && ($role !== 'parent' || (int)($_SESSION['player_id'] ?? 0) !== $pid)) {
+        http_response_code(403); echo json_encode(['error' => 'Non autorisé']); break;
+    }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS training_presence (id INT AUTO_INCREMENT PRIMARY KEY, session_date DATE NOT NULL, player_id INT NOT NULL, present TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uk_session_player (session_date, player_id))");
+        $matchTotal = 0; $matchPresent = 0;
+        $st = $db->prepare("SELECT response FROM convocation_responses WHERE player_id = :pid");
+        $st->execute([':pid' => $pid]);
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $matchTotal++;
+            if ($r['response'] === 'present') $matchPresent++;
+        }
+        $trainSessions = 0; $trainPresent = 0;
+        $st = $db->prepare("SELECT session_date, present FROM training_presence WHERE player_id = :pid");
+        $st->execute([':pid' => $pid]);
+        $seen = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            if (!isset($seen[$r['session_date']])) { $seen[$r['session_date']] = true; $trainSessions++; }
+            if ((int)$r['present']) $trainPresent++;
+        }
+        echo json_encode([
+            'success' => true,
+            'match_total' => $matchTotal,
+            'match_present' => $matchPresent,
+            'training_sessions' => $trainSessions,
+            'training_present' => $trainPresent
+        ]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 // ═══ RAPPEL PUSH CRON ═══
 
 case 'cron_match_reminder':

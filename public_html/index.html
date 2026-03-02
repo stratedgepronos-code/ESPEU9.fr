@@ -2724,6 +2724,57 @@ function AbsenceCalendar({ dateFrom, dateTo, onSelect, onClear }) {
                     React.createElement("button", { onClick: () => onClear("all"), title: "Tout effacer", style: { width: 24, height: 24, borderRadius: "50%", background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2715"))))));
 }
 
+// Calendrier une date (même style qu'AbsenceCalendar) pour choix date entraînement
+function TrainingCalendar({ selectedDate, onSelect, maxDate }) {
+    const [viewDate, setViewDate] = useState(() => selectedDate ? new Date(selectedDate + "T12:00:00") : new Date());
+    const MONTHS = ["Janvier","F\u00E9vrier","Mars","Avril","Mai","Juin","Juillet","Ao\u00FBt","Septembre","Octobre","Novembre","D\u00E9cembre"];
+    const DAYS_FULL = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+    const year = viewDate.getFullYear(), month = viewDate.getMonth();
+    let startWeekday = new Date(year, month, 1).getDay() - 1; if (startWeekday < 0) startWeekday = 6;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const pad = n => n < 10 ? "0" + n : "" + n;
+    const toIso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const toFr = iso => { if (!iso) return ""; const p = iso.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
+    const cells = [];
+    for (let i = 0; i < startWeekday; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    while (cells.length % 7 !== 0) cells.push(null);
+    const isPast = (d) => d && (maxDate ? toIso(d) > maxDate : d < today);
+    const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+    const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+    return React.createElement("div", { style: { background: "linear-gradient(145deg, #0b1f10 0%, #0d2a15 50%, #071a0b 100%)", border: "1px solid rgba(200,168,50,0.12)", borderRadius: 16, padding: "14px 10px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)", maxWidth: 320, margin: "0 auto", position: "relative", overflow: "hidden" } },
+        React.createElement("img", { src: "/images/logo-espe.png", alt: "", style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "65%", opacity: 0.06, pointerEvents: "none", filter: "grayscale(0.3)" } }),
+        React.createElement("div", { style: { position: "relative", zIndex: 1 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" } },
+                React.createElement("button", { type: "button", onClick: prevMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2039"),
+                React.createElement("div", { style: { textAlign: "center" } },
+                    React.createElement("div", { style: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1.5, color: "white", lineHeight: 1 } }, MONTHS[month]),
+                    React.createElement("div", { style: { fontSize: 11, color: "var(--gold-light)", fontWeight: 600, marginTop: 1 } }, year)),
+                React.createElement("button", { type: "button", onClick: nextMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u203A")),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 } },
+                DAYS_FULL.map((d, i) => React.createElement("div", { key: "d"+i, style: { textAlign: "center", fontSize: 10, fontWeight: 700, color: i >= 5 ? "rgba(200,168,50,0.6)" : "var(--text-dim)", padding: "4px 0", textTransform: "uppercase", letterSpacing: 0.3 } }, d))),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 } },
+                cells.map((d, i) => {
+                    if (!d) return React.createElement("div", { key: "e"+i, style: { aspectRatio: "1", minHeight: 32 } });
+                    const past = isPast(d);
+                    const sel = toIso(d) === selectedDate;
+                    const isToday = toIso(d) === toIso(today);
+                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                    let bg = "rgba(255,255,255,0.02)", clr = isWeekend ? "rgba(255,255,255,0.6)" : "var(--text-light)", brd = "1px solid transparent", fw = 400, shd = "none";
+                    if (past) { clr = "rgba(255,255,255,0.15)"; bg = "transparent"; }
+                    else if (sel) { bg = "linear-gradient(135deg, var(--green-600), var(--green-700))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35)"; }
+                    if (isToday && !sel) brd = "2px solid var(--green-400)";
+                    return React.createElement("button", { key: i, type: "button", disabled: past,
+                        onClick: () => !past && onSelect(toIso(d)),
+                        style: { position: "relative", aspectRatio: "1", minHeight: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "10px", background: bg, color: clr, border: brd, fontWeight: fw, fontSize: 13, fontFamily: "inherit", cursor: past ? "default" : "pointer", transition: "all 0.2s", boxShadow: shd } },
+                        d.getDate(),
+                        isToday && !sel && React.createElement("div", { style: { position: "absolute", bottom: 3, width: 14, height: 2, borderRadius: 2, background: "var(--green-400)" } }));
+                })),
+            selectedDate && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.25)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", textAlign: "center" } },
+                React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(selectedDate))))));
+}
+
 function AbsencePanel({ user }) {
     const [absences, setAbsences] = useState([]);
     const [showForm, setShowForm] = useState(false);
@@ -2798,14 +2849,17 @@ function AbsencePanel({ user }) {
 function AttendancePanel() {
     const [stats, setStats] = useState(null);
     const [convoked, setConvoked] = useState({});
+    const [trainingStats, setTrainingStats] = useState({});
     const [absences, setAbsences] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
         Promise.all([
             fetch(API_URL + "?action=get_attendance_stats", { credentials: "same-origin" }).then(r => r.json()),
+            fetch(API_URL + "?action=get_training_stats", { credentials: "same-origin" }).then(r => r.json()),
             fetch(API_URL + "?action=get_absences", { credentials: "same-origin" }).then(r => r.json())
-        ]).then(([att, abs]) => {
+        ]).then(([att, train, abs]) => {
             if (att.success) { setStats(att.stats || {}); setConvoked(att.convocations || {}); }
+            if (train.success) setTrainingStats(train.stats || {});
             if (abs.success) setAbsences(abs.absences || []);
             setLoading(false);
         }).catch(() => setLoading(false));
@@ -2826,13 +2880,18 @@ function AttendancePanel() {
                         React.createElement("th", { style: thStyle }, "\u274C"),
                         React.createElement("th", { style: thStyle }, "\u23F3"),
                         React.createElement("th", { style: thStyle }, "% Pr\u00E9s."),
+                        React.createElement("th", { style: thStyle }, "Entr."),
                         React.createElement("th", { style: thStyle }, "Abs. \u00E0 venir"))),
                 React.createElement("tbody", null, PLAYERS.map(p => {
                     const s = stats[p.id] || { present: 0, absent: 0, attente: 0, total: 0 };
+                    const ts = trainingStats[p.id] || { sessions: 0, present: 0 };
                     const conv = convoked[p.id] || 0;
                     const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
+                    const trainPct = ts.sessions > 0 ? Math.round((ts.present / ts.sessions) * 100) : 0;
+                    const trainLabel = ts.sessions > 0 ? ts.present + "/" + ts.sessions : "-";
                     const futureAbs = absences.filter(a => a.player_id == p.id).length;
                     const pctColor = pct >= 80 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
+                    const trainColor = ts.sessions === 0 ? "var(--text-dim)" : trainPct >= 80 ? "#16a34a" : trainPct >= 50 ? "#f59e0b" : "#dc2626";
                     return React.createElement("tr", { key: p.id },
                         React.createElement("td", { style: { ...tdStyle, textAlign: "left", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 } },
                             React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
@@ -2842,11 +2901,12 @@ function AttendancePanel() {
                         React.createElement("td", { style: { ...tdStyle, color: "#dc2626", fontWeight: 700 } }, s.absent),
                         React.createElement("td", { style: { ...tdStyle, color: "#f59e0b" } }, s.attente),
                         React.createElement("td", { style: { ...tdStyle, fontWeight: 800, color: pctColor } }, pct + "%"),
+                        React.createElement("td", { style: { ...tdStyle, fontWeight: 700, color: trainColor } }, trainLabel),
                         React.createElement("td", { style: { ...tdStyle, color: futureAbs > 0 ? "#dc2626" : "var(--text-dim)" } }, futureAbs > 0 ? futureAbs + " abs." : "-"));
                 })))));
 }
 
-// ── Présence à l'entraînement (coach) : liste joueurs + cases à cocher par séance ──
+// ── Présence à l'entraînement (coach) : calendrier + liste joueurs + cases à cocher ──
 function TrainingAttendancePanel() {
     const [trainingDates, setTrainingDates] = useState([]);
     const [selectedDate, setSelectedDate] = useState("");
@@ -2854,6 +2914,7 @@ function TrainingAttendancePanel() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState("");
+    const today = new Date().toISOString().slice(0, 10);
     const loadDates = function() {
         fetch(API_URL + "?action=get_training_dates", { credentials: "same-origin" })
             .then(r => r.json())
@@ -2888,36 +2949,26 @@ function TrainingAttendancePanel() {
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 setSaving(false);
-                if (d.success) { setMsg("Enregistré."); loadDates(); } else setMsg(d.error || "Erreur");
+                if (d.success) { setMsg("Enregistr\u00E9."); loadDates(); } else setMsg(d.error || "Erreur");
             })
-            .catch(function() { setSaving(false); setMsg("Erreur réseau"); });
+            .catch(function() { setSaving(false); setMsg("Erreur r\u00E9seau"); });
     };
-    var today = new Date().toISOString().slice(0, 10);
     if (loading) return React.createElement("div", { style: { textAlign: "center", padding: 20, color: "var(--text-dim)" } }, "Chargement...");
+    var btnSaveStyle = { padding: "12px 24px", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: saving ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 8, transition: "all 0.2s", background: saving ? "#94a3b8" : "linear-gradient(135deg, var(--green-700) 0%, #145a28 100%)", color: "white", boxShadow: saving ? "none" : "0 4px 14px rgba(26,107,46,0.4)" };
     return React.createElement("div", { style: { marginBottom: 24 } },
         React.createElement("div", { className: "section-title" }, "\uD83C\uDFC0 Pr\u00E9sence \u00E0 l'entra\u00EEnement"),
         React.createElement("div", { className: "card", style: { padding: 20 } },
-            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginBottom: 16 } },
-                React.createElement("label", { style: { fontWeight: 600, fontSize: 14 } }, "Date de l'entra\u00EEnement :"),
-                React.createElement("input", {
-                    type: "date",
-                    value: selectedDate,
-                    max: today,
-                    onChange: function(e) { setSelectedDate(e.target.value); },
-                    style: { padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }
-                }),
-                trainingDates.length > 0 && React.createElement("span", { style: { fontSize: 13, color: "var(--text-dim)" } }, "Ou s\u00E9lectionner :"),
+            React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12, textAlign: "center" } }, "Choisis la date de l'entra\u00EEnement sur le calendrier"),
+            React.createElement(TrainingCalendar, { selectedDate: selectedDate, onSelect: setSelectedDate, maxDate: today }),
+            trainingDates.length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } },
+                React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)", alignSelf: "center" } }, "R\u00E9cents :"),
                 trainingDates.slice(0, 5).map(function(d) {
                     return React.createElement("button", {
-                        key: d,
-                        type: "button",
-                        onClick: function() { setSelectedDate(d); },
-                        style: {
-                            padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: selectedDate === d ? "var(--green-700)" : "#fff", color: selectedDate === d ? "#fff" : "var(--text)", fontSize: 13, cursor: "pointer"
-                        }
+                        key: d, type: "button", onClick: function() { setSelectedDate(d); },
+                        style: { padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: selectedDate === d ? "var(--green-700)" : "var(--card-bg)", color: selectedDate === d ? "#fff" : "var(--text)", fontSize: 12, cursor: "pointer" }
                     }, d);
                 })),
-            selectedDate && React.createElement("div", { style: { marginTop: 16 } },
+            selectedDate && React.createElement("div", { style: { marginTop: 20 } },
                 React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } }, "Cocher les pr\u00E9sents \u00E0 l'entra\u00EEnement du ", selectedDate),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, PLAYERS.map(function(p) {
                     var present = attendance[p.id] !== false;
@@ -2925,22 +2976,13 @@ function TrainingAttendancePanel() {
                         key: p.id,
                         style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 8, background: present ? "rgba(26,107,46,0.08)" : "rgba(220,38,38,0.06)" }
                     },
-                        React.createElement("input", {
-                            type: "checkbox",
-                            checked: present,
-                            onChange: function() { togglePlayer(p.id); }
-                        }),
+                        React.createElement("input", { type: "checkbox", checked: present, onChange: function() { togglePlayer(p.id); } }),
                         React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
                         React.createElement("span", { style: { fontWeight: 600 } }, "#" + p.num + " " + p.firstName + " " + p.lastName));
                 })),
-                React.createElement("div", { style: { marginTop: 16, display: "flex", alignItems: "center", gap: 12 } },
-                    React.createElement("button", {
-                        type: "button",
-                        onClick: save,
-                        disabled: saving,
-                        className: "btn-primary",
-                        style: { padding: "10px 20px" }
-                    }, saving ? "Enregistrement..." : "Enregistrer la pr\u00E9sence"),
+                React.createElement("div", { style: { marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" } },
+                    React.createElement("button", { type: "button", onClick: save, disabled: saving, style: btnSaveStyle },
+                        saving ? "\u23F3 Enregistrement..." : "\u2705 Enregistrer la pr\u00E9sence"),
                     msg && React.createElement("span", { style: { fontSize: 14, color: msg.indexOf("Erreur") >= 0 ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)))));
 }
 
@@ -5444,10 +5486,20 @@ function PlayersPage({ onSelect }) {
             React.createElement("div", { className: "player-first" }, p.firstName),
             p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))))));
 }
-// PLAYER DETAIL — with coach notes
+// PLAYER DETAIL — with coach notes + graphique présence
 function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
     const stats = getPlayerTotalStats(player.num, matches);
     const [saveStatus, setSaveStatus] = useState("");
+    const [presence, setPresence] = useState(null);
+    useEffect(function() {
+        fetch(API_URL + "?action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.success) setPresence(d); })
+            .catch(function() {});
+    }, [player.id]);
+    var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
+    var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
+    var hasPresence = (matchPct !== null || trainPct !== null);
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
         React.createElement("div", { className: "detail-header" },
@@ -5494,6 +5546,22 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
             React.createElement("div", { className: "detail-stat-box" },
                 React.createElement("div", { className: "detail-stat-val" }, stats.totalFautes),
                 React.createElement("div", { className: "detail-stat-label" }, "Fautes"))),
+        hasPresence && React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Pr\u00E9sence match / entra\u00EEnement"),
+            React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
+                    matchPct !== null && React.createElement("div", null,
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, fontWeight: 600 } },
+                            React.createElement("span", null, "\uD83C\uDFC0 Matchs (convocations)"),
+                            React.createElement("span", { style: { color: "var(--green-700)" } }, matchPct + "%")),
+                        React.createElement("div", { style: { height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 10, overflow: "hidden" } },
+                            React.createElement("div", { style: { width: matchPct + "%", height: "100%", background: "linear-gradient(90deg, var(--green-500), var(--green-700))", borderRadius: 10, transition: "width 0.4s ease" } }))),
+                    trainPct !== null && React.createElement("div", null,
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, fontWeight: 600 } },
+                            React.createElement("span", null, "\uD83C\uDFC0 Entra\u00EEnements"),
+                            React.createElement("span", { style: { color: "var(--green-700)" } }, trainPct + "%")),
+                        React.createElement("div", { style: { height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 10, overflow: "hidden" } },
+                            React.createElement("div", { style: { width: trainPct + "%", height: "100%", background: "linear-gradient(90deg, var(--gold), var(--green-700))", borderRadius: 10, transition: "width 0.4s ease" } }))))))),
         React.createElement("div", { className: "section-title" }, "Match par match"),
         React.createElement("div", { className: "card", style: { marginBottom: 24, overflow: "auto" } },
             React.createElement("table", { className: "match-hist-table" },
