@@ -4772,8 +4772,7 @@ function App() {
                 tab === "compte" && user && React.createElement(AccountPage, { user: user, coachNotes: coachNotes, onPlayerClick: goPlayer, matches: matches }),
                 tab === "mentions-legales" && React.createElement(MentionsLegalesPage),
                 tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage)),
-            React.createElement(FooterAnimated, { switchTab: switchTab, user: user, cookieAccepted: cookieAccepted, setCookieAccepted: setCookieAccepted })),
-            // Cookie banner
+            React.createElement(FooterAnimated, { switchTab: switchTab, user: user }),
             !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
                 React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
                 React.createElement("button", { onClick: () => setCookieAccepted(true) }, "Compris !"))));
