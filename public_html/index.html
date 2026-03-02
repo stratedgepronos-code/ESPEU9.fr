@@ -2655,65 +2655,76 @@ function CoachPasswordPanel() {
 function AbsenceCalendar({ dateFrom, dateTo, onSelect, onClear }) {
     const [viewDate, setViewDate] = useState(() => new Date());
     const MONTHS = ["Janvier","F\u00E9vrier","Mars","Avril","Mai","Juin","Juillet","Ao\u00FBt","Septembre","Octobre","Novembre","D\u00E9cembre"];
-    const DAYS = ["Lu","Ma","Me","Je","Ve","Sa","Di"];
+    const DAYS_SHORT = ["L","M","M","J","V","S","D"];
+    const DAYS_FULL = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
     const year = viewDate.getFullYear(), month = viewDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    let startWeekday = firstDay.getDay() - 1; if (startWeekday < 0) startWeekday = 6;
+    let startWeekday = new Date(year, month, 1).getDay() - 1; if (startWeekday < 0) startWeekday = 6;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = new Date(); today.setHours(0,0,0,0);
     const pad = n => n < 10 ? "0" + n : "" + n;
-    const toStr = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const toIso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const toFr = iso => { if (!iso) return ""; const p = iso.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
     const cells = [];
     for (let i = 0; i < startWeekday; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
-    const isInRange = (d) => {
-        if (!d || !dateFrom) return false;
-        const ds = toStr(d);
-        if (!dateTo) return ds === dateFrom;
-        return ds >= dateFrom && ds <= dateTo;
-    };
-    const isStart = (d) => d && dateFrom && toStr(d) === dateFrom;
-    const isEnd = (d) => d && dateTo && toStr(d) === dateTo;
+    while (cells.length % 7 !== 0) cells.push(null);
+    const isInRange = (d) => { if (!d || !dateFrom) return false; const ds = toIso(d); if (!dateTo) return ds === dateFrom; return ds >= dateFrom && ds <= dateTo; };
+    const isStart = (d) => d && dateFrom && toIso(d) === dateFrom;
+    const isEnd = (d) => d && dateTo && toIso(d) === dateTo;
     const isPast = (d) => d && d < today;
-    const cellSize = 38;
-    const headerS = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
-    const arrowS = { background: "none", border: "none", color: "var(--gold-light)", fontSize: 20, cursor: "pointer", padding: "4px 10px", borderRadius: 6, transition: "background 0.2s" };
-    const monthS = { fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1, color: "var(--text-light)" };
-    const dayHeaderS = { width: cellSize, textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--text-dim)", padding: "4px 0" };
-    const dateSelected = dateFrom ? (dateTo ? dateFrom + " \u2192 " + dateTo : dateFrom) : "";
-    return React.createElement("div", { style: { background: "linear-gradient(135deg, rgba(10,31,13,0.95), rgba(15,40,20,0.98))", border: "1px solid rgba(200,168,50,0.15)", borderRadius: 16, padding: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" } },
-        React.createElement("div", { style: headerS },
-            React.createElement("button", { onClick: () => setViewDate(new Date(year, month - 1, 1)), style: arrowS }, "\u2039"),
-            React.createElement("span", { style: monthS }, MONTHS[month] + " " + year),
-            React.createElement("button", { onClick: () => setViewDate(new Date(year, month + 1, 1)), style: arrowS }, "\u203A")),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, " + cellSize + "px)", justifyContent: "center", gap: 2 } },
-            DAYS.map(d => React.createElement("div", { key: d, style: dayHeaderS }, d)),
+    const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+    const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+    const goToday = () => setViewDate(new Date());
+    const rangeDays = () => { if (!dateFrom) return 0; if (!dateTo) return 1; return Math.round((new Date(dateTo) - new Date(dateFrom)) / 86400000) + 1; };
+    return React.createElement("div", { style: { background: "linear-gradient(145deg, #0b1f10 0%, #0d2a15 50%, #071a0b 100%)", border: "1px solid rgba(200,168,50,0.12)", borderRadius: 20, padding: "20px 16px 16px", boxShadow: "0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" } },
+        // Header navigation
+        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, padding: "0 4px" } },
+            React.createElement("button", { onClick: prevMonth, style: { width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2039"),
+            React.createElement("div", { style: { textAlign: "center" } },
+                React.createElement("div", { style: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 2, color: "white", lineHeight: 1 } }, MONTHS[month]),
+                React.createElement("div", { style: { fontSize: 12, color: "var(--gold-light)", fontWeight: 600, marginTop: 2 } }, year)),
+            React.createElement("button", { onClick: nextMonth, style: { width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u203A")),
+        // Days header
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 6 } },
+            DAYS_FULL.map((d, i) => React.createElement("div", { key: d + i, style: { textAlign: "center", fontSize: 11, fontWeight: 700, color: i >= 5 ? "rgba(200,168,50,0.6)" : "var(--text-dim)", padding: "6px 0", textTransform: "uppercase", letterSpacing: 0.5 } }, d))),
+        // Calendar grid
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 } },
             cells.map((d, i) => {
-                if (!d) return React.createElement("div", { key: "e" + i, style: { width: cellSize, height: cellSize } });
+                if (!d) return React.createElement("div", { key: "e" + i, style: { aspectRatio: "1", minHeight: 38 } });
                 const past = isPast(d);
                 const inR = isInRange(d);
                 const start = isStart(d);
                 const end = isEnd(d);
-                const isToday = toStr(d) === toStr(today);
-                let bg = "transparent", color = "var(--text-light)", border = "1px solid transparent", fontW = 400, shadow = "none";
-                if (past) { color = "rgba(255,255,255,0.2)"; }
-                else if (start || end) { bg = "var(--green-700)"; color = "white"; fontW = 800; border = "1px solid var(--gold-light)"; shadow = "0 0 12px rgba(200,168,50,0.3)"; }
-                else if (inR) { bg = "rgba(26,107,46,0.35)"; color = "white"; fontW = 600; }
-                if (isToday && !start && !end) { border = "1px solid var(--green-500)"; }
+                const isToday = toIso(d) === toIso(today);
+                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                let bg = "rgba(255,255,255,0.02)", clr = isWeekend ? "rgba(255,255,255,0.6)" : "var(--text-light)", brd = "1px solid transparent", fw = 400, shd = "none", scale = "scale(1)";
+                if (past) { clr = "rgba(255,255,255,0.15)"; bg = "transparent"; }
+                else if (start && end) { bg = "linear-gradient(135deg, var(--green-600), var(--green-700))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35), 0 4px 12px rgba(26,107,46,0.4)"; scale = "scale(1.08)"; }
+                else if (start) { bg = "linear-gradient(135deg, var(--green-600), var(--green-700))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35)"; scale = "scale(1.05)"; }
+                else if (end) { bg = "linear-gradient(135deg, var(--green-700), var(--green-600))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35)"; scale = "scale(1.05)"; }
+                else if (inR) { bg = "rgba(26,107,46,0.3)"; clr = "white"; fw = 600; brd = "1px solid rgba(26,107,46,0.4)"; }
+                if (isToday && !start && !end) { brd = "2px solid var(--green-400)"; }
+                const radius = start ? "12px 6px 6px 12px" : end ? "6px 12px 12px 6px" : (inR ? "4px" : "10px");
                 return React.createElement("button", { key: i, disabled: past,
-                    onClick: () => !past && onSelect(toStr(d)),
-                    style: { width: cellSize, height: cellSize, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: start ? "10px 4px 4px 10px" : end ? "4px 10px 10px 4px" : (inR ? 4 : 10), background: bg, color, border, fontWeight: fontW, fontSize: 14, fontFamily: "inherit", cursor: past ? "default" : "pointer", transition: "all 0.15s", boxShadow: shadow, position: "relative" } },
+                    onClick: () => !past && onSelect(toIso(d)),
+                    style: { aspectRatio: "1", minHeight: 38, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", borderRadius: radius, background: bg, color: clr, border: brd, fontWeight: fw, fontSize: 15, fontFamily: "inherit", cursor: past ? "default" : "pointer", transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)", boxShadow: shd, position: "relative", transform: scale } },
                     d.getDate(),
-                    isToday && React.createElement("span", { style: { position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "var(--green-500)" } }));
+                    isToday && React.createElement("div", { style: { position: "absolute", bottom: 3, width: 14, height: 2, borderRadius: 2, background: "var(--green-400)" } }));
             })),
-        (dateFrom || dateTo) && React.createElement("div", { style: { marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 } },
-            React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)" } },
-                dateFrom && React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12, marginRight: 6 } }, "D\u00E9but : " + dateFrom),
-                dateTo && React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12 } }, "Fin : " + dateTo)),
-            React.createElement("div", { style: { display: "flex", gap: 6 } },
-                dateFrom && React.createElement("button", { onClick: () => onClear("from"), style: { background: "none", border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 } }, "\u2715 D\u00E9but"),
-                dateTo && React.createElement("button", { onClick: () => onClear("to"), style: { background: "none", border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 } }, "\u2715 Fin"),
-                React.createElement("button", { onClick: () => onClear("all"), style: { background: "none", border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 } }, "\u2715 Tout"))));
+        // Selection summary
+        React.createElement("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(0,0,0,0.25)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.04)" } },
+            !dateFrom && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)" } }, "\uD83D\uDC46 S\u00E9lectionne le premier jour d'absence"),
+            dateFrom && !dateTo && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)" } }, "\uD83D\uDC46 S\u00E9lectionne le dernier jour, ou valide pour 1 seul jour"),
+            dateFrom && React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: dateFrom && !dateTo ? 8 : 0 } },
+                React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } },
+                    React.createElement("span", { style: { background: "linear-gradient(135deg, var(--green-700), var(--green-600))", color: "white", padding: "5px 12px", borderRadius: 8, fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4, boxShadow: "0 2px 8px rgba(26,107,46,0.3)" } }, "\uD83D\uDCC5 " + toFr(dateFrom)),
+                    dateTo && React.createElement("span", { style: { color: "var(--gold-light)", fontSize: 16 } }, "\u2192"),
+                    dateTo && React.createElement("span", { style: { background: "linear-gradient(135deg, var(--green-700), var(--green-600))", color: "white", padding: "5px 12px", borderRadius: 8, fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4, boxShadow: "0 2px 8px rgba(26,107,46,0.3)" } }, "\uD83D\uDCC5 " + toFr(dateTo)),
+                    dateTo && React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", marginLeft: 4 } }, "(" + rangeDays() + " jour" + (rangeDays() > 1 ? "s" : "") + ")")),
+                React.createElement("div", { style: { display: "flex", gap: 4 } },
+                    dateFrom && React.createElement("button", { onClick: () => onClear("from"), title: "Supprimer d\u00E9but", style: { width: 28, height: 28, borderRadius: "50%", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2715"),
+                    dateTo && React.createElement("button", { onClick: () => onClear("to"), title: "Supprimer fin", style: { width: 28, height: 28, borderRadius: "50%", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2715"),
+                    React.createElement("button", { onClick: () => onClear("all"), title: "Tout effacer", style: { width: 28, height: 28, borderRadius: "50%", background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.4)", color: "#ef4444", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, transition: "all 0.2s" } }, "\uD83D\uDDD1")))));
 }
 
 function AbsencePanel({ user }) {

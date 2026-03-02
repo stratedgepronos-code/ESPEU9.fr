@@ -2,6 +2,7 @@
 /**
  * ESPE BASKET U9 — API v5 : Sécurisée
  */
+date_default_timezone_set('Europe/Paris');
 require_once 'config.php';
 
 // ═══ FAILLE 9 — Session sécurisée ═══

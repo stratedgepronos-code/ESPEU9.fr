@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Europe/Paris');
 require_once 'config.php';
 require_once 'web_push.php';
 session_start();
