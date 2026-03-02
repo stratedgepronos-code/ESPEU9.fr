@@ -1,59 +1,67 @@
-// ═══ ESPE BASKET U9 — Service Worker v2.0 ═══
-// Gère les notifications push et le clic sur notification
-var SW_VERSION = '2.0';
+// ═══ ESPE BASKET U9 — Service Worker v3.1 ═══
+var SW_VERSION = '3.1';
+var NOTIFICATION_TAG = 'espe-u9-notif';
 
 // ── RÉCEPTION D'UN PUSH ──────────────────────────────────────────
 self.addEventListener('push', function(event) {
-    // Valeurs par défaut (au cas où le payload est vide ou corrompu)
-    var title = '🏀 ESPE U9';
+    var title = '\uD83C\uDFC0 ESPE U9';
     var options = {
         body: 'Nouvelle notification',
         icon: 'https://espeu9.fr/images/logo-espe.png',
         badge: 'https://espeu9.fr/images/logo-espe.png',
         vibrate: [200, 100, 200],
-        tag: 'espe-u9-' + Date.now(),
+        tag: NOTIFICATION_TAG,
         renotify: true,
         requireInteraction: false,
         data: { url: 'https://espeu9.fr/' }
     };
 
-    // Essayer de lire le payload chiffré
-    if (event.data) {
-        try {
-            var data = event.data.json();
-            if (data.title) title = data.title;
-            if (data.body) options.body = data.body;
-            if (data.icon) options.icon = data.icon;
-            if (data.badge) options.badge = data.badge;
+    var notifPromise;
 
-            // Construire l'URL de redirection
-            if (data.data && data.data.url) {
-                var targetUrl = data.data.url;
-                if (targetUrl.charAt(0) === '#') {
-                    targetUrl = 'https://espeu9.fr/' + targetUrl;
-                } else if (targetUrl.indexOf('http') !== 0) {
-                    targetUrl = 'https://espeu9.fr' + targetUrl;
+    try {
+        if (event.data) {
+            var rawText = '';
+            try { rawText = event.data.text(); } catch(e) {}
+
+            if (rawText && rawText.length > 2) {
+                try {
+                    var data = JSON.parse(rawText);
+                    if (data.title) title = data.title;
+                    if (data.body) options.body = data.body;
+                    if (data.icon) options.icon = data.icon;
+                    if (data.badge) options.badge = data.badge;
+
+                    // Tag basé sur le contenu pour éviter les doublons
+                    options.tag = NOTIFICATION_TAG + '-' + (data.title || '').substring(0, 20).replace(/\s/g, '');
+
+                    if (data.data && data.data.url) {
+                        var targetUrl = data.data.url;
+                        if (targetUrl.charAt(0) === '#') {
+                            targetUrl = 'https://espeu9.fr/' + targetUrl;
+                        } else if (targetUrl.indexOf('http') !== 0) {
+                            targetUrl = 'https://espeu9.fr' + targetUrl;
+                        }
+                        options.data.url = targetUrl;
+                    }
+                } catch(jsonErr) {
+                    options.body = rawText.substring(0, 200);
+                    options.tag = NOTIFICATION_TAG + '-text';
                 }
-                options.data.url = targetUrl;
-            }
-        } catch (e) {
-            // Si le JSON échoue, essayer en texte brut
-            try {
-                var txt = event.data.text();
-                if (txt && txt.length > 0) {
-                    options.body = txt.substring(0, 200);
-                }
-            } catch (e2) {
-                // Garder les valeurs par défaut
             }
         }
+
+        // Fermer les anciennes notifications avant d'en montrer une nouvelle
+        notifPromise = self.registration.getNotifications({ tag: options.tag })
+            .then(function(existing) {
+                existing.forEach(function(n) { n.close(); });
+                return self.registration.showNotification(title, options);
+            });
+    } catch(outerErr) {
+        // Fallback absolu : toujours montrer quelque chose
+        notifPromise = self.registration.showNotification(title, options);
     }
 
-    // TOUJOURS afficher une notification
-    // Sans ça, Chrome affiche "Appuyez pour copier l'URL"
-    event.waitUntil(
-        self.registration.showNotification(title, options)
-    );
+    event.waitUntil(notifPromise);
 });
 
 // ── CLIC SUR NOTIFICATION → OUVRIR LE SITE ─────────────────────
@@ -68,7 +76,6 @@ self.addEventListener('notificationclick', function(event) {
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(function(windowClients) {
-                // Chercher un onglet déjà ouvert sur espeu9.fr
                 for (var i = 0; i < windowClients.length; i++) {
                     var client = windowClients[i];
                     if (client.url.indexOf('espeu9.fr') !== -1) {
@@ -77,9 +84,26 @@ self.addEventListener('notificationclick', function(event) {
                         });
                     }
                 }
-                // Sinon, ouvrir un nouvel onglet
                 return clients.openWindow(targetUrl);
             })
+    );
+});
+
+// ── CHANGEMENT DE SOUSCRIPTION PUSH (évite les notifs vides Chrome) ──
+self.addEventListener('pushsubscriptionchange', function(event) {
+    event.waitUntil(
+        self.registration.pushManager.subscribe(event.oldSubscription.options)
+            .then(function(newSub) {
+                return fetch('https://espeu9.fr/api.php?action=push_subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        endpoint: newSub.endpoint,
+                        keys: newSub.toJSON().keys
+                    })
+                });
+            })
+            .catch(function() {})
     );
 });
 
@@ -88,7 +112,19 @@ self.addEventListener('install', function(event) {
     self.skipWaiting();
 });
 
-// ── ACTIVATION: contrôler tous les onglets existants ────────────
+// ── ACTIVATION: contrôler tous les onglets + nettoyer ────────────
 self.addEventListener('activate', function(event) {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        Promise.all([
+            self.clients.claim(),
+            // Fermer toute notification résiduelle "fantôme"
+            self.registration.getNotifications().then(function(notifications) {
+                notifications.forEach(function(n) {
+                    if (!n.title || n.title === '' || n.title === 'espeu9.fr') {
+                        n.close();
+                    }
+                });
+            })
+        ])
+    );
 });

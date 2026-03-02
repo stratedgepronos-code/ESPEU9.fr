@@ -48,20 +48,19 @@ function urlBase64ToUint8Array(base64String) {
 async function registerServiceWorker() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
     try {
-        // Enregistrer le SW avec un cache-buster pour forcer le téléchargement
-        const reg = await navigator.serviceWorker.register("/sw.js");
-        // Forcer la vérification de mise à jour auprès du serveur
+        const reg = await navigator.serviceWorker.register("/sw.js?v=3.1");
         reg.update().catch(() => {});
-        // Si un nouveau SW attend, l'activer immédiatement
-        if (reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
+        if (reg.waiting) { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
         reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'activated') {
-                        console.log('[ESPE] Nouveau Service Worker activé !');
+                        reg.getNotifications().then(notifs => {
+                            notifs.forEach(n => {
+                                if (!n.title || n.title === '' || n.title === 'espeu9.fr') n.close();
+                            });
+                        }).catch(() => {});
                     }
                 });
             }

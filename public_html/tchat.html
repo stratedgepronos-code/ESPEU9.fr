@@ -471,7 +471,7 @@ body {
 
   // Enregistrer le Service Worker pour les push notifications
   if('serviceWorker' in navigator && 'PushManager' in window){
-    navigator.serviceWorker.register('/sw.js').then(function(reg){
+    navigator.serviceWorker.register('/sw.js?v=3.1').then(function(reg){
       reg.update().catch(function(){});
     }).catch(function(){});
   }
