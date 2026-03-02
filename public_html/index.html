@@ -2846,6 +2846,104 @@ function AttendancePanel() {
                 })))));
 }
 
+// ── Présence à l'entraînement (coach) : liste joueurs + cases à cocher par séance ──
+function TrainingAttendancePanel() {
+    const [trainingDates, setTrainingDates] = useState([]);
+    const [selectedDate, setSelectedDate] = useState("");
+    const [attendance, setAttendance] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [msg, setMsg] = useState("");
+    const loadDates = function() {
+        fetch(API_URL + "?action=get_training_dates", { credentials: "same-origin" })
+            .then(r => r.json())
+            .then(d => { if (d.success) setTrainingDates(d.dates || []); setLoading(false); })
+            .catch(() => setLoading(false));
+    };
+    useEffect(function() { loadDates(); }, []);
+    useEffect(function() {
+        if (!selectedDate) { setAttendance({}); return; }
+        fetch(API_URL + "?action=get_training_attendance&date=" + encodeURIComponent(selectedDate), { credentials: "same-origin" })
+            .then(r => r.json())
+            .then(function(d) {
+                var map = {};
+                if (d.success && d.players) d.players.forEach(function(p) { map[p.player_id] = !!p.present; });
+                PLAYERS.forEach(function(p) { if (map[p.id] === undefined) map[p.id] = true; });
+                setAttendance(map);
+            })
+            .catch(function() { setAttendance({}); });
+    }, [selectedDate]);
+    const togglePlayer = function(playerId) {
+        setAttendance(function(prev) { var next = { ...prev }; next[playerId] = !prev[playerId]; return next; });
+    };
+    const save = function() {
+        if (!selectedDate) return;
+        setSaving(true); setMsg("");
+        var payload = { date: selectedDate, attendance: PLAYERS.map(function(p) { return { player_id: p.id, present: attendance[p.id] !== false ? 1 : 0 }; }) };
+        fetch(API_URL + "?action=set_training_attendance", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                setSaving(false);
+                if (d.success) { setMsg("Enregistré."); loadDates(); } else setMsg(d.error || "Erreur");
+            })
+            .catch(function() { setSaving(false); setMsg("Erreur réseau"); });
+    };
+    var today = new Date().toISOString().slice(0, 10);
+    if (loading) return React.createElement("div", { style: { textAlign: "center", padding: 20, color: "var(--text-dim)" } }, "Chargement...");
+    return React.createElement("div", { style: { marginBottom: 24 } },
+        React.createElement("div", { className: "section-title" }, "\uD83C\uDFC0 Pr\u00E9sence \u00E0 l'entra\u00EEnement"),
+        React.createElement("div", { className: "card", style: { padding: 20 } },
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginBottom: 16 } },
+                React.createElement("label", { style: { fontWeight: 600, fontSize: 14 } }, "Date de l'entra\u00EEnement :"),
+                React.createElement("input", {
+                    type: "date",
+                    value: selectedDate,
+                    max: today,
+                    onChange: function(e) { setSelectedDate(e.target.value); },
+                    style: { padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }
+                }),
+                trainingDates.length > 0 && React.createElement("span", { style: { fontSize: 13, color: "var(--text-dim)" } }, "Ou s\u00E9lectionner :"),
+                trainingDates.slice(0, 5).map(function(d) {
+                    return React.createElement("button", {
+                        key: d,
+                        type: "button",
+                        onClick: function() { setSelectedDate(d); },
+                        style: {
+                            padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: selectedDate === d ? "var(--green-700)" : "#fff", color: selectedDate === d ? "#fff" : "var(--text)", fontSize: 13, cursor: "pointer"
+                        }
+                    }, d);
+                })),
+            selectedDate && React.createElement("div", { style: { marginTop: 16 } },
+                React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } }, "Cocher les pr\u00E9sents \u00E0 l'entra\u00EEnement du ", selectedDate),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, PLAYERS.map(function(p) {
+                    var present = attendance[p.id] !== false;
+                    return React.createElement("label", {
+                        key: p.id,
+                        style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 8, background: present ? "rgba(26,107,46,0.08)" : "rgba(220,38,38,0.06)" }
+                    },
+                        React.createElement("input", {
+                            type: "checkbox",
+                            checked: present,
+                            onChange: function() { togglePlayer(p.id); }
+                        }),
+                        React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
+                        React.createElement("span", { style: { fontWeight: 600 } }, "#" + p.num + " " + p.firstName + " " + p.lastName));
+                })),
+                React.createElement("div", { style: { marginTop: 16, display: "flex", alignItems: "center", gap: 12 } },
+                    React.createElement("button", {
+                        type: "button",
+                        onClick: save,
+                        disabled: saving,
+                        className: "btn-primary",
+                        style: { padding: "10px 20px" }
+                    }, saving ? "Enregistrement..." : "Enregistrer la pr\u00E9sence"),
+                    msg && React.createElement("span", { style: { fontSize: 14, color: msg.indexOf("Erreur") >= 0 ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)))));
+}
+
 function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     if (!user) return null;
     const player = user.player_id ? PLAYERS.find(p => p.id === user.player_id) : null;
@@ -2872,6 +2970,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                 React.createElement("div", { className: "player-first" }, p.firstName),
                 p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))),
             React.createElement(AttendancePanel),
+            React.createElement(TrainingAttendancePanel),
             React.createElement(CoachPushPanel),
             React.createElement(CoachPasswordPanel),
             React.createElement("div", { className: "section-title", style: { marginTop: 32 } }, "\uD83D\uDCF1 Mes notifications"),
@@ -4566,9 +4665,9 @@ function App() {
         return null; // custom matches will be resolved after API load
     });
     const [cookieAccepted, setCookieAccepted] = useState(() => {
-        try { return sessionStorage.getItem("cookie_ok") === "1"; } catch(e) { return false; }
+        try { return localStorage.getItem("espeu9_cookie_ok") === "1"; } catch(e) { return false; }
     });
-    useEffect(() => { if (cookieAccepted) { try { sessionStorage.setItem("cookie_ok", "1"); } catch(e) {} } }, [cookieAccepted]);
+    useEffect(() => { if (cookieAccepted) { try { localStorage.setItem("espeu9_cookie_ok", "1"); } catch(e) {} } }, [cookieAccepted]);
     // ── Écouter le bouton retour du navigateur ──
     useEffect(() => {
         const onHash = () => {

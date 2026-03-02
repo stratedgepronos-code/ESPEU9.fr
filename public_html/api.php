@@ -2625,6 +2625,66 @@ case 'get_attendance_stats':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
+// ═══ PRÉSENCE À L'ENTRAÎNEMENT (coach) ═══
+case 'get_training_dates':
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS training_presence (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_date DATE NOT NULL,
+            player_id INT NOT NULL,
+            present TINYINT(1) NOT NULL DEFAULT 1,
+            UNIQUE KEY uk_session_player (session_date, player_id)
+        )");
+        $st = $db->query("SELECT DISTINCT session_date FROM training_presence ORDER BY session_date DESC LIMIT 60");
+        $dates = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) $dates[] = $r['session_date'];
+        echo json_encode(['success' => true, 'dates' => $dates]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'get_training_attendance':
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $date = trim($_GET['date'] ?? '');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) { echo json_encode(['success' => false, 'error' => 'Date invalide']); break; }
+    try {
+        $db = getDB();
+        $st = $db->prepare("SELECT player_id, present FROM training_presence WHERE session_date = :d");
+        $st->execute([':d' => $date]);
+        $players = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) $players[] = ['player_id' => (int)$r['player_id'], 'present' => (int)$r['present']];
+        echo json_encode(['success' => true, 'date' => $date, 'players' => $players]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'set_training_attendance':
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $date = isset($input['date']) ? trim($input['date']) : '';
+    $attendance = isset($input['attendance']) && is_array($input['attendance']) ? $input['attendance'] : [];
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) { echo json_encode(['success' => false, 'error' => 'Date invalide']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS training_presence (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_date DATE NOT NULL,
+            player_id INT NOT NULL,
+            present TINYINT(1) NOT NULL DEFAULT 1,
+            UNIQUE KEY uk_session_player (session_date, player_id)
+        )");
+        $del = $db->prepare("DELETE FROM training_presence WHERE session_date = :d");
+        $del->execute([':d' => $date]);
+        $ins = $db->prepare("INSERT INTO training_presence (session_date, player_id, present) VALUES (:d, :pid, :p)");
+        foreach ($attendance as $row) {
+            $pid = (int)($row['player_id'] ?? 0);
+            $present = isset($row['present']) ? (int)$row['present'] : 1;
+            if ($pid > 0) $ins->execute([':d' => $date, ':pid' => $pid, ':p' => $present ? 1 : 0]);
+        }
+        echo json_encode(['success' => true, 'date' => $date]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 // ═══ RAPPEL PUSH CRON ═══
 
 case 'cron_match_reminder':

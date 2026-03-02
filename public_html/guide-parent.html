@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide parent — ESPE Basket U9</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green-900: #0f3d1a;
+      --green-700: #1a6b2e;
+      --green-500: #228b38;
+      --gold: #c8a832;
+      --gold-light: #e8cc5a;
+      --bg: #f8faf8;
+      --text: #1a1a1a;
+      --text-dim: #555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); }
+    .deck {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 900px;
+      height: 100%;
+      max-height: 100vh;
+      padding: 48px 56px;
+      flex-direction: column;
+      justify-content: center;
+      animation: fadeIn 0.35s ease;
+    }
+    .slide.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .slide-num {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .slide h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      color: var(--green-900);
+      letter-spacing: 0.02em;
+      margin-bottom: 12px;
+      line-height: 1.15;
+    }
+    .slide .subtitle {
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+    .slide h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--green-700);
+      margin: 20px 0 10px;
+    }
+    .slide h2:first-of-type { margin-top: 0; }
+    .slide ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .slide li {
+      padding: 6px 0 6px 28px;
+      position: relative;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .slide li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--green-500);
+      font-weight: 700;
+    }
+    .slide .highlight {
+      background: linear-gradient(135deg, rgba(26,107,46,0.12) 0%, rgba(200,168,50,0.1) 100%);
+      border-left: 4px solid var(--green-700);
+      padding: 14px 18px;
+      margin: 12px 0;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+    }
+    .slide .tip {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 16px;
+      font-style: italic;
+    }
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: linear-gradient(180deg, transparent, rgba(15,61,26,0.95));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 100;
+    }
+    .nav-bar button {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--gold-light);
+      color: var(--green-900);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .nav-bar button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(26,107,46,0.3);
+    }
+    .nav-bar button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .nav-bar .page-indicator {
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
+    }
+    .title-slide {
+      text-align: center;
+      background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 100%);
+      color: white;
+    }
+    .title-slide h1 { color: white; font-size: clamp(32px, 5vw, 48px); }
+    .title-slide .subtitle { color: rgba(255,255,255,0.85); }
+    .title-slide .logo-wrap { margin: 24px 0; }
+    .title-slide .logo-wrap img { max-height: 80px; opacity: 0.95; }
+    .end-slide { text-align: center; }
+    .end-slide .thanks { font-size: 22px; color: var(--green-700); margin-bottom: 16px; }
+    .end-slide a { color: var(--gold); font-weight: 600; text-decoration: none; }
+    .end-slide a:hover { text-decoration: underline; }
+    @media (max-width: 600px) {
+      .slide { padding: 32px 24px; }
+      .slide h1 { font-size: 24px; }
+      .slide li { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+    <!-- Slide 1 : Titre -->
+    <section class="slide title-slide active" data-i="0">
+      <span class="slide-num">1 / 11</span>
+      <div class="logo-wrap">
+        <img src="/images/logo-espe.png" alt="ESPE Basket" onerror="this.style.display='none'">
+      </div>
+      <h1>Guide parent</h1>
+      <p class="subtitle">Découvrir les fonctionnalités du site ESPE Basket U9</p>
+      <p class="subtitle" style="margin-top: 16px;">Saison 2025-2026</p>
+    </section>
+
+    <!-- Slide 2 : Écran d'entrée -->
+    <section class="slide" data-i="1">
+      <span class="slide-num">2 / 11</span>
+      <h1>Écran d'entrée (connexion)</h1>
+      <p class="subtitle">Première visite : espeu9.fr → vous arrivez sur la page « Accès membres »</p>
+      <ul>
+        <li><strong>Connexion</strong> : identifiant + mot de passe, option « Se souvenir de moi »</li>
+        <li><strong>Création de compte</strong> : identifiant, mot de passe, email (optionnel), choix du joueur (votre enfant) et du lien de parenté (Papa / Maman)</li>
+        <li><strong>Mot de passe oublié</strong> : envoi d’un lien de réinitialisation par email</li>
+      </ul>
+      <div class="highlight">Une fois connecté, vous accédez à l’ensemble du site (accueil, matchs, convocations, tchat, compte).</div>
+    </section>
+
+    <!-- Slide 3 : Accueil -->
+    <section class="slide" data-i="2">
+      <span class="slide-num">3 / 11</span>
+      <h1>Accueil</h1>
+      <p class="subtitle">Tableau de bord après connexion</p>
+      <ul>
+        <li><strong>Actualités</strong> : infos du club, annonces, résultats récents</li>
+        <li><strong>Anniversaires</strong> : prochains anniversaires des joueurs de l’équipe</li>
+        <li><strong>Accès rapide</strong> : liens vers Matchs, Convocations, Tchat, Compte</li>
+      </ul>
+      <div class="tip">En cliquant sur un joueur (anniversaire ou liste), vous pouvez voir son détail si disponible.</div>
+    </section>
+
+    <!-- Slide 4 : Matchs -->
+    <section class="slide" data-i="3">
+      <span class="slide-num">4 / 11</span>
+      <h1>Matchs</h1>
+      <p class="subtitle">Calendrier et détails des rencontres</p>
+      <ul>
+        <li><strong>Liste des matchs</strong> : date, heure, adversaire, lieu</li>
+        <li><strong>Détail d’un match</strong> : gymnase, adresse, équipe adverse</li>
+        <li><strong>Lien Google Maps</strong> : en cliquant sur le nom du gymnase, une carte s’ouvre pour vous guider</li>
+      </ul>
+      <div class="highlight">Plus besoin de copier-coller l’adresse : un clic sur le gymnase ouvre directement l’itinéraire.</div>
+    </section>
+
+    <!-- Slide 5 : Convocations -->
+    <section class="slide" data-i="4">
+      <span class="slide-num">5 / 11</span>
+      <h1>Convocations</h1>
+      <p class="subtitle">Répondre pour chaque match</p>
+      <ul>
+        <li><strong>Voir les convocations</strong> : matchs pour lesquels votre enfant est convoqué</li>
+        <li><strong>Répondre</strong> : indiquer « Présent » ou « Absent » pour chaque convocation</li>
+        <li><strong>Rappel automatique</strong> : la veille du match, une notification push vous rappelle l’événement (si les notifications sont activées)</li>
+      </ul>
+      <div class="tip">Pensez à activer les notifications dans « Compte » pour ne rien manquer.</div>
+    </section>
+
+    <!-- Slide 6 : Absences / Indisponibilités -->
+    <section class="slide" data-i="5">
+      <span class="slide-num">6 / 11</span>
+      <h1>Indisponibilités (absences)</h1>
+      <p class="subtitle">Signaler quand votre enfant ne peut pas être présent</p>
+      <ul>
+        <li><strong>Où ?</strong> Dans « Compte » (section parent)</li>
+        <li><strong>Comment ?</strong> Ouvrir le calendrier, cliquer sur le <strong>premier jour</strong> d’indisponibilité, puis sur le <strong>dernier jour</strong></li>
+        <li><strong>Effacer</strong> : bouton pour réinitialiser la plage et recommencer</li>
+      </ul>
+      <div class="highlight">Le coach voit ces plages et peut mieux organiser les convocations.</div>
+    </section>
+
+    <!-- Slide 7 : Tchat -->
+    <section class="slide" data-i="6">
+      <span class="slide-num">7 / 11</span>
+      <h1>Tchat / Messagerie</h1>
+      <p class="subtitle">Échanges avec le club et les autres parents</p>
+      <ul>
+        <li><strong>Fil de discussion</strong> : messages avec texte, images, liens, musique (Spotify, YouTube…)</li>
+        <li><strong>Vos messages</strong> : vous pouvez supprimer uniquement vos propres messages</li>
+        <li><strong>Accès</strong> : depuis le menu « Tchat » ou le lien Messagerie sur la page d’accueil</li>
+      </ul>
+      <div class="tip">Un badge indique les messages non lus. Idéal pour les infos de dernière minute.</div>
+    </section>
+
+    <!-- Slide 8 : Compte (profil) -->
+    <section class="slide" data-i="7">
+      <span class="slide-num">8 / 11</span>
+      <h1>Compte (profil)</h1>
+      <p class="subtitle">Gérer votre profil et vos préférences</p>
+      <ul>
+        <li><strong>Profil</strong> : identifiant, joueur lié (votre enfant), lien de parenté</li>
+        <li><strong>Indisponibilités</strong> : accès au calendrier des absences (voir slide précédente)</li>
+        <li><strong>Notifications push</strong> : activer ou désactiver les rappels (convocations, rappels matchs, etc.)</li>
+      </ul>
+      <div class="highlight">Recommandé : activer les notifications pour recevoir les convocations et le rappel la veille des matchs.</div>
+    </section>
+
+    <!-- Slide 9 : Notifications -->
+    <section class="slide" data-i="8">
+      <span class="slide-num">9 / 11</span>
+      <h1>Notifications push</h1>
+      <p class="subtitle">Rester informé même sans ouvrir le site</p>
+      <ul>
+        <li><strong>Convocations</strong> : quand le coach convoque votre enfant pour un match</li>
+        <li><strong>Rappel match</strong> : la veille du match, rappel automatique (date, lieu, heure)</li>
+        <li><strong>Activation</strong> : dans « Compte » → section Notifications, accepter quand le navigateur le demande</li>
+      </ul>
+      <div class="tip">Sur téléphone, autorisez les notifications pour le site dans les paramètres du navigateur si besoin.</div>
+    </section>
+
+    <!-- Slide 10 : Déconnexion -->
+    <section class="slide" data-i="9">
+      <span class="slide-num">10 / 11</span>
+      <h1>Déconnexion</h1>
+      <p class="subtitle">Quitter l’espace membres en toute sécurité</p>
+      <ul>
+        <li><strong>Où ?</strong> Bouton « Déco » en haut à droite (ou « Déconnexion » dans le menu mobile)</li>
+        <li><strong>Effet</strong> : vous êtes redirigé vers l’écran d’entrée (page de connexion)</li>
+        <li><strong>Reconnexion</strong> : identifiant + mot de passe sur gate.html</li>
+      </ul>
+      <div class="highlight">Après déconnexion, impossible d’accéder au contenu réservé sans se reconnecter.</div>
+    </section>
+
+    <!-- Slide 11 : Fin -->
+    <section class="slide end-slide" data-i="10">
+      <span class="slide-num">11 / 11</span>
+      <h1>Récapitulatif</h1>
+      <p class="subtitle">En résumé pour les parents</p>
+      <ul>
+        <li>Connexion / inscription sur l’écran d’entrée</li>
+        <li>Accueil : actualités et anniversaires</li>
+        <li>Matchs : calendrier + lien Google Maps (gymnase)</li>
+        <li>Convocations : répondre présent/absent + rappel la veille</li>
+        <li>Indisponibilités : calendrier (plage de dates) dans Compte</li>
+        <li>Tchat : messagerie commune du groupe</li>
+        <li>Compte : profil, absences, notifications push</li>
+        <li>Déconnexion : retour à l’écran d’entrée</li>
+      </ul>
+      <p class="thanks">Merci et à bientôt sur le terrain !</p>
+      <p><a href="https://espeu9.fr">espeu9.fr</a></p>
+    </section>
+  </div>
+
+  <nav class="nav-bar" aria-label="Navigation des diapositives">
+    <button type="button" id="prev" aria-label="Diapositive précédente">← Précédent</button>
+    <span class="page-indicator" id="pageIndicator">1 / 11</span>
+    <button type="button" id="next" aria-label="Diapositive suivante">Suivant →</button>
+  </nav>
+
+  <script>
+    (function() {
+      var slides = document.querySelectorAll('.slide');
+      var total = slides.length;
+      var current = 0;
+
+      function show(i) {
+        i = Math.max(0, Math.min(i, total - 1));
+        current = i;
+        slides.forEach(function(s, k) { s.classList.toggle('active', k === i); });
+        document.getElementById('pageIndicator').textContent = (i + 1) + ' / ' + total;
+        document.getElementById('prev').disabled = i === 0;
+        document.getElementById('next').disabled = i === total - 1;
+      }
+
+      document.getElementById('prev').addEventListener('click', function() { show(current - 1); });
+      document.getElementById('next').addEventListener('click', function() { show(current + 1); });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft') show(current - 1);
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); show(current + 1); }
+      });
+
+      show(0);
+    })();
+  </script>
+</body>
+</html>
