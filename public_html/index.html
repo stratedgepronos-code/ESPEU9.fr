@@ -1770,15 +1770,50 @@ body {
 .cookie-banner button { background: #fff; color: var(--green-900); border: none; border-radius: 8px; padding: 8px 20px; font-weight: 700; font-size: 13px; cursor: pointer; flex-shrink: 0; }
 
 /* FOOTER */
+@keyframes footerGlow {
+  0%, 100% { opacity: 0.4; transform: scaleX(0.3); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes footerParticle {
+  0% { transform: translateY(0) scale(1); opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { transform: translateY(-120px) scale(0.3); opacity: 0; }
+}
+@keyframes footerColReveal {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes footerLogoFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(2deg); }
+}
 .footer {
-  background: linear-gradient(135deg, var(--green-900) 0%, #0a2912 100%);
+  background: linear-gradient(135deg, var(--green-900) 0%, #071e0e 50%, #0a2912 100%);
   color: rgba(255,255,255,0.9);
   margin-top: auto;
   margin-bottom: 0;
   padding: 0;
   width: 100%;
+  position: relative;
+  overflow: hidden;
 }
-
+.footer::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-light), #1a6b2e, var(--gold-light), transparent);
+  animation: footerGlow 4s ease-in-out infinite;
+  transform-origin: center;
+}
+.footer::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 20% 50%, rgba(26,107,46,0.08) 0%, transparent 70%),
+              radial-gradient(ellipse at 80% 30%, rgba(200,168,50,0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
 .footer-inner {
   max-width: 1200px;
   margin: 0 auto;
@@ -1786,7 +1821,17 @@ body {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 1fr 1fr;
   gap: 36px;
+  position: relative;
+  z-index: 1;
 }
+.footer.footer-visible .footer-col {
+  animation: footerColReveal 0.6s ease-out both;
+}
+.footer.footer-visible .footer-col:nth-child(1) { animation-delay: 0s; }
+.footer.footer-visible .footer-col:nth-child(2) { animation-delay: 0.12s; }
+.footer.footer-visible .footer-col:nth-child(3) { animation-delay: 0.24s; }
+.footer.footer-visible .footer-col:nth-child(4) { animation-delay: 0.36s; }
+.footer-col { opacity: 0; }
 
 .footer-brand {
   display: flex;
@@ -1804,6 +1849,11 @@ body {
   padding: 0;
   box-shadow: none;
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  animation: footerLogoFloat 4s ease-in-out infinite;
+  transition: filter 0.3s;
+}
+.footer-logo:hover {
+  filter: drop-shadow(0 4px 20px rgba(200,168,50,0.5)) brightness(1.15);
 }
 
 .footer-club-name {
@@ -1863,6 +1913,10 @@ body {
 
 .footer-sitemap a:hover {
   color: white;
+  transform: translateX(4px);
+}
+.footer-sitemap a {
+  transition: color 0.2s, transform 0.25s;
 }
 
 .footer-item {
@@ -1895,13 +1949,25 @@ body {
   text-decoration: none;
   font-size: 14px;
   margin-bottom: 8px;
-  transition: all 0.2s;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
-
+.footer-social-link::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(200,168,50,0.15), rgba(26,107,46,0.2));
+  opacity: 0;
+  transition: opacity 0.35s;
+}
 .footer-social-link:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   color: white;
+  transform: translateX(6px);
+  box-shadow: 0 0 20px rgba(200,168,50,0.15);
 }
+.footer-social-link:hover::before { opacity: 1; }
 
 .footer-social-link svg {
   color: var(--gold-light);
@@ -1912,13 +1978,22 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 24px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(255,255,255,0.08);
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
   font-size: 12px;
   color: rgba(255,255,255,0.4);
+  position: relative;
+  z-index: 1;
+}
+.footer-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: footerParticle linear infinite;
+  z-index: 0;
 }
 
 @media (max-width: 900px) {
@@ -2577,7 +2652,71 @@ function CoachPasswordPanel() {
                     React.createElement("input", { type: "email", value: testEmail, onChange: e => setTestEmail(e.target.value), onKeyDown: e => e.key === "Enter" && handleTestEmail(), placeholder: "Ton adresse email", style: inputS }),
                     React.createElement("button", { onClick: handleTestEmail, style: { ...btnS, background: "#1877F2" } }, "\uD83D\uDCE8 Tester")))));
 }
-// ── Panneau Absences (parents) ──
+// ── Panneau Absences (parents) avec calendrier custom ──
+function AbsenceCalendar({ dateFrom, dateTo, onSelect, onClear }) {
+    const [viewDate, setViewDate] = useState(() => new Date());
+    const MONTHS = ["Janvier","F\u00E9vrier","Mars","Avril","Mai","Juin","Juillet","Ao\u00FBt","Septembre","Octobre","Novembre","D\u00E9cembre"];
+    const DAYS = ["Lu","Ma","Me","Je","Ve","Sa","Di"];
+    const year = viewDate.getFullYear(), month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    let startWeekday = firstDay.getDay() - 1; if (startWeekday < 0) startWeekday = 6;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const pad = n => n < 10 ? "0" + n : "" + n;
+    const toStr = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const cells = [];
+    for (let i = 0; i < startWeekday; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    const isInRange = (d) => {
+        if (!d || !dateFrom) return false;
+        const ds = toStr(d);
+        if (!dateTo) return ds === dateFrom;
+        return ds >= dateFrom && ds <= dateTo;
+    };
+    const isStart = (d) => d && dateFrom && toStr(d) === dateFrom;
+    const isEnd = (d) => d && dateTo && toStr(d) === dateTo;
+    const isPast = (d) => d && d < today;
+    const cellSize = 38;
+    const headerS = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
+    const arrowS = { background: "none", border: "none", color: "var(--gold-light)", fontSize: 20, cursor: "pointer", padding: "4px 10px", borderRadius: 6, transition: "background 0.2s" };
+    const monthS = { fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1, color: "var(--text-light)" };
+    const dayHeaderS = { width: cellSize, textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--text-dim)", padding: "4px 0" };
+    const dateSelected = dateFrom ? (dateTo ? dateFrom + " \u2192 " + dateTo : dateFrom) : "";
+    return React.createElement("div", { style: { background: "linear-gradient(135deg, rgba(10,31,13,0.95), rgba(15,40,20,0.98))", border: "1px solid rgba(200,168,50,0.15)", borderRadius: 16, padding: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" } },
+        React.createElement("div", { style: headerS },
+            React.createElement("button", { onClick: () => setViewDate(new Date(year, month - 1, 1)), style: arrowS }, "\u2039"),
+            React.createElement("span", { style: monthS }, MONTHS[month] + " " + year),
+            React.createElement("button", { onClick: () => setViewDate(new Date(year, month + 1, 1)), style: arrowS }, "\u203A")),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, " + cellSize + "px)", justifyContent: "center", gap: 2 } },
+            DAYS.map(d => React.createElement("div", { key: d, style: dayHeaderS }, d)),
+            cells.map((d, i) => {
+                if (!d) return React.createElement("div", { key: "e" + i, style: { width: cellSize, height: cellSize } });
+                const past = isPast(d);
+                const inR = isInRange(d);
+                const start = isStart(d);
+                const end = isEnd(d);
+                const isToday = toStr(d) === toStr(today);
+                let bg = "transparent", color = "var(--text-light)", border = "1px solid transparent", fontW = 400, shadow = "none";
+                if (past) { color = "rgba(255,255,255,0.2)"; }
+                else if (start || end) { bg = "var(--green-700)"; color = "white"; fontW = 800; border = "1px solid var(--gold-light)"; shadow = "0 0 12px rgba(200,168,50,0.3)"; }
+                else if (inR) { bg = "rgba(26,107,46,0.35)"; color = "white"; fontW = 600; }
+                if (isToday && !start && !end) { border = "1px solid var(--green-500)"; }
+                return React.createElement("button", { key: i, disabled: past,
+                    onClick: () => !past && onSelect(toStr(d)),
+                    style: { width: cellSize, height: cellSize, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: start ? "10px 4px 4px 10px" : end ? "4px 10px 10px 4px" : (inR ? 4 : 10), background: bg, color, border, fontWeight: fontW, fontSize: 14, fontFamily: "inherit", cursor: past ? "default" : "pointer", transition: "all 0.15s", boxShadow: shadow, position: "relative" } },
+                    d.getDate(),
+                    isToday && React.createElement("span", { style: { position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "var(--green-500)" } }));
+            })),
+        (dateFrom || dateTo) && React.createElement("div", { style: { marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 } },
+            React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)" } },
+                dateFrom && React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12, marginRight: 6 } }, "D\u00E9but : " + dateFrom),
+                dateTo && React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12 } }, "Fin : " + dateTo)),
+            React.createElement("div", { style: { display: "flex", gap: 6 } },
+                dateFrom && React.createElement("button", { onClick: () => onClear("from"), style: { background: "none", border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 } }, "\u2715 D\u00E9but"),
+                dateTo && React.createElement("button", { onClick: () => onClear("to"), style: { background: "none", border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 } }, "\u2715 Fin"),
+                React.createElement("button", { onClick: () => onClear("all"), style: { background: "none", border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 } }, "\u2715 Tout"))));
+}
+
 function AbsencePanel({ user }) {
     const [absences, setAbsences] = useState([]);
     const [showForm, setShowForm] = useState(false);
@@ -2587,14 +2726,27 @@ function AbsencePanel({ user }) {
     const [sending, setSending] = useState(false);
     const [msg, setMsg] = useState("");
     const playerId = user.player_id;
-    const player = PLAYERS.find(p => p.id === playerId);
     const loadAbsences = () => {
         fetch(API_URL + "?action=get_absences", { credentials: "same-origin" })
             .then(r => r.json()).then(d => { if (d.success) setAbsences(d.absences || []); });
     };
     useEffect(() => { loadAbsences(); }, []);
+    const handleDateSelect = (dateStr) => {
+        if (!dateFrom || (dateFrom && dateTo)) {
+            setDateFrom(dateStr); setDateTo("");
+        } else {
+            if (dateStr < dateFrom) { setDateFrom(dateStr); }
+            else if (dateStr === dateFrom) { setDateTo(""); }
+            else { setDateTo(dateStr); }
+        }
+    };
+    const handleClear = (which) => {
+        if (which === "from") { setDateFrom(dateTo || ""); setDateTo(""); }
+        else if (which === "to") { setDateTo(""); }
+        else { setDateFrom(""); setDateTo(""); }
+    };
     const handleSubmit = () => {
-        if (!dateFrom) { setMsg("Sélectionne au moins une date."); return; }
+        if (!dateFrom) { setMsg("Clique sur un jour pour s\u00E9lectionner le d\u00E9but."); return; }
         setSending(true); setMsg("");
         fetch(API_URL + "?action=declare_absence", {
             method: "POST", credentials: "same-origin",
@@ -2602,9 +2754,9 @@ function AbsencePanel({ user }) {
             body: JSON.stringify({ player_id: playerId, date_from: dateFrom, date_to: dateTo || dateFrom, reason })
         }).then(r => r.json()).then(d => {
             setSending(false);
-            if (d.success) { setMsg("Absence enregistrée et coach notifié !"); setDateFrom(""); setDateTo(""); setReason(""); setShowForm(false); loadAbsences(); }
+            if (d.success) { setMsg("Absence enregistr\u00E9e et coach notifi\u00E9 !"); setDateFrom(""); setDateTo(""); setReason(""); setShowForm(false); loadAbsences(); }
             else setMsg(d.error || "Erreur");
-        }).catch(() => { setSending(false); setMsg("Erreur réseau."); });
+        }).catch(() => { setSending(false); setMsg("Erreur r\u00E9seau."); });
     };
     const handleDelete = (id) => {
         fetch(API_URL + "?action=delete_absence", {
@@ -2613,30 +2765,26 @@ function AbsencePanel({ user }) {
             body: JSON.stringify({ id })
         }).then(r => r.json()).then(d => { if (d.success) loadAbsences(); });
     };
-    const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card-bg)", color: "var(--text-light)", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box" };
+    const fmtDate = (d) => { const p = d.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
     return React.createElement("div", { style: { marginBottom: 24 } },
         React.createElement("div", { className: "section-title" }, "\uD83D\uDCC5 Absences / Indisponibilit\u00E9s"),
         React.createElement("div", { className: "card", style: { padding: 20 } },
             absences.length === 0 && !showForm && React.createElement("p", { style: { color: "var(--text-dim)", fontSize: 14, margin: 0 } }, "Aucune absence signal\u00E9e."),
             absences.map(a => React.createElement("div", { key: a.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--border)" } },
                 React.createElement("div", null,
-                    React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, "\uD83D\uDCC5 ", a.date_from === a.date_to ? a.date_from : a.date_from + " \u2192 " + a.date_to),
+                    React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, "\uD83D\uDCC5 ", a.date_from === a.date_to ? fmtDate(a.date_from) : fmtDate(a.date_from) + " \u2192 " + fmtDate(a.date_to)),
                     a.reason && React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 2 } }, a.reason)),
                 React.createElement("button", { onClick: () => handleDelete(a.id), style: { background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 16 } }, "\u2715"))),
             showForm && React.createElement("div", { style: { marginTop: 16 } },
-                React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 } },
-                    React.createElement("div", null,
-                        React.createElement("label", { style: { fontSize: 12, color: "var(--text-dim)", display: "block", marginBottom: 4 } }, "Du"),
-                        React.createElement("input", { type: "date", value: dateFrom, onChange: e => setDateFrom(e.target.value), style: inputStyle })),
-                    React.createElement("div", null,
-                        React.createElement("label", { style: { fontSize: 12, color: "var(--text-dim)", display: "block", marginBottom: 4 } }, "Au"),
-                        React.createElement("input", { type: "date", value: dateTo, onChange: e => setDateTo(e.target.value), style: inputStyle }))),
-                React.createElement("input", { type: "text", value: reason, onChange: e => setReason(e.target.value), placeholder: "Motif (optionnel)", maxLength: 500, style: { ...inputStyle, marginBottom: 10 } }),
-                React.createElement("div", { style: { display: "flex", gap: 8 } },
-                    React.createElement("button", { onClick: handleSubmit, disabled: sending, style: { flex: 1, padding: "10px 16px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, sending ? "Envoi..." : "\u2705 Confirmer"),
-                    React.createElement("button", { onClick: () => setShowForm(false), style: { padding: "10px 16px", background: "none", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, cursor: "pointer", color: "var(--text-dim)" } }, "Annuler"))),
+                React.createElement("div", { style: { marginBottom: 10, fontSize: 13, color: "var(--text-dim)", textAlign: "center", lineHeight: 1.5 } },
+                    !dateFrom ? "\uD83D\uDC46 Clique sur le 1er jour d'absence" : !dateTo ? "\uD83D\uDC46 Clique sur le dernier jour (ou valide pour 1 jour)" : "\u2705 P\u00E9riode s\u00E9lectionn\u00E9e !"),
+                React.createElement(AbsenceCalendar, { dateFrom: dateFrom, dateTo: dateTo, onSelect: handleDateSelect, onClear: handleClear }),
+                React.createElement("input", { type: "text", value: reason, onChange: e => setReason(e.target.value), placeholder: "Motif (optionnel)", maxLength: 500, style: { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card-bg)", color: "var(--text-light)", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", marginTop: 12 } }),
+                React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
+                    React.createElement("button", { onClick: handleSubmit, disabled: sending || !dateFrom, style: { flex: 1, padding: "10px 16px", background: dateFrom ? "#1a6b2e" : "#333", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: dateFrom ? "pointer" : "default", opacity: dateFrom ? 1 : 0.5 } }, sending ? "Envoi..." : "\u2705 Confirmer l'absence"),
+                    React.createElement("button", { onClick: () => { setShowForm(false); setDateFrom(""); setDateTo(""); setReason(""); }, style: { padding: "10px 16px", background: "none", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, cursor: "pointer", color: "var(--text-dim)" } }, "Annuler"))),
             !showForm && React.createElement("button", { onClick: () => setShowForm(true), style: { marginTop: absences.length > 0 ? 12 : 0, padding: "10px 20px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" } }, "+ Signaler une absence"),
-            msg && React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: msg.includes("Erreur") || msg.includes("Sélectionne") ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)));
+            msg && React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: msg.includes("Erreur") || msg.includes("Clique") ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)));
 }
 
 // ── Tableau Assiduité (coach) ──
@@ -4625,7 +4773,35 @@ function App() {
                 tab === "compte" && user && React.createElement(AccountPage, { user: user, coachNotes: coachNotes, onPlayerClick: goPlayer, matches: matches }),
                 tab === "mentions-legales" && React.createElement(MentionsLegalesPage),
                 tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage)),
-            React.createElement("footer", { className: "footer" },
+            React.createElement(FooterAnimated, { switchTab: switchTab, user: user, cookieAccepted: cookieAccepted, setCookieAccepted: setCookieAccepted })),
+            // Cookie banner
+            !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
+                React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
+                React.createElement("button", { onClick: () => setCookieAccepted(true) }, "Compris !"))));
+}
+function FooterAnimated({ switchTab, user }) {
+    const footerRef = useRef(null);
+    useEffect(() => {
+        const el = footerRef.current;
+        if (!el) return;
+        const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { el.classList.add("footer-visible"); obs.disconnect(); } }, { threshold: 0.1 });
+        obs.observe(el);
+        const colors = ["rgba(200,168,50,0.6)", "rgba(26,107,46,0.5)", "rgba(255,255,255,0.3)", "rgba(200,168,50,0.4)"];
+        for (let i = 0; i < 18; i++) {
+            const p = document.createElement("div");
+            p.className = "footer-particle";
+            const s = 2 + Math.random() * 4;
+            p.style.width = p.style.height = s + "px";
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.left = Math.random() * 100 + "%";
+            p.style.bottom = Math.random() * 40 + "%";
+            p.style.animationDuration = (4 + Math.random() * 6) + "s";
+            p.style.animationDelay = Math.random() * 5 + "s";
+            el.appendChild(p);
+        }
+        return () => { obs.disconnect(); el.querySelectorAll(".footer-particle").forEach(x => x.remove()); };
+    }, []);
+    return React.createElement("footer", { className: "footer", ref: footerRef },
                 React.createElement("div", { className: "footer-inner" },
                     React.createElement("div", { className: "footer-col footer-brand" },
                         React.createElement("img", { src: LOGO, alt: "ESPE Basket Ch\u00E2lons", className: "footer-logo" }),
@@ -4691,11 +4867,7 @@ function App() {
                         " ESPE Basket Ch\u00E2lons en Champagne \u2014 U9 Mixte"),
                     React.createElement("span", { style: { display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" } },
                         React.createElement("a", { href: "#mentions-legales", onClick: (e) => { e.preventDefault(); switchTab("mentions-legales"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Mentions l\u00E9gales"),
-                        React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Politique de confidentialit\u00E9"))))),
-            // Cookie banner
-            !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
-                React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
-                React.createElement("button", { onClick: () => setCookieAccepted(true) }, "Compris !"))));
+                        React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Politique de confidentialit\u00E9")))));
 }
 // ═══ MENTIONS LÉGALES (LCEN) ═══
 function MentionsLegalesPage() {
