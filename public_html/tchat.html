@@ -247,7 +247,7 @@ body {
 
     function handleLogout(){
       fetch('api.php?action=logout',{credentials:'same-origin'})
-        .then(function(){window.location.href='index.html';});
+        .then(function(){window.location.href='gate.html';});
     }
 
     var playerMatch = user && user.player_id ? PLAYERS.find(function(p){return p.id===user.player_id;}) : null;

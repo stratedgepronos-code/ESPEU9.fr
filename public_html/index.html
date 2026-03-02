@@ -4617,7 +4617,7 @@ function App() {
     }, [user]);
     const handleLogout = () => {
         fetch(API_URL + "?action=logout", { credentials: "same-origin" })
-            .then(() => { setUser(null); navigateTo("accueil"); });
+            .then(() => { window.location.href = "gate.html"; });
     };
     // ── NOTES STATE ──
     const [coachNotes, setCoachNotes] = useState(() => {
