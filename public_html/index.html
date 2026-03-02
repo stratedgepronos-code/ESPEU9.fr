@@ -4771,7 +4771,7 @@ function App() {
                 tab === "reset" && resetToken && React.createElement(ResetPasswordPage, { token: resetToken }),
                 tab === "compte" && user && React.createElement(AccountPage, { user: user, coachNotes: coachNotes, onPlayerClick: goPlayer, matches: matches }),
                 tab === "mentions-legales" && React.createElement(MentionsLegalesPage),
-                tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage)),
+                tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage))),
             React.createElement(FooterAnimated, { switchTab: switchTab, user: user }),
             !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
                 React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
@@ -4865,7 +4865,7 @@ function FooterAnimated({ switchTab, user }) {
                         " ESPE Basket Ch\u00E2lons en Champagne \u2014 U9 Mixte"),
                     React.createElement("span", { style: { display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" } },
                         React.createElement("a", { href: "#mentions-legales", onClick: (e) => { e.preventDefault(); switchTab("mentions-legales"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Mentions l\u00E9gales"),
-                        React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Politique de confidentialit\u00E9")))));
+                        React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Politique de confidentialit\u00E9"))));
 }
 // ═══ MENTIONS LÉGALES (LCEN) ═══
 function MentionsLegalesPage() {
