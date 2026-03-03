@@ -3912,7 +3912,7 @@ function MatchChatPanel({ matchId, user }) {
     const [messages, setMessages] = useState([]);
     const [newMsg, setNewMsg] = useState("");
     const [sending, setSending] = useState(false);
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const chatEndRef = useRef(null);
     const prevCountRef = useRef(0);
     const isCoach = user && user.role === "coach";
@@ -3993,10 +3993,12 @@ function MatchChatPanel({ matchId, user }) {
 
     return React.createElement("div", { style: panelS },
         React.createElement("div", { style: headerS, onClick: () => setExpanded(!expanded) },
-            React.createElement("div", { style: titleS },
-                React.createElement("span", { style: { fontSize: 20 } }, "\uD83D\uDCAC"),
-                React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "var(--text)" } }, "Discussion"),
-                messages.length > 0 && React.createElement("span", { style: countBadgeS }, messages.length)),
+            React.createElement("div", { style: { flex: 1 } },
+                React.createElement("div", { style: titleS },
+                    React.createElement("span", { style: { fontSize: 20 } }, "\uD83D\uDCAC"),
+                    React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "var(--text)" } }, "Discussion"),
+                    messages.length > 0 && React.createElement("span", { style: countBadgeS }, messages.length)),
+                React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginTop: 4 } }, "Discussion uniquement li\u00E9e \u00E0 ce match.")),
             React.createElement("span", { style: { fontSize: 18, transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" } }, "\u25BC")),
 
         expanded && React.createElement(React.Fragment, null,
@@ -6021,6 +6023,7 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
             isHome ? advTeam : espeTeam),
         React.createElement(MatchPhotos, { matchId: m.id, coachUnlocked: coachUnlocked }),
         React.createElement(MatchExtrasPanel, { matchId: m.id, isCoach: coachUnlocked, onExtrasLoaded: () => {}, onStatsExtracted: (espe, adv) => { setLocalEspeStats(espe); setLocalAdvStats(adv); m.espeStats = espe; m.advStats = adv; setMSaved("stats_ok"); setTimeout(() => setMSaved(""), 3000); } }),
+        React.createElement(MatchChatPanel, { matchId: m.id, user: user }),
         coachUnlocked && React.createElement("div", { className: "coach-notes", style: { marginBottom: 24 } },
             React.createElement("div", { className: "coach-notes-title" }, "\uD83D\uDCCB Note du coach \u2014 Match"),
             React.createElement(React.Fragment, null,
