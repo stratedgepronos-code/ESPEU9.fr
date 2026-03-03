@@ -4713,28 +4713,6 @@ function App() {
         try { return localStorage.getItem("espeu9_cookie_ok") === "1"; } catch(e) { return false; }
     });
     useEffect(() => { if (cookieAccepted) { try { localStorage.setItem("espeu9_cookie_ok", "1"); } catch(e) {} } }, [cookieAccepted]);
-    // ── Demande automatique des notifications push (parent, non abonn\u00E9, pas refus\u00E9 r\u00E9cemment)
-    const [showPushPrompt, setShowPushPrompt] = useState(false);
-    const [pushPromptLoading, setPushPromptLoading] = useState(false);
-    useEffect(() => {
-        if (!user || user.role !== "parent") return;
-        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-        if ("Notification" in window && Notification.permission === "denied") return;
-        var dismissed = 0;
-        try { dismissed = parseInt(localStorage.getItem("espeu9_push_prompt_dismissed") || "0", 10); } catch (e) {}
-        var sevenDays = 7 * 24 * 60 * 60 * 1000;
-        if (dismissed && (Date.now() - dismissed) < sevenDays) return;
-        var t = setTimeout(function() {
-            (function check() {
-                navigator.serviceWorker.ready.then(function(reg) {
-                    reg.pushManager.getSubscription().then(function(sub) {
-                        if (!sub) setShowPushPrompt(true);
-                    }).catch(function() {});
-                }).catch(function() {});
-            })();
-        }, 1800);
-        return function() { clearTimeout(t); };
-    }, [user]);
     // ── \u00C9couter le bouton retour du navigateur ──
     useEffect(() => {
         const onHash = () => {
@@ -4772,6 +4750,26 @@ function App() {
         registerServiceWorker();
     }, []);
     const coachUnlocked = !!(user && user.role === "coach");
+    // ── Demande automatique des notifications push (parent, non abonn\u00E9)
+    const [showPushPrompt, setShowPushPrompt] = useState(false);
+    const [pushPromptLoading, setPushPromptLoading] = useState(false);
+    useEffect(() => {
+        if (!user || user.role !== "parent") return;
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+        if ("Notification" in window && Notification.permission === "denied") return;
+        var dismissed = 0;
+        try { dismissed = parseInt(localStorage.getItem("espeu9_push_prompt_dismissed") || "0", 10); } catch (e) {}
+        var sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (dismissed && (Date.now() - dismissed) < sevenDays) return;
+        var t = setTimeout(function() {
+            navigator.serviceWorker.ready.then(function(reg) {
+                reg.pushManager.getSubscription().then(function(sub) {
+                    if (!sub) setShowPushPrompt(true);
+                }).catch(function() {});
+            }).catch(function() {});
+        }, 1800);
+        return function() { clearTimeout(t); };
+    }, [user]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     useEffect(() => {
