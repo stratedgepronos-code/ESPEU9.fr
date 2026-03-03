@@ -2849,6 +2849,23 @@ function AbsencePanel({ user }) {
 }
 
 // ── Tableau Assiduité (coach) ──
+function CoachInviteSecondParent() {
+    const [selectedPlayerId, setSelectedPlayerId] = useState("");
+    const [inviteUrl, setInviteUrl] = useState("");
+    return React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+        React.createElement("div", { className: "section-title", style: { marginTop: 24 } }, "\uD83D\uDC65 Inviter un 2e parent"),
+        React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "G\u00E9n\u00E8re un lien pour qu'un second parent cr\u00E9e un compte et acc\u00E8de aux m\u00EAmes infos du joueur."),
+        React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" } },
+            React.createElement("select", { value: selectedPlayerId, onChange: function(e) { setSelectedPlayerId(e.target.value); setInviteUrl(""); }, style: { padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--input-bg)", color: "var(--text)", minWidth: 200 } },
+                React.createElement("option", { value: "" }, "\u2014 Choisir un joueur \u2014"),
+                PLAYERS.map(function(p) { return React.createElement("option", { key: p.id, value: p.id }, "#", p.num, " ", p.firstName, " ", p.lastName); })),
+            React.createElement("button", { type: "button", disabled: !selectedPlayerId, onClick: function() {
+                fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: parseInt(selectedPlayerId, 10) }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) setInviteUrl(d.invite_url); });
+            }, style: { padding: "8px 16px", background: selectedPlayerId ? "var(--green-700)" : "var(--text-muted)", color: "white", border: "none", borderRadius: 8, fontSize: 13, cursor: selectedPlayerId ? "pointer" : "default" } }, "G\u00E9n\u00E9rer le lien")),
+        inviteUrl && React.createElement("div", { style: { marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" } },
+            React.createElement("input", { type: "text", readOnly: true, value: inviteUrl, style: { flex: 1, minWidth: 200, padding: 8, fontSize: 12, background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", borderRadius: 6 } }),
+            React.createElement("button", { type: "button", onClick: function() { navigator.clipboard && navigator.clipboard.writeText(inviteUrl); }, style: { padding: "8px 14px", background: "var(--gold)", color: "#050d07", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer" } }, "Copier")));
+}
 function AttendancePanel() {
     const [stats, setStats] = useState(null);
     const [convoked, setConvoked] = useState({});
@@ -2995,6 +3012,16 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     const stats = player ? getPlayerTotalStats(player.num, matches) : null;
     const note = player && coachNotes[player.id] ? coachNotes[player.id] : null;
     const cardStyle = { maxWidth: 700, margin: "0 auto" };
+    const [icalUrl, setIcalUrl] = useState("");
+    const [inviteUrl, setInviteUrl] = useState("");
+    const [docStatus, setDocStatus] = useState(null);
+    const [presenceAccount, setPresenceAccount] = useState(null);
+    const [ficheUploading, setFicheUploading] = useState(false);
+    useEffect(function() {
+        if (!player || !player.id) return;
+        fetch(API_URL + "?action=get_required_documents", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setDocStatus(d.documents || []); }).catch(function() {});
+        fetch(API_URL + "?action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setPresenceAccount(d); }).catch(function() {});
+    }, [player && player.id]);
     // Coach account
     if (user.role === "coach") {
         return React.createElement("div", { style: cardStyle },
@@ -3014,6 +3041,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                 React.createElement("div", { className: "player-name" }, p.lastName),
                 React.createElement("div", { className: "player-first" }, p.firstName),
                 p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))),
+            React.createElement(CoachInviteSecondParent),
             React.createElement(AttendancePanel),
             React.createElement(TrainingAttendancePanel),
             React.createElement(CoachPushPanel),
@@ -3031,6 +3059,23 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
             React.createElement("div", { className: "card", style: { padding: 20 } }, React.createElement(PushNotifToggle)));
     }
     // Parent with player
+    const handleGetIcal = function() {
+        fetch(API_URL + "?action=ical_token", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.url) setIcalUrl(d.url); }).catch(function() {});
+    };
+    const handleInviteSecond = function() {
+        fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: player.id }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) setInviteUrl(d.invite_url); }).catch(function() {});
+    };
+    const handleFicheUpload = function(e) {
+        var f = e.target.files && e.target.files[0];
+        if (!f) return;
+        setFicheUploading(true);
+        var fd = new FormData(); fd.append("file", f); fd.append("player_id", String(player.id)); fd.append("document_type", "fiche_sanitaire");
+        fetch(API_URL + "?action=upload_required_document", { method: "POST", credentials: "same-origin", body: fd }).then(function(r) { return r.json(); }).then(function(d) {
+            setFicheUploading(false);
+            if (d.success) { setDocStatus([{ type: "fiche_sanitaire", uploaded_at: d.uploaded_at }]); e.target.value = ""; }
+        }).catch(function() { setFicheUploading(false); });
+    };
+    var ficheDoc = docStatus && docStatus.find(function(d) { return d.type === "fiche_sanitaire"; });
     return React.createElement("div", { style: cardStyle },
         React.createElement("div", { className: "section-title" }, "\uD83D\uDC64 Mon compte"),
         // Parent card
@@ -3041,7 +3086,29 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                     React.createElement("h3", { style: { margin: 0, fontSize: 20 } }, user.display_name),
                     React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 14, marginTop: 2 } },
                         user.parent_type === "maman" ? "\uD83D\uDC69" : "\uD83D\uDC68", " ", "Parent de ", player.firstName, " ", player.lastName),
-                    React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 13, marginTop: 4 } }, "Identifiant : ", user.username)))),
+                    React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 13, marginTop: 4 } }, "Identifiant : ", user.username),
+                    presenceAccount && presenceAccount.training_streak > 0 && React.createElement("div", { style: { marginTop: 8, fontSize: 13, color: "var(--green-400)", fontWeight: 600 } }, "\uD83C\uDFAF S\u00E9rie : ", presenceAccount.training_streak, " entra\u00EEnement(s) d'affil\u00E9e")))),
+        React.createElement("div", { className: "section-title" }, "\uD83D\uDCC5 Calendrier & documents"),
+        React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+            React.createElement("div", { style: { marginBottom: 16 } },
+                React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6 } }, "\uD83D\uDCC5 Ajouter les matchs \u00E0 mon calendrier"),
+                React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 8 } }, "Synchronise avec Google Agenda, Apple ou Outlook."),
+                !icalUrl ? React.createElement("button", { type: "button", onClick: handleGetIcal, style: { padding: "8px 16px", background: "var(--green-700)", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" } }, "Obtenir le lien") : React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" } },
+                    React.createElement("input", { type: "text", readOnly: true, value: icalUrl, style: { flex: 1, minWidth: 200, padding: 8, fontSize: 12, background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", borderRadius: 6 } }),
+                    React.createElement("button", { type: "button", onClick: function() { navigator.clipboard && navigator.clipboard.writeText(icalUrl); }, style: { padding: "8px 14px", background: "var(--green-600)", color: "white", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer" } }, "Copier"))),
+            React.createElement("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" } },
+                React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6 } }, "\uD83D\uDCCB Fiche sanitaire"),
+                React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 8 } }, "Recommand\u00E9 : \u00E0 mettre \u00E0 jour chaque saison."),
+                ficheDoc ? React.createElement("div", { style: { fontSize: 13, color: "var(--green-400)" } }, "D\u00E9pos\u00E9e le ", new Date(ficheDoc.uploaded_at).toLocaleDateString("fr-FR")) : null,
+                React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer" } },
+                    React.createElement("input", { type: "file", accept: "application/pdf,image/*", onChange: handleFicheUpload, disabled: ficheUploading, style: { fontSize: 12 } }),
+                    ficheUploading ? "Envoi…" : (ficheDoc ? "Remplacer" : "D\u00E9poser"))),
+            React.createElement("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" } },
+                React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6 } }, "\uD83D\uDC65 Inviter un 2e parent"),
+                React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 8 } }, "L'autre parent peut cr\u00E9er un compte et voir les m\u00EAmes infos pour ", player.firstName, "."),
+                !inviteUrl ? React.createElement("button", { type: "button", onClick: handleInviteSecond, style: { padding: "8px 16px", background: "rgba(200,168,50,0.2)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" } }, "G\u00E9n\u00E9rer le lien") : React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" } },
+                    React.createElement("input", { type: "text", readOnly: true, value: inviteUrl, style: { flex: 1, minWidth: 200, padding: 8, fontSize: 12, background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", borderRadius: 6 } }),
+                    React.createElement("button", { type: "button", onClick: function() { navigator.clipboard && navigator.clipboard.writeText(inviteUrl); }, style: { padding: "8px 14px", background: "var(--gold)", color: "#050d07", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer" } }, "Copier"))))),
         // Player info card
         React.createElement("div", { className: "section-title" }, "\uD83C\uDFC0 Fiche de ", player.firstName),
         React.createElement("div", { className: "card", style: { padding: 24, marginBottom: 24 } },
@@ -3057,7 +3124,9 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                     React.createElement("div", { style: { fontWeight: 600, marginTop: 2 } }, player.licence)),
                 React.createElement("div", null,
                     React.createElement("span", { style: { color: "var(--text-dim)" } }, "Licence BC"),
-                    React.createElement("div", { style: { fontWeight: 600, marginTop: 2 } }, player.licenceBC)))),
+                    React.createElement("div", { style: { fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                        player.licenceBC,
+                        React.createElement("a", { href: API_URL + "?action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence")))),
         // Stats card
         stats && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Stats saison"),
@@ -5566,12 +5635,13 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                     player.dob,
                     " ",
                     player.cap ? "• ★ Capitaine" : ""),
-                React.createElement("div", { className: "detail-info-sub", style: { fontSize: 12, marginTop: 4, opacity: 0.7 } },
+                React.createElement("div", { className: "detail-info-sub", style: { fontSize: 12, marginTop: 4, opacity: 0.7, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
                     "Licence : ",
                     player.licence,
                     " (",
                     player.licenceBC,
-                    ")"))),
+                    ")",
+                    (coachUnlocked || (user && user.player_id === player.id)) && React.createElement("a", { href: API_URL + "?action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { marginLeft: 4, padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence"))),
         React.createElement("div", { className: "section-title" }, "Stats saison"),
         React.createElement("div", { className: "detail-stats-grid" },
             React.createElement("div", { className: "detail-stat-box" },
@@ -5614,6 +5684,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
         coachUnlocked && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Assiduit\u00E9 \u2014 matchs et entra\u00EEnements manqu\u00E9s"),
             React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+                presence && presence.training_streak > 0 && React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--green-400)", marginBottom: 12 } }, "\uD83C\uDFAF S\u00E9rie : ", presence.training_streak, " entra\u00EEnement(s) d'affil\u00E9e"),
                 (presence && (presence.missed_matches && presence.missed_matches.length > 0) || (presence.missed_training_dates && presence.missed_training_dates.length > 0)) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
                     presence.missed_matches && presence.missed_matches.length > 0 && React.createElement("div", null,
                         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "var(--red)", marginBottom: 8 } }, "\u274C Matchs manqu\u00E9s (absences)"),

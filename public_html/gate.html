@@ -572,10 +572,28 @@
 
         // Si URL contient #reset/TOKEN, ouvrir le panel reset
         var hash = window.location.hash;
+        var inviteToken = '';
         if (hash && hash.indexOf('#reset/') === 0) {
           resetToken = hash.substring(7);
           showPanel('reset');
+        } else if (hash && hash.indexOf('inscription') !== -1) {
+          showPanel('register');
+          var m = hash.match(/invite=([^&]+)/);
+          if (m && m[1]) {
+            inviteToken = decodeURIComponent(m[1].replace(/\+/g, ' '));
+            fetch(API + '?action=get_invite_info&token=' + encodeURIComponent(inviteToken), { credentials: 'same-origin' })
+              .then(function(r) { return r.json(); })
+              .then(function(d) {
+                if (d.success && d.player_id) {
+                  var sel = document.getElementById('regPlayer');
+                  sel.value = String(d.player_id);
+                  showOk('Compte 2e parent pour ' + (d.player_name || 'ce joueur') + '. Remplis le formulaire.');
+                }
+              })
+              .catch(function() {});
+          }
         }
+        window.getInviteToken = function() { return inviteToken; };
 
         // LOGIN
         document.getElementById('formLogin').addEventListener('submit', function(e) {
@@ -619,10 +637,12 @@
           if (!playerId) { showErr('Choisis un joueur (ton enfant).'); return; }
           var btn = document.getElementById('btnRegister');
           btn.disabled = true; showErr('');
+          var body = { username: user, password: pass, email: email, player_id: parseInt(playerId, 10), parent_type: parentType, player_name: playerName };
+          if (window.getInviteToken && window.getInviteToken()) body.invite_token = window.getInviteToken();
           fetch(API + '?action=register', {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: user, password: pass, email: email, player_id: parseInt(playerId, 10), parent_type: parentType, player_name: playerName })
+            body: JSON.stringify(body)
           })
             .then(function(r) { return r.json(); })
             .then(function(d) {

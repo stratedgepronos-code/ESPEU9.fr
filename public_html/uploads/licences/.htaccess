@@ -1,0 +1,2 @@
+# Accès uniquement via api.php?action=download_licence (vérification parent/coach)
+Deny from all

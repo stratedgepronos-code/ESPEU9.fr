@@ -255,6 +255,31 @@ function sendPushToAll($title, $body, $url = '#accueil') {
 switch ($action) {
 
 // ═══ FAILLE 1 — Données personnelles côté serveur uniquement ═══
+// ═══ TÉLÉCHARGEMENT E-LICENCE (parent de l'enfant ou coach uniquement) ═══
+case 'download_licence':
+    $pid = (int)($_GET['player_id'] ?? 0);
+    if ($pid <= 0) { http_response_code(400); echo json_encode(['error' => 'player_id requis']); break; }
+    if (!$uid) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    if ($role !== 'coach' && ($role !== 'parent' || (int)($_SESSION['player_id'] ?? 0) !== $pid)) {
+        http_response_code(403); echo json_encode(['error' => 'Accès réservé au parent de l\'enfant ou au coach']); break;
+    }
+    $dir = __DIR__ . '/uploads/licences/';
+    $exts = ['.png', '.pdf', '.jpg', '.jpeg'];
+    $found = null;
+    foreach ($exts as $ext) {
+        $path = $dir . $pid . $ext;
+        if (file_exists($path) && is_file($path)) { $found = $path; break; }
+    }
+    if (!$found) { http_response_code(404); echo json_encode(['error' => 'Licence non déposée pour ce joueur']); break; }
+    $mime = (pathinfo($found, PATHINFO_EXTENSION) === 'pdf') ? 'application/pdf' : 'image/png';
+    if (in_array(strtolower(pathinfo($found, PATHINFO_EXTENSION)), ['jpg', 'jpeg'])) $mime = 'image/jpeg';
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: attachment; filename="e-Licence_' . $pid . '.' . pathinfo($found, PATHINFO_EXTENSION) . '"');
+    header('Content-Length: ' . filesize($found));
+    header('Cache-Control: private, no-cache');
+    readfile($found);
+    exit;
+
 case 'get_player_info':
     if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') {
         http_response_code(403); echo json_encode(['error' => 'Accès réservé au coach']); break;
@@ -413,6 +438,15 @@ case 'register':
     $in=json_decode(file_get_contents('php://input'),true);
     $username=trim($in['username']??''); $password=$in['password']??''; $email=trim($in['email']??'');
     $playerId=$in['player_id']??null; $parentType=$in['parent_type']??'papa'; $playerName=trim($in['player_name']??'');
+    $inviteToken=trim($in['invite_token']??'');
+    if($inviteToken){
+        $db=getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st=$db->prepare("SELECT player_id FROM second_parent_invites WHERE token=:t AND expires_at > NOW()");
+        $st->execute([':t'=>$inviteToken]);
+        $inv=$st->fetch();
+        if($inv){ $playerId=(int)$inv['player_id']; }
+    }
     if(!$username||!$password){http_response_code(400);echo json_encode(['error'=>'Identifiant et mot de passe requis']);break;}
     if(!$email){http_response_code(400);echo json_encode(['error'=>'L\'email est obligatoire']);break;}
     if(!filter_var($email,FILTER_VALIDATE_EMAIL)){http_response_code(400);echo json_encode(['error'=>'Adresse email invalide']);break;}
@@ -2748,14 +2782,15 @@ case 'get_player_presence':
             }
         }
         $trainSessions = 0; $trainPresent = 0;
-        $st = $db->prepare("SELECT session_date, present FROM training_presence WHERE player_id = :pid");
+        $st = $db->prepare("SELECT session_date, present FROM training_presence WHERE player_id = :pid ORDER BY session_date DESC");
         $st->execute([':pid' => $pid]);
         $seen = [];
         $missedTrainingDates = [];
+        $trainingStreak = 0;
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
             if (!isset($seen[$r['session_date']])) { $seen[$r['session_date']] = true; $trainSessions++; }
-            if ((int)$r['present']) $trainPresent++;
-            else $missedTrainingDates[] = $r['session_date'];
+            if ((int)$r['present']) { $trainPresent++; $trainingStreak++; }
+            else { $missedTrainingDates[] = $r['session_date']; break; }
         }
         rsort($missedTrainingDates);
         echo json_encode([
@@ -2764,6 +2799,7 @@ case 'get_player_presence':
             'match_present' => $matchPresent,
             'training_sessions' => $trainSessions,
             'training_present' => $trainPresent,
+            'training_streak' => $trainingStreak,
             'missed_matches' => $missedMatches,
             'missed_training_dates' => $missedTrainingDates
         ]);
@@ -2816,6 +2852,210 @@ case 'cron_match_reminder':
         }
         echo json_encode(['success' => true, 'tomorrow' => $tomorrow, 'matches_found' => count($matchesToRemind), 'reminders_sent' => $sent]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
+// ═══ EXPORT CALENDRIER .ICS (sync Google / Apple / Outlook) ═══
+case 'ical_token':
+    if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS ical_tokens (user_id INT PRIMARY KEY, token VARCHAR(64) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT token FROM ical_tokens WHERE user_id = :uid");
+        $st->execute([':uid' => $uid]);
+        $row = $st->fetch();
+        if ($row) {
+            $token = $row['token'];
+        } else {
+            $token = bin2hex(random_bytes(24));
+            $db->prepare("INSERT INTO ical_tokens (user_id, token) VALUES (:uid, :t)")->execute([':uid' => $uid, ':t' => $token]);
+        }
+        $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'https') . '://' . ($_SERVER['HTTP_HOST'] ?? 'espeu9.fr');
+        $url = $baseUrl . '/api.php?action=ical&token=' . $token;
+        echo json_encode(['success' => true, 'url' => $url, 'token' => $token]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
+    break;
+
+case 'ical':
+    $token = trim($_GET['token'] ?? '');
+    if ($token === '') { header('Content-Type: text/plain; charset=utf-8'); echo 'Token manquant'; exit; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS ical_tokens (user_id INT PRIMARY KEY, token VARCHAR(64) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT user_id FROM ical_tokens WHERE token = :t");
+        $st->execute([':t' => $token]);
+        $row = $st->fetch();
+        if (!$row) { header('Content-Type: text/plain; charset=utf-8'); echo 'Lien invalide ou expiré'; exit; }
+        $uid = (int)$row['user_id'];
+        $events = [];
+        $st = $db->query("SELECT id, journee, date, heure, heure_rdv, lieu, gymnase, adversaire FROM upcoming_matches ORDER BY STR_TO_DATE(date, '%d/%m/%Y') ASC");
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $d = $r['date'];
+            $h = trim($r['heure'] ?: $r['heure_rdv'] ?: '09:00');
+            if (!preg_match('/^\d{1,2}:\d{2}$/', $h)) $h = '09:00';
+            $h = str_pad(str_replace(':', '', $h), 4, '0', STR_PAD_LEFT);
+            $h = substr($h, 0, 2).substr($h, 2, 2).'00';
+            if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $d, $m)) {
+                $events[] = [
+                    'start' => $m[3].$m[2].$m[1].'T'.$h,
+                    'end' => $m[3].$m[2].$m[1].'T'.$h,
+                    'summary' => 'Match vs '.$r['adversaire'],
+                    'desc' => ($r['journee'] ? 'J'.$r['journee'].' - ' : '').$r['lieu'].($r['gymnase'] ? ' ('.$r['gymnase'].')' : '').($r['heure_rdv'] ? ' - Convocation '.$r['heure_rdv'] : ''),
+                    'location' => trim($r['lieu'].' '.$r['gymnase'])
+                ];
+            }
+        }
+        header('Content-Type: text/calendar; charset=utf-8');
+        header('Content-Disposition: inline; filename="espe-u9.ics"');
+        header('Cache-Control: private, max-age=300');
+        echo "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//ESPE U9//Calendrier//FR\r\nCALSCALE:GREGORIAN\r\n";
+        foreach ($events as $e) {
+            $uidEv = 'espe-'.md5($e['start'].$e['summary']).'@espeu9.fr';
+            echo "BEGIN:VEVENT\r\nUID:".$uidEv."\r\nDTSTART:".$e['start']."\r\nDTEND:".$e['end']."\r\nSUMMARY:".str_replace(["\r","\n",','], ['','','\\,'], $e['summary'])."\r\n";
+            if (!empty($e['desc'])) echo "DESCRIPTION:".str_replace(["\r","\n",','], ['',' ','\\,'], $e['desc'])."\r\n";
+            if (!empty($e['location'])) echo "LOCATION:".str_replace(["\r","\n",','], ['',' ','\\,'], $e['location'])."\r\n";
+            echo "END:VEVENT\r\n";
+        }
+        echo "END:VCALENDAR\r\n";
+        exit;
+    } catch (Exception $e) { header('Content-Type: text/plain'); echo 'Erreur'; exit; }
+
+// ═══ RAPPEL CONVOCATION J-2 (cron) ═══
+case 'cron_convocation_reminder':
+    $cronKey = trim($_GET['key'] ?? '');
+    if ($cronKey !== 'espe_cron_2026_secure') { http_response_code(403); echo json_encode(['error' => 'Clé invalide']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS convocation_responses (match_id VARCHAR(50) NOT NULL, player_id INT NOT NULL, user_id INT, response ENUM('present','absent','attente') NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY unique_response (match_id, player_id))");
+        $day2 = date('d/m/Y', strtotime('+2 days'));
+        $matchesToRemind = [];
+        $st = $db->query("SELECT id, date, adversaire FROM upcoming_matches");
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            if ($r['date'] === $day2) $matchesToRemind[] = ['match_id' => 'custom_'.$r['id'], 'adversaire' => $r['adversaire']];
+        }
+        $sent = 0;
+        foreach ($matchesToRemind as $m) {
+            $mid = $m['match_id'];
+            $midInt = (strpos($mid, 'custom_') === 0) ? (int)substr($mid, 7) : (int)$mid;
+            $convoked = $db->prepare("SELECT player_id FROM convocations WHERE match_id = :mid AND convoked = 1 AND player_id > 0");
+            $convoked->execute([':mid' => $mid]);
+            $pids = $convoked->fetchAll(PDO::FETCH_COLUMN);
+            if (empty($pids)) continue;
+            $responses = [];
+            $stR = $db->prepare("SELECT player_id, response FROM convocation_responses WHERE match_id = :mid");
+            $stR->execute([':mid' => $midInt]);
+            while ($rr = $stR->fetch(PDO::FETCH_ASSOC)) $responses[(int)$rr['player_id']] = $rr['response'];
+            $needRemind = [];
+            foreach ($pids as $pid) {
+                $pid = (int)$pid;
+                $r = $responses[$pid] ?? null;
+                if ($r === null || $r === 'attente') $needRemind[] = $pid;
+            }
+            if (empty($needRemind)) continue;
+            $stU = $db->prepare("SELECT id FROM users WHERE player_id = :pid AND role = 'parent'");
+            $userIds = [];
+            foreach ($needRemind as $pid) {
+                $stU->execute([':pid' => $pid]);
+                while ($u = $stU->fetch()) $userIds[(int)$u['id']] = true;
+            }
+            foreach (array_keys($userIds) as $recipientId) {
+                sendPushToUser($recipientId, 'Rappel convocation J-2', 'Match vs '.$m['adversaire'].' dans 2 jours : merci de répondre présent / absent sur le site.', '#accueil');
+                $sent++;
+            }
+        }
+        echo json_encode(['success' => true, 'day' => $day2, 'matches' => count($matchesToRemind), 'reminders_sent' => $sent]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => $e->getMessage()]); }
+    break;
+
+// ═══ INVITATION 2E PARENT (multi-parent) ═══
+case 'create_second_parent_invite':
+    if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $playerId = (int)($in['player_id'] ?? 0);
+    if ($playerId <= 0) { http_response_code(400); echo json_encode(['error'=>'player_id requis']); break; }
+    $myPid = (int)($_SESSION['player_id'] ?? 0);
+    if ($role !== 'coach' && $myPid !== $playerId) { http_response_code(403); echo json_encode(['error'=>'Non autorisé']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $token = bin2hex(random_bytes(24));
+        $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
+        $db->prepare("INSERT INTO second_parent_invites (token, player_id, created_by, expires_at) VALUES (:t, :pid, :by, :exp)")->execute([':t'=>$token, ':pid'=>$playerId, ':by'=>$uid, ':exp'=>$expires]);
+        $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'https') . '://' . ($_SERVER['HTTP_HOST'] ?? 'espeu9.fr');
+        $url = $baseUrl . '/gate.html#inscription?invite=' . $token;
+        echo json_encode(['success'=>true, 'invite_url'=>$url, 'token'=>$token, 'expires_at'=>$expires]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
+    break;
+
+case 'get_invite_info':
+    $token = trim($_GET['token'] ?? '');
+    if ($token === '') { echo json_encode(['success'=>false, 'error'=>'Token manquant']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT player_id, expires_at FROM second_parent_invites WHERE token = :t");
+        $st->execute([':t'=>$token]);
+        $row = $st->fetch();
+        if (!$row || strtotime($row['expires_at']) < time()) { echo json_encode(['success'=>false, 'error'=>'Lien expiré ou invalide']); break; }
+        $playerId = (int)$row['player_id'];
+        $playerName = 'Joueur #'.$playerId;
+        try {
+            $stP = $db->query("SELECT id, firstName, lastName FROM players");
+            if ($stP) while ($p = $stP->fetch(PDO::FETCH_ASSOC)) { if ((int)$p['id'] === $playerId) { $playerName = trim(($p['firstName']??'').' '.($p['lastName']??'')); break; } }
+        } catch (Exception $e) {}
+        echo json_encode(['success'=>true, 'player_id'=>$playerId, 'player_name'=>$playerName]);
+    } catch (Exception $e) { echo json_encode(['success'=>false, 'error'=>'Erreur']); }
+    break;
+
+// ═══ DOCUMENTS OBLIGATOIRES (fiche sanitaire) ═══
+case 'get_required_documents':
+    if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS required_documents (id INT AUTO_INCREMENT PRIMARY KEY, player_id INT NOT NULL, document_type VARCHAR(50) NOT NULL DEFAULT 'fiche_sanitaire', filename VARCHAR(255) NOT NULL, uploaded_by INT NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_player_type (player_id, document_type))");
+        if ($role === 'coach') {
+            $st = $db->query("SELECT rd.player_id, rd.document_type, rd.uploaded_at FROM required_documents rd ORDER BY rd.player_id");
+            $byPlayer = [];
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                $pid = (int)$r['player_id'];
+                if (!isset($byPlayer[$pid])) $byPlayer[$pid] = [];
+                $byPlayer[$pid][] = ['type' => $r['document_type'], 'uploaded_at' => $r['uploaded_at']];
+            }
+            echo json_encode(['success'=>true, 'by_player'=>$byPlayer]);
+        } else {
+            $myPid = (int)($_SESSION['player_id'] ?? 0);
+            if ($myPid <= 0) { echo json_encode(['success'=>true, 'documents'=>[]]); break; }
+            $st = $db->prepare("SELECT document_type, uploaded_at FROM required_documents WHERE player_id = :pid");
+            $st->execute([':pid'=>$myPid]);
+            $documents = [];
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) $documents[] = ['type'=>$r['document_type'], 'uploaded_at'=>$r['uploaded_at']];
+            echo json_encode(['success'=>true, 'documents'=>$documents]);
+        }
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
+    break;
+
+case 'upload_required_document':
+    if (!$uid || $role !== 'parent') { http_response_code(403); echo json_encode(['error'=>'Réservé aux parents']); break; }
+    $playerId = (int)($_POST['player_id'] ?? 0);
+    $docType = trim($_POST['document_type'] ?? 'fiche_sanitaire');
+    $myPid = (int)($_SESSION['player_id'] ?? 0);
+    if ($playerId <= 0 || $playerId !== $myPid) { http_response_code(403); echo json_encode(['error'=>'Non autorisé']); break; }
+    if (!in_array($docType, ['fiche_sanitaire'])) $docType = 'fiche_sanitaire';
+    if (empty($_FILES['file'])) { http_response_code(400); echo json_encode(['error'=>'Aucun fichier']); break; }
+    $f = $_FILES['file'];
+    if ($f['size'] > 10 * 1024 * 1024) { http_response_code(400); echo json_encode(['error'=>'Fichier trop lourd (10 Mo max)']); break; }
+    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, ['pdf','jpg','jpeg','png'])) { http_response_code(400); echo json_encode(['error'=>'Format accepté : PDF, JPG, PNG']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS required_documents (id INT AUTO_INCREMENT PRIMARY KEY, player_id INT NOT NULL, document_type VARCHAR(50) NOT NULL DEFAULT 'fiche_sanitaire', filename VARCHAR(255) NOT NULL, uploaded_by INT NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_player_type (player_id, document_type))");
+        $dir = __DIR__.'/uploads/required_docs/'.$playerId.'/';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        $filename = $docType.'_'.date('Y').'_'.bin2hex(random_bytes(4)).'.'.$ext;
+        if (!move_uploaded_file($f['tmp_name'], $dir.$filename)) { http_response_code(500); echo json_encode(['error'=>'Erreur enregistrement']); break; }
+        $st = $db->prepare("INSERT INTO required_documents (player_id, document_type, filename, uploaded_by) VALUES (:pid, :typ, :fn, :uid) ON DUPLICATE KEY UPDATE filename = :fn2, uploaded_by = :uid2, uploaded_at = CURRENT_TIMESTAMP");
+        $st->execute([':pid'=>$playerId, ':typ'=>$docType, ':fn'=>$filename, ':uid'=>$uid, ':fn2'=>$filename, ':uid2'=>$uid]);
+        echo json_encode(['success'=>true, 'document_type'=>$docType, 'uploaded_at'=>date('c')]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
 
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
