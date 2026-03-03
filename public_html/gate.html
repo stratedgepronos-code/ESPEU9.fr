@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accès membres — ESPE Basket U9</title>
+  <meta name="theme-color" content="#050d07">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #050d07;
+      --green-900: #071a0b; --green-800: #0f3d1a; --green-700: #1a6b2e; --green-600: #1e8035;
+      --green-500: #22a83d; --green-400: #34d058; --green-glow: rgba(34,168,61,0.35);
+      --gold: #c8a832; --gold-light: #e8cc5a;
+      --text: #eaf5ec; --text-dim: #7a9b82; --text-muted: #4a6b52;
+      --border: rgba(255,255,255,0.06); --border-hover: rgba(255,255,255,0.12);
+      --card-bg: rgba(10,40,18,0.55);
+      --input-bg: rgba(0,0,0,0.35);
+    }
+    html { height: 100%; }
+    body {
+      min-height: 100vh;
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      position: relative;
+    }
+
+    /* ── ANIMATED BACKGROUND ── */
+    .bg-layer {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .bg-gradient {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 120% 60% at 50% -30%, rgba(26,107,46,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 50% at 20% 110%, rgba(34,168,61,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 40% at 90% 80%, rgba(200,168,50,0.04) 0%, transparent 40%);
+    }
+    .bg-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(26,107,46,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26,107,46,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 70%);
+    }
+    .orb {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0;
+      animation: orbFloat 8s ease-in-out infinite;
+    }
+    .orb-1 { width: 400px; height: 400px; background: rgba(26,107,46,0.12); top: -10%; left: 30%; animation-delay: 0s; }
+    .orb-2 { width: 300px; height: 300px; background: rgba(34,208,88,0.06); bottom: 10%; right: -5%; animation-delay: 3s; }
+    .orb-3 { width: 200px; height: 200px; background: rgba(200,168,50,0.05); top: 50%; left: -5%; animation-delay: 5s; }
+    .bg-logo {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(70vw, 500px); height: min(70vw, 500px);
+      background: url('/images/logo-espe.png') center/contain no-repeat;
+      opacity: 0.07;
+      filter: grayscale(20%);
+      pointer-events: none;
+    }
+    @keyframes orbFloat {
+      0%, 100% { opacity: 0.3; transform: translateY(0) scale(1); }
+      50% { opacity: 0.7; transform: translateY(-30px) scale(1.1); }
+    }
+
+    /* ── PARTICLES ── */
+    .particles { position: absolute; inset: 0; }
+    .particle {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: rgba(34,168,61,0.8);
+      border-radius: 50%;
+      animation: particleRise linear infinite;
+    }
+    @keyframes particleRise {
+      0% { opacity: 0; transform: translateY(0) scale(0); }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-100vh) scale(1); }
+    }
+
+    /* ── MAIN WRAPPER ── */
+    .gate-wrap {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 460px;
+      animation: fadeSlideUp 0.8s ease-out both;
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── LOGO ── */
+    .logo-block { text-align: center; margin-bottom: 28px; }
+    .logo-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.5rem, 7vw, 3.25rem);
+      letter-spacing: 0.18em;
+      margin-top: 16px;
+      background: linear-gradient(135deg, #fff 0%, #a8d5b0 50%, var(--gold-light) 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 20px rgba(26,107,46,0.2));
+    }
+    .logo-sub {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5em;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* ── BADGES ── */
+    .badges { text-align: center; margin-bottom: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 6px 14px; border-radius: 100px;
+      border: 1px solid rgba(200,168,50,0.25);
+      background: rgba(200,168,50,0.08);
+      color: var(--gold);
+    }
+    .badge-green {
+      border-color: rgba(34,168,61,0.25);
+      background: rgba(34,168,61,0.08);
+      color: var(--green-400);
+    }
+
+    /* ── HERO TEXT ── */
+    .hero { text-align: center; margin-bottom: 32px; animation: fadeSlideUp 0.8s ease-out 0.15s both; }
+    .hero h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.8rem, 5vw, 2.5rem);
+      line-height: 1.1;
+      color: #fff;
+      letter-spacing: 0.01em;
+      margin-bottom: 12px;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--green-400), var(--gold-light));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 15px; color: var(--text-dim); line-height: 1.6; max-width: 360px; margin: 0 auto;
+    }
+
+    /* ── FEATURES STRIP ── */
+    .features {
+      display: flex; justify-content: center; gap: 20px; flex-wrap: nowrap;
+      margin-bottom: 32px; animation: fadeSlideUp 0.8s ease-out 0.25s both;
+    }
+    .feat {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500; color: var(--text-dim); white-space: nowrap;
+    }
+    .feat-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(26,107,46,0.15); font-size: 14px; flex-shrink: 0;
+    }
+    @media (max-width: 500px) {
+      .features { gap: 10px; }
+      .feat { font-size: 10px; gap: 4px; }
+      .feat-icon { width: 22px; height: 22px; font-size: 11px; border-radius: 6px; }
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 32px 28px;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02) inset;
+      position: relative;
+      overflow: hidden;
+      animation: fadeSlideUp 0.8s ease-out 0.3s both;
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    }
+    .card::after {
+      content: '';
+      position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(ellipse at 50% 0%, rgba(26,107,46,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex; gap: 4px; margin-bottom: 28px; position: relative; z-index: 1;
+      background: rgba(0,0,0,0.3); padding: 4px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .tab {
+      flex: 1; padding: 13px 16px; border: none; border-radius: 12px;
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer; background: transparent; color: var(--text-muted);
+      transition: all 0.3s ease; position: relative;
+    }
+    .tab:hover { color: var(--text-dim); }
+    .tab.active {
+      background: linear-gradient(135deg, var(--green-700), var(--green-600));
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(26,107,46,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .panel { display: none; position: relative; z-index: 1; }
+    .panel.active { display: block; animation: panelIn 0.35s ease-out; }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── FIELDS ── */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 8px;
+    }
+    .input-wrap {
+      position: relative; display: flex; align-items: center;
+    }
+    .input-icon {
+      position: absolute; left: 16px; font-size: 16px; opacity: 0.45; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .input-wrap:focus-within .input-icon { opacity: 0.8; }
+    .field input, .field select {
+      width: 100%; padding: 15px 18px 15px 46px;
+      border: 1px solid var(--border); border-radius: 14px;
+      background: var(--input-bg); color: #fff;
+      font-family: inherit; font-size: 15px;
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+    }
+    .field select { padding-left: 18px; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a9b82' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 16px center;
+    }
+    .field input::placeholder { color: rgba(255,255,255,0.25); }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--green-500);
+      box-shadow: 0 0 0 3px rgba(34,168,61,0.15), 0 0 20px rgba(34,168,61,0.05);
+      background: rgba(0,0,0,0.45);
+    }
+    .field select option { background: #0a2812; color: #fff; }
+    .toggle-pass {
+      position: absolute; right: 14px; background: none; border: none;
+      color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 4px;
+      transition: color 0.2s;
+    }
+    .toggle-pass:hover { color: var(--text); }
+
+    .row { display: flex; gap: 12px; }
+    .row .field { flex: 1; }
+
+    .remember {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 22px;
+      font-size: 13px; color: var(--text-dim); cursor: pointer;
+    }
+    .remember input[type="checkbox"] {
+      width: 18px; height: 18px; accent-color: var(--green-600);
+      border-radius: 4px; cursor: pointer;
+    }
+
+    /* ── BUTTON ── */
+    .btn-primary {
+      width: 100%; padding: 16px 24px; border: none; border-radius: 14px;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      background: linear-gradient(135deg, var(--green-600) 0%, var(--green-700) 100%);
+      color: #fff; letter-spacing: 0.04em;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(26,107,46,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      position: relative; overflow: hidden;
+    }
+    .btn-primary::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(26,107,46,0.4), inset 0 1px 0 rgba(255,255,255,0.1); }
+    .btn-primary:hover::before { opacity: 1; }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-text { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+    /* ── MESSAGES ── */
+    .error-msg {
+      background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.3);
+      color: #fca5a5; padding: 12px 16px; border-radius: 12px;
+      font-size: 13px; margin-bottom: 16px; display: none;
+    }
+    .error-msg.show { display: flex; align-items: center; gap: 8px; }
+    .success-msg {
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+      color: #86efac; padding: 12px 16px; border-radius: 12px;
+      font-size: 13px; margin-bottom: 16px; display: none;
+    }
+    .success-msg.show { display: flex; align-items: center; gap: 8px; }
+
+    /* ── FOOTER ── */
+    .footer-text {
+      text-align: center; font-size: 13px; color: var(--text-muted);
+      margin-top: 28px; line-height: 1.6;
+      animation: fadeSlideUp 0.8s ease-out 0.45s both;
+    }
+    .footer-text a { color: var(--gold); text-decoration: none; font-weight: 600; transition: color 0.2s; }
+    .footer-text a:hover { color: var(--gold-light); }
+    .copyright {
+      text-align: center; font-size: 11px; color: rgba(255,255,255,0.2);
+      margin-top: 20px; letter-spacing: 0.08em;
+      animation: fadeSlideUp 0.8s ease-out 0.5s both;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 500px) {
+      body { padding: 20px 12px; }
+      .card { padding: 24px 18px; border-radius: 22px; }
+      .logo-title { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+  <script>window.scrollTo(0,0);</script>
+  <div class="bg-layer">
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="particles" id="particles"></div>
+    <div class="bg-logo"></div>
+  </div>
+
+  <div class="gate-wrap">
+    <div class="logo-block">
+      <div class="logo-title">ESPE BASKET</div>
+      <div class="logo-sub">U9 &middot; Ch&acirc;lons</div>
+    </div>
+
+    <div class="badges">
+      <span class="badge">&#127942; Espace membres</span>
+      <span class="badge badge-green">&#127936; Saison 2025-2026</span>
+    </div>
+
+    <div class="hero">
+      <h1>L'app communautaire<br><em>des relations club / joueurs.</em></h1>
+      <p>Convocations, messagerie, actualit&eacute;s de l'&eacute;quipe, photos&hellip;<br>Tout ce dont vous avez besoin est ici !</p>
+    </div>
+
+    <div class="features">
+      <div class="feat"><div class="feat-icon">&#128227;</div><span>Convocations</span></div>
+      <div class="feat"><div class="feat-icon">&#128172;</div><span>Tchat &amp; Messagerie</span></div>
+      <div class="feat"><div class="feat-icon">&#127941;</div><span>Stats &amp; Matchs</span></div>
+      <div class="feat"><div class="feat-icon">&#128247;</div><span>M&eacute;dias</span></div>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="login">Connexion</button>
+        <button type="button" class="tab" data-tab="register">Cr&eacute;er un compte</button>
+      </div>
+
+      <div id="errBox" class="error-msg"></div>
+      <div id="okBox" class="success-msg"></div>
+
+      <div id="panel-login" class="panel active">
+        <form id="formLogin">
+          <div class="field">
+            <label for="loginUser">Identifiant</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#128100;</span>
+              <input type="text" id="loginUser" name="username" placeholder="Ton identifiant" required autocomplete="username">
+            </div>
+          </div>
+          <div class="field">
+            <label for="loginPass">Mot de passe</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#128274;</span>
+              <input type="password" id="loginPass" name="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required autocomplete="current-password">
+              <button type="button" class="toggle-pass" data-target="loginPass" aria-label="Voir le mot de passe">&#128065;</button>
+            </div>
+          </div>
+          <label class="remember">
+            <input type="checkbox" id="loginRemember" name="remember">
+            <span>Se souvenir de moi</span>
+          </label>
+          <button type="submit" class="btn-primary" id="btnLogin">
+            <span class="btn-text">&#9889; Acc&eacute;der &agrave; l'espace</span>
+          </button>
+        </form>
+      </div>
+
+      <div id="panel-register" class="panel">
+        <form id="formRegister">
+          <div class="field">
+            <label for="regUser">Identifiant</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#128100;</span>
+              <input type="text" id="regUser" name="username" placeholder="Identifiant" required minlength="3" maxlength="50" autocomplete="username">
+            </div>
+          </div>
+          <div class="field">
+            <label for="regPass">Mot de passe</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#128274;</span>
+              <input type="password" id="regPass" name="password" placeholder="6 caract&egrave;res minimum" required minlength="6" autocomplete="new-password">
+              <button type="button" class="toggle-pass" data-target="regPass" aria-label="Voir le mot de passe">&#128065;</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="regEmail">Email (optionnel)</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#9993;</span>
+              <input type="email" id="regEmail" name="email" placeholder="email@exemple.fr" autocomplete="email">
+            </div>
+          </div>
+          <div class="field">
+            <label for="regPlayer">Mon enfant (joueur)</label>
+            <select id="regPlayer" name="player_id" required>
+              <option value="">&mdash; Choisir un joueur &mdash;</option>
+              <option value="1" data-name="Malone HAUTION">#6 Malone HAUTION</option>
+              <option value="2" data-name="Tristan COLLARD">#8 Tristan COLLARD</option>
+              <option value="3" data-name="Gaspard HAMM">#9 Gaspard HAMM</option>
+              <option value="4" data-name="Amine SLAH">#10 Amine SLAH</option>
+              <option value="5" data-name="Diego FRANCART">#11 Diego FRANCART</option>
+              <option value="6" data-name="Jonas DELE">#12 Jonas DELE</option>
+              <option value="7" data-name="Marceau FALZON">#13 Marceau FALZON</option>
+              <option value="8" data-name="Robin FISCHESSER">#14 Robin FISCHESSER</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Je suis</label>
+              <select id="regParentType" name="parent_type">
+                <option value="papa">Papa</option>
+                <option value="maman">Maman</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" id="btnRegister" style="margin-top: 4px;">
+            <span class="btn-text">&#127942; Cr&eacute;er mon compte</span>
+          </button>
+        </form>
+      </div>
+
+      <div id="panel-forgot" class="panel">
+        <p style="font-size:14px;color:var(--text-dim);margin-bottom:18px;line-height:1.5;">Entre ton identifiant ou ton email. Si un compte existe, tu recevras un lien de r&eacute;initialisation par email.</p>
+        <form id="formForgot">
+          <div class="field">
+            <label for="forgotId">Identifiant ou email</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#9993;</span>
+              <input type="text" id="forgotId" placeholder="Ton identifiant ou email" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" id="btnForgot">
+            <span class="btn-text">&#128232; Envoyer le lien</span>
+          </button>
+        </form>
+        <p style="text-align:center;margin-top:16px;"><a href="#" id="linkBackLogin" style="color:var(--gold);font-size:13px;text-decoration:none;font-weight:600;">&larr; Retour &agrave; la connexion</a></p>
+      </div>
+
+      <div id="panel-reset" class="panel">
+        <p style="font-size:14px;color:var(--text-dim);margin-bottom:18px;line-height:1.5;">Choisis ton nouveau mot de passe.</p>
+        <form id="formReset">
+          <div class="field">
+            <label for="resetPass">Nouveau mot de passe</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#128274;</span>
+              <input type="password" id="resetPass" placeholder="6 caract&egrave;res minimum" required minlength="6" autocomplete="new-password">
+              <button type="button" class="toggle-pass" data-target="resetPass" aria-label="Voir le mot de passe">&#128065;</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="resetPassConfirm">Confirmer le mot de passe</label>
+            <div class="input-wrap">
+              <span class="input-icon">&#128274;</span>
+              <input type="password" id="resetPassConfirm" placeholder="Confirme le mot de passe" required minlength="6" autocomplete="new-password">
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" id="btnReset">
+            <span class="btn-text">&#9989; Changer le mot de passe</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <p class="footer-text">Mot de passe oubli&eacute; ? <a href="#" id="linkForgot">R&eacute;initialiser</a></p>
+    <p class="copyright">&copy; 2026 ESPE Basket Ch&acirc;lons &middot; U9</p>
+  </div>
+
+  <script>
+    /* ── Particles ── */
+    (function(){
+      var c = document.getElementById('particles');
+      for (var i = 0; i < 30; i++) {
+        var p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.bottom = '-4px';
+        p.style.animationDuration = (5 + Math.random() * 8) + 's';
+        p.style.animationDelay = (i < 15 ? 0 : Math.random() * 3) + 's';
+        p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
+        if (Math.random() > 0.7) p.style.background = 'rgba(200,168,50,0.7)';
+        c.appendChild(p);
+      }
+    })();
+
+    /* ── Toggle password visibility ── */
+    document.querySelectorAll('.toggle-pass').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var inp = document.getElementById(btn.dataset.target);
+        if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '\uD83D\uDE48'; }
+        else { inp.type = 'password'; btn.textContent = '\uD83D\uDC41'; }
+      });
+    });
+
+    /* ── Main logic ── */
+    (function() {
+      var API = 'api.php';
+      fetch(API + '?action=check_session', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { if (d.logged_in) { window.location.href = 'index.html'; return; } initForms(); })
+        .catch(function() { initForms(); });
+
+      function initForms() {
+        var errBox = document.getElementById('errBox');
+        var okBox = document.getElementById('okBox');
+        var tabs = document.querySelector('.tabs');
+        var resetToken = '';
+        function showErr(m) { errBox.textContent = m || ''; errBox.classList.toggle('show', !!m); okBox.classList.remove('show'); }
+        function showOk(m) { okBox.textContent = m || ''; okBox.classList.toggle('show', !!m); errBox.classList.remove('show'); }
+        function showPanel(name) {
+          document.querySelectorAll('.tab').forEach(function(x) { x.classList.remove('active'); });
+          document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+          var t = document.querySelector('.tab[data-tab="'+name+'"]');
+          if (t) t.classList.add('active');
+          document.getElementById('panel-' + name).classList.add('active');
+          tabs.style.display = (name === 'forgot' || name === 'reset') ? 'none' : '';
+          showErr(''); showOk('');
+        }
+
+        document.querySelectorAll('.tab').forEach(function(t) {
+          t.addEventListener('click', function() { showPanel(t.dataset.tab); });
+        });
+
+        document.getElementById('linkForgot').addEventListener('click', function(e) {
+          e.preventDefault(); showPanel('forgot');
+        });
+        document.getElementById('linkBackLogin').addEventListener('click', function(e) {
+          e.preventDefault(); showPanel('login');
+        });
+
+        // Si URL contient #reset/TOKEN, ouvrir le panel reset
+        var hash = window.location.hash;
+        if (hash && hash.indexOf('#reset/') === 0) {
+          resetToken = hash.substring(7);
+          showPanel('reset');
+        }
+
+        // LOGIN
+        document.getElementById('formLogin').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var user = document.getElementById('loginUser').value.trim();
+          var pass = document.getElementById('loginPass').value;
+          if (!user || !pass) { showErr('Remplis tous les champs.'); return; }
+          var btn = document.getElementById('btnLogin');
+          btn.disabled = true; showErr('');
+          fetch(API + '?action=login', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              btn.disabled = false;
+              if (d.success) { showOk('Connexion r\u00E9ussie. Redirection\u2026'); setTimeout(function() { window.location.href = 'index.html'; }, 600); }
+              else { showErr(d.error || 'Identifiant ou mot de passe incorrect'); }
+            })
+            .catch(function() { btn.disabled = false; showErr('Erreur r\u00E9seau.'); });
+        });
+
+        // REGISTER
+        document.getElementById('formRegister').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var user = document.getElementById('regUser').value.trim();
+          var pass = document.getElementById('regPass').value;
+          var email = document.getElementById('regEmail').value.trim();
+          var playerId = document.getElementById('regPlayer').value;
+          var playerOpt = document.getElementById('regPlayer').selectedOptions[0];
+          var playerName = playerOpt && playerOpt.dataset.name ? playerOpt.dataset.name : '';
+          var parentType = document.getElementById('regParentType').value;
+          if (!user || !pass) { showErr('Identifiant et mot de passe requis.'); return; }
+          if (!playerId) { showErr('Choisis un joueur (ton enfant).'); return; }
+          var btn = document.getElementById('btnRegister');
+          btn.disabled = true; showErr('');
+          fetch(API + '?action=register', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass, email: email || undefined, player_id: parseInt(playerId, 10), parent_type: parentType, player_name: playerName })
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              btn.disabled = false;
+              if (d.success) { showOk('Compte cr\u00E9\u00E9 ! Redirection\u2026'); setTimeout(function() { window.location.href = 'index.html'; }, 600); }
+              else { showErr(d.error || 'Erreur cr\u00E9ation compte'); }
+            })
+            .catch(function() { btn.disabled = false; showErr('Erreur r\u00E9seau.'); });
+        });
+
+        // FORGOT PASSWORD
+        document.getElementById('formForgot').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var id = document.getElementById('forgotId').value.trim();
+          if (!id) { showErr('Entre ton identifiant ou email.'); return; }
+          var btn = document.getElementById('btnForgot');
+          btn.disabled = true; showErr('');
+          fetch(API + '?action=forgot_password', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: id })
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              btn.disabled = false;
+              if (d.success) { showOk(d.message || 'Si un compte existe, un email de r\u00E9initialisation a \u00E9t\u00E9 envoy\u00E9.'); }
+              else { showErr(d.error || 'Erreur.'); }
+            })
+            .catch(function() { btn.disabled = false; showErr('Erreur r\u00E9seau.'); });
+        });
+
+        // RESET PASSWORD
+        document.getElementById('formReset').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var pw = document.getElementById('resetPass').value;
+          var pw2 = document.getElementById('resetPassConfirm').value;
+          if (!pw || pw.length < 6) { showErr('Le mot de passe doit faire 6 caract\u00E8res minimum.'); return; }
+          if (pw !== pw2) { showErr('Les mots de passe ne correspondent pas.'); return; }
+          if (!resetToken) { showErr('Lien de r\u00E9initialisation invalide.'); return; }
+          var btn = document.getElementById('btnReset');
+          btn.disabled = true; showErr('');
+          fetch(API + '?action=reset_password', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: resetToken, password: pw })
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              btn.disabled = false;
+              if (d.success) {
+                showOk(d.message || 'Mot de passe modifi\u00E9 ! Tu peux te connecter.');
+                setTimeout(function() { window.location.hash = ''; showPanel('login'); }, 2000);
+              } else { showErr(d.error || 'Erreur.'); }
+            })
+            .catch(function() { btn.disabled = false; showErr('Erreur r\u00E9seau.'); });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

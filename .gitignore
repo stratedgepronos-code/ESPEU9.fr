@@ -1,9 +1,11 @@
-# Dépendances PHP
+# Dépendances PHP (racine et public_html)
 /vendor/
+public_html/vendor/
 composer.lock
 
-# Config sensible (à créer en local)
+# Config sensible (mots de passe, clés API)
 # config.php
+public_html/config.php
 
 # IDE / OS
 .idea/
@@ -11,3 +13,6 @@ composer.lock
 .DS_Store
 Thumbs.db
 *.log
+
+# Uploads utilisateur (optionnel : décommenter si non versionnés)
+# public_html/uploads/

@@ -1,0 +1,53 @@
+# Déploiement automatique vers Hostinger via SSH (rsync, port 65002)
+name: Deploy to FTP (Hostinger)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('public_html/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install PHP dependencies (web-push)
+        run: |
+          cd public_html && composer install --no-dev --no-interaction --prefer-dist
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p 65002 178.16.128.35 >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy via rsync (SSH key)
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p 65002 -o StrictHostKeyChecking=no" \
+            --exclude='.git' --exclude='.cursorrules' --exclude='config.php' \
+            ./public_html/ \
+            u527192911@178.16.128.35:/home/u527192911/domains/espeu9.fr/public_html/
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
