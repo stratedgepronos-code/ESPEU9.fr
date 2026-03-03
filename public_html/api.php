@@ -322,16 +322,29 @@ case 'get_player_info':
     break;
 
 case 'get_all':
-    // Lecture des notes : tout membre connecté (parent ou coach) peut les voir sur les fiches joueur/match
+    // Lecture des notes : coach voit tout ; parent ne reçoit que la note de son enfant (player_id)
     if (!isset($_SESSION['user_id'])) {
         http_response_code(403); echo json_encode(['error' => 'Non connecté']); break;
     }
     try {
         $db = getDB();
-        $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'player'"); $stmt->execute();
-        $pn = []; while ($r = $stmt->fetch()) { $pn[$r['ref_id']] = $r['content'] ?? ''; }
-        $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'match'"); $stmt->execute();
-        $mn = []; while ($r = $stmt->fetch()) { $mn[$r['ref_id']] = $r['content'] ?? ''; }
+        $role = $_SESSION['role'] ?? '';
+        $playerId = isset($_SESSION['player_id']) ? (int)$_SESSION['player_id'] : null;
+        if ($role === 'coach') {
+            $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'player'"); $stmt->execute();
+            $pn = []; while ($r = $stmt->fetch()) { $pn[$r['ref_id']] = $r['content'] ?? ''; }
+            $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'match'"); $stmt->execute();
+            $mn = []; while ($r = $stmt->fetch()) { $mn[$r['ref_id']] = $r['content'] ?? ''; }
+        } else {
+            $pn = [];
+            if ($playerId) {
+                $stmt = $db->prepare("SELECT content FROM coach_notes WHERE type = 'player' AND ref_id = :pid");
+                $stmt->execute([':pid' => $playerId]);
+                $r = $stmt->fetch();
+                if ($r) $pn[$playerId] = $r['content'] ?? '';
+            }
+            $mn = [];
+        }
         echo json_encode(['success'=>true,'coachNotes'=>$pn,'matchNotes'=>$mn]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur']); }
     break;
