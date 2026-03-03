@@ -2730,26 +2730,42 @@ case 'get_player_presence':
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS training_presence (id INT AUTO_INCREMENT PRIMARY KEY, session_date DATE NOT NULL, player_id INT NOT NULL, present TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uk_session_player (session_date, player_id))");
         $matchTotal = 0; $matchPresent = 0;
-        $st = $db->prepare("SELECT response FROM convocation_responses WHERE player_id = :pid");
+        $st = $db->prepare("SELECT match_id, response FROM convocation_responses WHERE player_id = :pid");
         $st->execute([':pid' => $pid]);
+        $missedMatchIds = [];
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
             $matchTotal++;
             if ($r['response'] === 'present') $matchPresent++;
+            if ($r['response'] === 'absent') $missedMatchIds[] = (int)$r['match_id'];
+        }
+        $missedMatches = [];
+        if (!empty($missedMatchIds)) {
+            $placeholders = implode(',', array_fill(0, count($missedMatchIds), '?'));
+            $st2 = $db->prepare("SELECT id, date, journee, adversaire FROM upcoming_matches WHERE id IN ($placeholders)");
+            $st2->execute(array_values($missedMatchIds));
+            while ($row = $st2->fetch(PDO::FETCH_ASSOC)) {
+                $missedMatches[] = ['match_id' => (int)$row['id'], 'date' => $row['date'], 'journee' => $row['journee'] ?? '', 'adversaire' => $row['adversaire'] ?? ''];
+            }
         }
         $trainSessions = 0; $trainPresent = 0;
         $st = $db->prepare("SELECT session_date, present FROM training_presence WHERE player_id = :pid");
         $st->execute([':pid' => $pid]);
         $seen = [];
+        $missedTrainingDates = [];
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
             if (!isset($seen[$r['session_date']])) { $seen[$r['session_date']] = true; $trainSessions++; }
             if ((int)$r['present']) $trainPresent++;
+            else $missedTrainingDates[] = $r['session_date'];
         }
+        rsort($missedTrainingDates);
         echo json_encode([
             'success' => true,
             'match_total' => $matchTotal,
             'match_present' => $matchPresent,
             'training_sessions' => $trainSessions,
-            'training_present' => $trainPresent
+            'training_present' => $trainPresent,
+            'missed_matches' => $missedMatches,
+            'missed_training_dates' => $missedTrainingDates
         ]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;

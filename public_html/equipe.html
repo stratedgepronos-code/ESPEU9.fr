@@ -5112,10 +5112,17 @@ function PlayersPage({ onSelect }) {
             React.createElement("div", { className: "player-first" }, p.firstName),
             p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))))));
 }
-// PLAYER DETAIL — with coach notes
+// PLAYER DETAIL — with coach notes + assiduité (manqués)
 function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
     const stats = getPlayerTotalStats(player.num, matches);
     const [saveStatus, setSaveStatus] = useState("");
+    const [presence, setPresence] = useState(null);
+    useEffect(function() {
+        fetch(API_URL + "action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.success) setPresence(d); })
+            .catch(function() {});
+    }, [player.id]);
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
         React.createElement("div", { className: "detail-header" },
@@ -5159,9 +5166,27 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
             React.createElement("div", { className: "detail-stat-box" },
                 React.createElement("div", { className: "detail-stat-val" }, stats.totalLf),
                 React.createElement("div", { className: "detail-stat-label" }, "LF r\u00E9ussis")),
-            React.createElement("div", { className: "detail-stat-box" },
+                React.createElement("div", { className: "detail-stat-box" },
                 React.createElement("div", { className: "detail-stat-val" }, stats.totalFautes),
                 React.createElement("div", { className: "detail-stat-label" }, "Fautes"))),
+        coachUnlocked && presence && React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Assiduit\u00E9 \u2014 matchs et entra\u00EEnements manqu\u00E9s"),
+            React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+                ((presence.missed_matches && presence.missed_matches.length > 0) || (presence.missed_training_dates && presence.missed_training_dates.length > 0)) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
+                    presence.missed_matches && presence.missed_matches.length > 0 && React.createElement("div", null,
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "var(--red)", marginBottom: 8 } }, "\u274C Matchs manqu\u00E9s (absences)"),
+                        React.createElement("ul", { style: { margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.8 } },
+                            presence.missed_matches.map(function(m) {
+                                var label = (m.journee ? "J" + m.journee + " " : "") + (m.date || "") + (m.adversaire ? " vs " + m.adversaire : "");
+                                return React.createElement("li", { key: m.match_id }, label || "Match #" + m.match_id);
+                            }))),
+                    presence.missed_training_dates && presence.missed_training_dates.length > 0 && React.createElement("div", null,
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "var(--red)", marginBottom: 8 } }, "\u274C Entra\u00EEnements manqu\u00E9s"),
+                        React.createElement("ul", { style: { margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.8 } },
+                            presence.missed_training_dates.map(function(d) {
+                                var parts = d.split("-");
+                                return React.createElement("li", { key: d }, parts[2] + "/" + parts[1] + "/" + parts[0]);
+                            })))) : React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 14 } }, "Aucun match ni entra\u00EEnement manqu\u00E9 r\u00E9pertori\u00E9. Les absences sont enregistr\u00E9es en base de donn\u00E9es."))),
         React.createElement("div", { className: "section-title" }, "Match par match"),
         React.createElement("div", { className: "card", style: { marginBottom: 24, overflow: "auto" } },
             React.createElement("table", { className: "match-hist-table" },
