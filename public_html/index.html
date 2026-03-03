@@ -2827,7 +2827,7 @@ function AbsencePanel({ user }) {
         }).then(r => r.json()).then(d => { if (d.success) loadAbsences(); });
     };
     const fmtDate = (d) => { const p = d.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
-    return React.createElement("div", { style: { marginBottom: 24 } },
+    return React.createElement("div", { style: { marginBottom: 24, marginTop: 32 } },
         React.createElement("div", { className: "section-title" }, "\uD83D\uDCC5 Absences / Indisponibilit\u00E9s"),
         React.createElement("div", { className: "card", style: { padding: 20 } },
             absences.length === 0 && !showForm && React.createElement("p", { style: { color: "var(--text-dim)", fontSize: 14, margin: 0 } }, "Aucune absence signal\u00E9e."),
