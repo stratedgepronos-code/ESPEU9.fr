@@ -322,8 +322,9 @@ case 'get_player_info':
     break;
 
 case 'get_all':
-    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') {
-        http_response_code(403); echo json_encode(['error' => 'Accès réservé au coach']); break;
+    // Lecture des notes : tout membre connecté (parent ou coach) peut les voir sur les fiches joueur/match
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(403); echo json_encode(['error' => 'Non connecté']); break;
     }
     try {
         $db = getDB();
