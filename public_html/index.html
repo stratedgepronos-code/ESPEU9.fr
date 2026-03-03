@@ -2300,15 +2300,18 @@ function RegisterPage({ onLogin }) {
     const [loading, setLoading] = useState(false);
     const handleSubmit = () => {
         if (!username || !password || !playerId) { setError("Remplis tous les champs"); return; }
+        if (!email || !email.trim()) { setError("L'email est obligatoire"); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError("Adresse email invalide"); return; }
         if (password !== password2) { setError("Les mots de passe ne correspondent pas"); return; }
-        if (password.length < 4) { setError("Mot de passe trop court (4 caract\u00E8res minimum)"); return; }
+        if (password.length < 8) { setError("Mot de passe : 8 caract\u00E8res minimum"); return; }
+        if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) { setError("Le mot de passe doit contenir au moins une lettre et un chiffre"); return; }
         const player = PLAYERS.find(p => String(p.id) === playerId);
         if (!player) { setError("Joueur non trouv\u00E9"); return; }
         setLoading(true); setError("");
         fetch(API_URL + "?action=register", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, email, player_id: player.id, parent_type: parentType, player_name: player.firstName })
+            body: JSON.stringify({ username, password, email: email.trim(), player_id: player.id, parent_type: parentType, player_name: player.firstName })
         })
         .then(r => r.json())
         .then(data => {
@@ -2346,12 +2349,12 @@ function RegisterPage({ onLogin }) {
                 React.createElement("input", { type: "text", value: username, onChange: e => setUsername(e.target.value), placeholder: "Identifiant", style: inputStyle })),
             // Email
             React.createElement("div", { style: { marginBottom: 16 } },
-                React.createElement("label", { style: labelStyle }, "Email (pour recevoir les notifications)"),
-                React.createElement("input", { type: "email", value: email, onChange: e => setEmail(e.target.value), placeholder: "Ex: papa@mail.com", style: inputStyle })),
+                React.createElement("label", { style: labelStyle }, "Email"),
+                React.createElement("input", { type: "email", value: email, onChange: e => setEmail(e.target.value), placeholder: "Ex: papa@mail.com", style: inputStyle, required: true })),
             // Password
             React.createElement("div", { style: { marginBottom: 16 } },
-                React.createElement("label", { style: labelStyle }, "Mot de passe"),
-                React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), placeholder: "4 caract\u00E8res minimum", style: inputStyle })),
+                React.createElement("label", { style: labelStyle }, "Mot de passe (8 car. min., lettre + chiffre)"),
+                React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), placeholder: "8 caract\u00E8res min., une lettre et un chiffre", style: inputStyle, minLength: 8 })),
             // Password confirm
             React.createElement("div", { style: { marginBottom: 24 } },
                 React.createElement("label", { style: labelStyle }, "Confirmer le mot de passe"),

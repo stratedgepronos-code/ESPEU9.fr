@@ -400,9 +400,12 @@ case 'register':
     $username=trim($in['username']??''); $password=$in['password']??''; $email=trim($in['email']??'');
     $playerId=$in['player_id']??null; $parentType=$in['parent_type']??'papa'; $playerName=trim($in['player_name']??'');
     if(!$username||!$password){http_response_code(400);echo json_encode(['error'=>'Identifiant et mot de passe requis']);break;}
+    if(!$email){http_response_code(400);echo json_encode(['error'=>'L\'email est obligatoire']);break;}
+    if(!filter_var($email,FILTER_VALIDATE_EMAIL)){http_response_code(400);echo json_encode(['error'=>'Adresse email invalide']);break;}
     if(strlen($username)<3||strlen($username)>50){http_response_code(400);echo json_encode(['error'=>'Identifiant : 3 à 50 caractères']);break;}
     if(!preg_match('/^[a-zA-Z0-9._-]+$/',$username)){http_response_code(400);echo json_encode(['error'=>'Identifiant : lettres, chiffres, points et tirets uniquement']);break;}
-    if(strlen($password)<6){http_response_code(400);echo json_encode(['error'=>'Mot de passe trop court (6 min)']);break;}
+    if(strlen($password)<8){http_response_code(400);echo json_encode(['error'=>'Mot de passe : 8 caractères minimum']);break;}
+    if(!preg_match('/[A-Za-z]/',$password)||!preg_match('/[0-9]/',$password)){http_response_code(400);echo json_encode(['error'=>'Le mot de passe doit contenir au moins une lettre et un chiffre']);break;}
     if(!$playerId){http_response_code(400);echo json_encode(['error'=>'Sélectionne un joueur']);break;}
     if(!in_array($parentType,['papa','maman'])) $parentType='papa';
     $displayName=ucfirst($parentType).' de '.$playerName;
