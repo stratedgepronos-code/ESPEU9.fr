@@ -1,0 +1,29 @@
+---
+description: Push Git automatique après chaque requête vers https://github.com/stratedgepronos-code/ESPEU9.fr
+alwaysApply: true
+---
+
+# Push automatique — ESPEU9.fr → GitHub
+
+**Règle impérative** : À la fin de **chaque** requête où tu as modifié des fichiers dans ce projet (u9 / ESPE Basket U9), exécute un commit + push vers `https://github.com/stratedgepronos-code/ESPEU9.fr`. L'utilisateur ne doit jamais avoir à demander « push ».
+
+Après **toute** modification, création ou suppression de fichiers dans ce projet :
+
+1. **En toute fin de ta réponse** (après ton résumé), exécute **systématiquement** :
+   - `Set-Location "g:\Récup\u9"`
+   - `git add .` (ou les chemins concernés si tu veux cibler)
+   - `git commit -m "Description courte et claire en français"`
+   - `git push origin main`
+
+2. **Objectif** : garder le dépôt GitHub à jour. Aucune action manuelle de l'utilisateur.
+
+3. **Environnement** : PowerShell. Exemple en une ligne :
+   ```powershell
+   Set-Location "g:\Récup\u9"; git add . ; git commit -m "Description en français"; git push origin main
+   ```
+
+4. **Ne pas pousser** uniquement si l'utilisateur demande explicitement de ne pas commit/push, ou si le dépôt n'a pas de remote / push impossible (expliquer brièvement).
+
+5. **Message de commit** : en français, descriptif (ex. "Config: règle auto-push", "Tchat: correction envoi messages").
+
+6. **Remote** : `origin` = `https://github.com/stratedgepronos-code/ESPEU9.fr.git`, branche par défaut = `main`.

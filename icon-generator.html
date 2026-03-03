@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Générateur d'icônes PWA — ESPE U9</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, system-ui, sans-serif; background: #0f1a0f; color: #e8e8e0; min-height: 100vh; padding: 40px 20px; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { text-align: center; color: #4ade80; margin-bottom: 8px; font-size: 24px; }
+.subtitle { text-align: center; color: #9ca3af; margin-bottom: 30px; font-size: 14px; }
+.upload-zone { border: 3px dashed #4ade80; border-radius: 16px; padding: 40px; text-align: center; cursor: pointer; transition: 0.3s; margin-bottom: 24px; }
+.upload-zone:hover { background: rgba(74,222,128,0.08); }
+.upload-zone input { display: none; }
+.upload-zone p { font-size: 16px; color: #9ca3af; }
+.upload-zone .emoji { font-size: 48px; display: block; margin-bottom: 12px; }
+.preview { text-align: center; margin-bottom: 24px; }
+.preview img { max-width: 200px; border-radius: 16px; border: 2px solid #4ade80; }
+.preview p { margin-top: 8px; color: #9ca3af; font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.icon-card { background: #1a2e1a; border-radius: 12px; padding: 12px; text-align: center; }
+.icon-card canvas { border-radius: 8px; background: #fff; margin-bottom: 8px; max-width: 100%; }
+.icon-card .size { font-size: 12px; color: #4ade80; font-weight: 700; }
+.icon-card .name { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.btn { display: inline-block; padding: 14px 32px; background: #1a6b2e; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.btn:hover { background: #22883b; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.actions { text-align: center; margin: 24px 0; }
+.step { background: #1a2e1a; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.step h3 { color: #4ade80; margin-bottom: 10px; font-size: 16px; }
+.step p, .step li { color: #c8c8c0; font-size: 14px; line-height: 1.6; }
+.step code { background: #0a120a; padding: 2px 8px; border-radius: 4px; font-size: 13px; color: #fbbf24; }
+.step ol { padding-left: 20px; }
+.hidden { display: none; }
+.maskable-info { background: rgba(74,222,128,0.1); border: 1px solid #4ade80; border-radius: 10px; padding: 14px; margin: 16px 0; font-size: 13px; color: #c8c8c0; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🏀 Générateur d'icônes PWA</h1>
+    <p class="subtitle">Génère toutes les tailles d'icônes nécessaires pour l'appli ESPE U9</p>
+
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept="image/*">
+        <span class="emoji">🖼️</span>
+        <p>Clique ici ou glisse ton <strong>logo ESPE</strong> (PNG carré recommandé, 512x512 min)</p>
+    </div>
+
+    <div id="previewSection" class="hidden">
+        <div class="preview">
+            <img id="previewImg">
+            <p id="previewInfo"></p>
+        </div>
+
+        <div class="maskable-info">
+            💡 <strong>Icône maskable</strong> : Android peut découper l'icône en rond/carré arrondi. Les versions "maskable" ajoutent un fond vert autour du logo pour éviter qu'il soit coupé.
+        </div>
+
+        <div class="grid" id="iconGrid"></div>
+
+        <div class="actions">
+            <button class="btn" id="downloadBtn" onclick="downloadAll()">⬇️ Télécharger toutes les icônes (ZIP)</button>
+        </div>
+    </div>
+
+    <div id="instructions">
+        <h2 style="color:#4ade80; margin: 30px 0 16px; text-align:center;">📋 Mode d'emploi complet</h2>
+
+        <div class="step">
+            <h3>Étape 1 — Générer les icônes</h3>
+            <ol>
+                <li>Charge ton logo ESPE ci-dessus (le fichier <code>logo-espe.png</code> de ton site)</li>
+                <li>Vérifie les aperçus — chaque taille est générée automatiquement</li>
+                <li>Clique <strong>"Télécharger toutes les icônes (ZIP)"</strong></li>
+                <li>Dézippe le fichier sur ton PC</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>Étape 2 — Uploader sur Hostinger</h3>
+            <ol>
+                <li>Ouvre Hostinger → <strong>File Manager</strong></li>
+                <li>Va dans <code>public_html/images/</code></li>
+                <li>Crée un dossier <code>icons</code> (clic droit → New Folder)</li>
+                <li>Ouvre le dossier <code>icons</code></li>
+                <li>Upload <strong>tous les fichiers PNG</strong> du ZIP dedans</li>
+            </ol>
+            <p style="margin-top:8px">Structure finale :</p>
+            <pre style="background:#0a120a; padding:12px; border-radius:8px; font-size:12px; margin-top:8px; overflow-x:auto; color:#4ade80;">
+public_html/
+├── manifest.json          ← nouveau
+├── sw.js                  ← déjà mis
+├── index.html             ← mis à jour
+├── images/
+│   ├── icons/
+│   │   ├── icon-72.png
+│   │   ├── icon-96.png
+│   │   ├── icon-128.png
+│   │   ├── icon-144.png
+│   │   ├── icon-152.png
+│   │   ├── icon-192.png
+│   │   ├── icon-384.png
+│   │   ├── icon-512.png
+│   │   ├── icon-maskable-192.png
+│   │   └── icon-maskable-512.png</pre>
+        </div>
+
+        <div class="step">
+            <h3>Étape 3 — Uploader les autres fichiers</h3>
+            <ol>
+                <li>Upload <code>manifest.json</code> dans <code>public_html/</code> (à la racine, à côté de index.html)</li>
+                <li>Upload le nouveau <code>index.html</code> dans <code>public_html/</code></li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>Étape 4 — Tester l'installation</h3>
+            <ol>
+                <li><strong>Android</strong> : Ouvre espeu9.fr dans Chrome → menu ⋮ → "Installer l'application" ou "Ajouter à l'écran d'accueil"</li>
+                <li><strong>iPhone</strong> : Ouvre espeu9.fr dans Safari → bouton Partager ↗ → "Sur l'écran d'accueil"</li>
+                <li>L'appli apparaît avec l'icône ESPE sur l'écran d'accueil</li>
+                <li>En l'ouvrant, elle s'affiche en <strong>plein écran</strong> sans la barre Chrome !</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>✅ Vérification (optionnel)</h3>
+            <p>Pour vérifier que tout est bien configuré, ouvre Chrome sur PC, va sur <code>espeu9.fr</code>, puis F12 → onglet <strong>Application</strong> → <strong>Manifest</strong>. Tu dois voir toutes les icônes et les infos de l'appli sans erreur.</p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const SIZES = [72, 96, 128, 144, 152, 192, 384, 512];
+const MASKABLE_SIZES = [192, 512];
+const BG_COLOR = '#1a6b2e';
+let sourceImg = null;
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+            sourceImg = img;
+            document.getElementById('previewImg').src = ev.target.result;
+            document.getElementById('previewInfo').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+            document.getElementById('previewSection').classList.remove('hidden');
+            generateIcons();
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.style.borderColor = '#22883b'; dz.style.background = 'rgba(74,222,128,0.12)'; });
+dz.addEventListener('dragleave', () => { dz.style.borderColor = '#4ade80'; dz.style.background = ''; });
+dz.addEventListener('drop', (e) => {
+    e.preventDefault(); dz.style.borderColor = '#4ade80'; dz.style.background = '';
+    if (e.dataTransfer.files[0]) {
+        document.getElementById('fileInput').files = e.dataTransfer.files;
+        document.getElementById('fileInput').dispatchEvent(new Event('change'));
+    }
+});
+
+function generateIcons() {
+    const grid = document.getElementById('iconGrid');
+    grid.innerHTML = '';
+
+    // Regular icons
+    SIZES.forEach(size => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(sourceImg, 0, 0, size, size);
+        canvas.style.width = Math.min(size, 128) + 'px';
+        canvas.style.height = Math.min(size, 128) + 'px';
+
+        const card = document.createElement('div');
+        card.className = 'icon-card';
+        card.appendChild(canvas);
+        card.innerHTML += `<div class="size">${size}×${size}</div><div class="name">icon-${size}.png</div>`;
+        grid.appendChild(card);
+    });
+
+    // Maskable icons (with padding + green bg)
+    MASKABLE_SIZES.forEach(size => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // Green background
+        ctx.fillStyle = BG_COLOR;
+        ctx.fillRect(0, 0, size, size);
+        // Logo with 20% safe zone padding
+        const padding = Math.round(size * 0.2);
+        const logoSize = size - padding * 2;
+        ctx.drawImage(sourceImg, padding, padding, logoSize, logoSize);
+        canvas.style.width = Math.min(size, 128) + 'px';
+        canvas.style.height = Math.min(size, 128) + 'px';
+
+        const card = document.createElement('div');
+        card.className = 'icon-card';
+        card.appendChild(canvas);
+        card.innerHTML += `<div class="size">${size}×${size} 🎭</div><div class="name">icon-maskable-${size}.png</div>`;
+        grid.appendChild(card);
+    });
+}
+
+async function downloadAll() {
+    if (!sourceImg) return;
+    const btn = document.getElementById('downloadBtn');
+    btn.disabled = true; btn.textContent = '⏳ Génération en cours...';
+
+    const zip = new JSZip();
+
+    // Regular icons
+    for (const size of SIZES) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(sourceImg, 0, 0, size, size);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        zip.file(`icon-${size}.png`, blob);
+    }
+
+    // Maskable icons
+    for (const size of MASKABLE_SIZES) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = BG_COLOR;
+        ctx.fillRect(0, 0, size, size);
+        const padding = Math.round(size * 0.2);
+        const logoSize = size - padding * 2;
+        ctx.drawImage(sourceImg, padding, padding, logoSize, logoSize);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        zip.file(`icon-maskable-${size}.png`, blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'espe-u9-icons.zip'; a.click();
+    URL.revokeObjectURL(url);
+
+    btn.disabled = false; btn.textContent = '⬇️ Télécharger toutes les icônes (ZIP)';
+}
+</script>
+</body>
+</html>

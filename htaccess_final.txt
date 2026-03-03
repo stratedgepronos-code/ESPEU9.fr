@@ -1,0 +1,47 @@
+# ═══ ESPE BASKET U9 — Protection fichiers sensibles ═══
+
+# Bloquer l'accès direct à config.php ET web_push.php (contient clés VAPID)
+<FilesMatch "^(config|web_push)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Bloquer l'accès aux fichiers .env, .git, etc.
+<FilesMatch "\.(env|git|gitignore|md|log|sql|bak|old|orig|save)$">
+    Require all denied
+</FilesMatch>
+
+# Empêcher le listing des répertoires
+Options -Indexes
+
+# ═══ SERVICE WORKER : JAMAIS en cache ═══
+# Sans cette règle, Chrome garde l'ancien sw.js et les notifications push ne marchent pas
+<FilesMatch "sw\.js$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </IfModule>
+</FilesMatch>
+
+# Protéger le dossier uploads contre l'exécution de scripts
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^uploads/.*\.(php|phtml|php3|php4|php5|phps|cgi|pl|py|sh|bash)$ - [F,L]
+</IfModule>
+
+# Headers de sécurité
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+# Forcer HTTPS
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>

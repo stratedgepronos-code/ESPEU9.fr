@@ -1,0 +1,13 @@
+# Dépendances PHP
+/vendor/
+composer.lock
+
+# Config sensible (à créer en local)
+# config.php
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log

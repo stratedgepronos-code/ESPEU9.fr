@@ -1,0 +1,11 @@
+{
+    "name": "espeu9/web-push",
+    "description": "ESPE U9 — dépendances push notifications",
+    "require": {
+        "php": ">=7.4",
+        "minishlink/web-push": "^7.0"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
