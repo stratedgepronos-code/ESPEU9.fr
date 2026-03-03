@@ -4713,7 +4713,29 @@ function App() {
         try { return localStorage.getItem("espeu9_cookie_ok") === "1"; } catch(e) { return false; }
     });
     useEffect(() => { if (cookieAccepted) { try { localStorage.setItem("espeu9_cookie_ok", "1"); } catch(e) {} } }, [cookieAccepted]);
-    // ── Écouter le bouton retour du navigateur ──
+    // ── Demande automatique des notifications push (parent, non abonn\u00E9, pas refus\u00E9 r\u00E9cemment)
+    const [showPushPrompt, setShowPushPrompt] = useState(false);
+    const [pushPromptLoading, setPushPromptLoading] = useState(false);
+    useEffect(() => {
+        if (!user || user.role !== "parent") return;
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+        if ("Notification" in window && Notification.permission === "denied") return;
+        var dismissed = 0;
+        try { dismissed = parseInt(localStorage.getItem("espeu9_push_prompt_dismissed") || "0", 10); } catch (e) {}
+        var sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (dismissed && (Date.now() - dismissed) < sevenDays) return;
+        var t = setTimeout(function() {
+            (function check() {
+                navigator.serviceWorker.ready.then(function(reg) {
+                    reg.pushManager.getSubscription().then(function(sub) {
+                        if (!sub) setShowPushPrompt(true);
+                    }).catch(function() {});
+                }).catch(function() {});
+            })();
+        }, 1800);
+        return function() { clearTimeout(t); };
+    }, [user]);
+    // ── \u00C9couter le bouton retour du navigateur ──
     useEffect(() => {
         const onHash = () => {
             const h = parseHash();
@@ -4925,6 +4947,30 @@ function App() {
                 tab === "mentions-legales" && React.createElement(MentionsLegalesPage),
                 tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage))),
             React.createElement(FooterAnimated, { switchTab: switchTab, user: user }),
+            showPushPrompt && React.createElement("div", { className: "push-prompt-overlay", style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+                React.createElement("div", { className: "push-prompt-card", style: { background: "var(--surface)", borderRadius: 16, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" } },
+                    React.createElement("div", { style: { fontSize: 40, marginBottom: 16, textAlign: "center" } }, "\uD83D\uDD14"),
+                    React.createElement("h3", { style: { margin: "0 0 12px", fontSize: 20, fontWeight: 700, color: "var(--text)", textAlign: "center" } }, "Activer les notifications ?"),
+                    React.createElement("p", { style: { margin: "0 0 24px", fontSize: 15, color: "var(--text-dim)", lineHeight: 1.5, textAlign: "center" } }, "Recevez les convocations et rappels de matchs sur ce t\u00E9l\u00E9phone ou cet ordinateur. Une seule fois, cliquez sur \u00AB Activer \u00BB."),
+                    React.createElement("div", { style: { display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" } },
+                        React.createElement("button", {
+                            onClick: function() {
+                                setPushPromptLoading(true);
+                                subscribeToPush().then(function(r) {
+                                    setPushPromptLoading(false);
+                                    if (r.success) setShowPushPrompt(false);
+                                }).catch(function() { setPushPromptLoading(false); });
+                            },
+                            disabled: pushPromptLoading,
+                            style: { padding: "12px 24px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", opacity: pushPromptLoading ? 0.7 : 1 }
+                        }, pushPromptLoading ? "Activation..." : "Activer les notifications"),
+                        React.createElement("button", {
+                            onClick: function() {
+                                try { localStorage.setItem("espeu9_push_prompt_dismissed", String(Date.now())); } catch (e) {}
+                                setShowPushPrompt(false);
+                            },
+                            style: { padding: "12px 24px", background: "var(--surface2)", color: "var(--text-dim)", border: "1px solid var(--border)", borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: "pointer" }
+                        }, "Plus tard"))))),
             !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
                 React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
                 React.createElement("button", { onClick: () => setCookieAccepted(true) }, "Compris !"))));
