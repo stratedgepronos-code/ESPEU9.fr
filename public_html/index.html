@@ -5015,7 +5015,7 @@ function App() {
             React.createElement("div", { className: "main" },
                 tab === "accueil" && React.createElement(HomePage, { onMatchClick: goMatch, onPlayerClick: goPlayer, onUpcomingClick: goUpcoming, matches: matches, user: user, customUpcoming: customUpcoming }),
                 tab === "joueurs" && !selectedPlayer && React.createElement(PlayersPage, { onSelect: goPlayer }),
-                tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
+                tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, onGoToAccount: function() { switchTab("compte"); }, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
                 tab === "matchs" && !selectedMatch && !selectedUpcoming && React.createElement(MatchesPage, { onSelect: goMatch, onSelectUpcoming: goUpcoming, matches: matches, coachUnlocked: coachUnlocked, user: user, customUpcoming: customUpcoming, reloadCustom: () => {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
@@ -5621,7 +5621,7 @@ function PlayersPage({ onSelect }) {
             p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))))));
 }
 // PLAYER DETAIL — with coach notes + graphique présence
-function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
+function PlayerDetail({ player, onBack, onGoToAccount, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
     const stats = getPlayerTotalStats(player.num, matches);
     const [saveStatus, setSaveStatus] = useState("");
     const [presence, setPresence] = useState(null);
@@ -5634,8 +5634,12 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
     var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
     var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
     var hasPresence = (matchPct !== null || trainPct !== null);
+    var isParentOfPlayer = user && user.player_id === player.id;
     return (React.createElement("div", { className: "player-detail-layout" },
-        React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
+        !(user && user.role === "coach") && React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
+        isParentOfPlayer && onGoToAccount && React.createElement("div", { className: "card", style: { padding: 16, marginBottom: 20, background: "linear-gradient(135deg, rgba(26,107,46,0.08) 0%, rgba(26,107,46,0.03) 100%)", border: "1px solid var(--green-200)" } },
+            React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } }, "Inviter un 2e parent, calendrier des matchs, fiche sanitaire et documents \u2014 tout est dans Mon compte."),
+            React.createElement("button", { type: "button", onClick: onGoToAccount, style: { padding: "10px 18px", background: "var(--green-700)", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "\uD83D\uDC64 Aller \u00E0 Mon compte")),
         React.createElement("div", { className: "detail-header" },
             React.createElement("img", { className: "detail-photo", src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName }),
             React.createElement("div", { className: "detail-info" },
