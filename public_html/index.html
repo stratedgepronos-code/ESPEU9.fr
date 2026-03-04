@@ -325,8 +325,12 @@ function getPlayerTotalStats(playerNum, matchesData) {
             totalT2i += s.t2i;
             totalT2e += s.t2e;
             totalT3 += s.t3;
-            const parts = s.min.split(":");
-            totalMin += parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            if (typeof s.min === "string" && s.min.indexOf(":") !== -1) {
+                const parts = s.min.split(":");
+                totalMin += (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+            } else if (typeof s.min === "number" && !isNaN(s.min)) {
+                totalMin += s.min;
+            }
         }
     });
     const avgPts = games > 0 ? (totalPts / games).toFixed(1) : "0";
