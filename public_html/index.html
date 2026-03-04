@@ -3024,7 +3024,8 @@ function TrainingAttendancePanel() {
 
 function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     if (!user) return null;
-    const player = user.player_id != null ? PLAYERS.find(function(p) { return p.id == user.player_id; }) : null;
+    var rawId = user.player_id !== undefined ? user.player_id : (user.playerId !== undefined ? user.playerId : null);
+    const player = rawId != null ? (PLAYERS.find(function(p) { return p.id == rawId || p.id === Number(rawId); }) || null) : null;
     const stats = player ? getPlayerTotalStats(player.num, matches) : null;
     const note = player && coachNotes[player.id] ? coachNotes[player.id] : null;
     const cardStyle = { maxWidth: 700, margin: "0 auto" };
@@ -3065,12 +3066,19 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
             React.createElement("div", { className: "section-title", style: { marginTop: 32 } }, "\uD83D\uDCF1 Mes notifications"),
             React.createElement("div", { className: "card", style: { padding: 20 } }, React.createElement(PushNotifToggle)));
     }
-    // Parent account
+    // Parent account sans joueur lié — afficher quand même Inviter / Calendrier / Documents
     if (!player) {
         return React.createElement("div", { style: cardStyle },
             React.createElement("div", { className: "section-title" }, "\uD83D\uDC64 Mon compte"),
             React.createElement("div", { className: "card", style: { padding: 24, marginBottom: 24 } },
-                React.createElement("p", null, "Bienvenue ", user.display_name, " ! Ton profil est configur\u00E9.")),
+                React.createElement("p", null, "Bienvenue ", user.display_name, " !"),
+                React.createElement("p", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 8 } }, "Votre compte n'est pas encore li\u00E9 \u00E0 un joueur. Les fonctionnalit\u00E9s ci-dessous seront pleinement actives une fois le lien effectu\u00E9 (inscription ou contact du club).")),
+            React.createElement("div", { className: "section-title" }, "\uD83D\uDC65 Inviter un 2e parent"),
+            React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+                React.createElement("p", { style: { fontSize: 14, color: "var(--text-dim)" } }, "G\u00E9n\u00E9rez un lien pour qu'un second parent cr\u00E9e un compte et acc\u00E8de aux m\u00EAmes infos. Disponible une fois votre compte li\u00E9 \u00E0 un joueur.")),
+            React.createElement("div", { className: "section-title" }, "\uD83D\uDCC5 Calendrier & documents"),
+            React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
+                React.createElement("p", { style: { fontSize: 14, color: "var(--text-dim)" } }, "Lien calendrier (.ics), fiche sanitaire et documents. Disponible une fois votre compte li\u00E9 \u00E0 un joueur.")),
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCF1 Notifications"),
             React.createElement("div", { className: "card", style: { padding: 20 } }, React.createElement(PushNotifToggle)));
     }
@@ -3094,17 +3102,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     var ficheDoc = docStatus && docStatus.find(function(d) { return d.type === "fiche_sanitaire"; });
     return React.createElement("div", { style: cardStyle },
         React.createElement("div", { className: "section-title" }, "\uD83D\uDC64 Mon compte"),
-        // Parent card
-        React.createElement("div", { className: "card", style: { padding: 24, marginBottom: 24 } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" } },
-                React.createElement("img", { src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName, style: { width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--green-700)" } }),
-                React.createElement("div", { style: { flex: 1 } },
-                    React.createElement("h3", { style: { margin: 0, fontSize: 20 } }, user.display_name),
-                    React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 14, marginTop: 2 } },
-                        user.parent_type === "maman" ? "\uD83D\uDC69" : "\uD83D\uDC68", " ", "Parent de ", player.firstName, " ", player.lastName),
-                    React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 13, marginTop: 4 } }, "Identifiant : ", user.username),
-                    presenceAccount && presenceAccount.training_streak > 0 && React.createElement("div", { style: { marginTop: 8, fontSize: 13, color: "var(--green-400)", fontWeight: 600 } }, "\uD83C\uDFAF S\u00E9rie : ", presenceAccount.training_streak, " entra\u00EEnement(s) d'affil\u00E9e")))),
-        React.createElement("div", { className: "section-title" }, "\uD83D\uDC65 Inviter un 2e parent"),
+        React.createElement("div", { className: "section-title", style: { marginTop: 4 } }, "\uD83D\uDC65 Inviter un 2e parent"),
         React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
             React.createElement("div", { style: { fontSize: 14, color: "var(--text-dim)", marginBottom: 12 } }, "L'autre parent peut cr\u00E9er un compte et voir les m\u00EAmes infos (convocations, stats, notes) pour ", player.firstName, "."),
             !inviteUrl ? React.createElement("button", { type: "button", onClick: handleInviteSecond, style: { padding: "10px 20px", background: "rgba(200,168,50,0.25)", color: "var(--gold)", border: "2px solid var(--gold)", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "\uD83D\uDC65 G\u00E9n\u00E9rer le lien d'invitation") : React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" } },
@@ -3125,7 +3123,16 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                 React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer" } },
                     React.createElement("input", { type: "file", accept: "application/pdf,image/*", onChange: handleFicheUpload, disabled: ficheUploading, style: { fontSize: 12 } }),
                     ficheUploading ? "Envoi…" : (ficheDoc ? "Remplacer" : "D\u00E9poser")))),
-        // Player info card
+        React.createElement("div", { className: "section-title" }, "Profil"),
+        React.createElement("div", { className: "card", style: { padding: 24, marginBottom: 24 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" } },
+                React.createElement("img", { src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName, style: { width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--green-700)" } }),
+                React.createElement("div", { style: { flex: 1 } },
+                    React.createElement("h3", { style: { margin: 0, fontSize: 20 } }, user.display_name),
+                    React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 14, marginTop: 2 } },
+                        user.parent_type === "maman" ? "\uD83D\uDC69" : "\uD83D\uDC68", " ", "Parent de ", player.firstName, " ", player.lastName),
+                    React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 13, marginTop: 4 } }, "Identifiant : ", user.username),
+                    presenceAccount && presenceAccount.training_streak > 0 && React.createElement("div", { style: { marginTop: 8, fontSize: 13, color: "var(--green-400)", fontWeight: 600 } }, "\uD83C\uDFAF S\u00E9rie : ", presenceAccount.training_streak, " entra\u00EEnement(s) d'affil\u00E9e")))),
         React.createElement("div", { className: "section-title" }, "\uD83C\uDFC0 Fiche de ", player.firstName),
         React.createElement("div", { className: "card", style: { padding: 24, marginBottom: 24 } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 20, marginBottom: 20, flexWrap: "wrap" } },
@@ -5015,7 +5022,7 @@ function App() {
             React.createElement("div", { className: "main" },
                 tab === "accueil" && React.createElement(HomePage, { onMatchClick: goMatch, onPlayerClick: goPlayer, onUpcomingClick: goUpcoming, matches: matches, user: user, customUpcoming: customUpcoming }),
                 tab === "joueurs" && !selectedPlayer && React.createElement(PlayersPage, { onSelect: goPlayer }),
-                tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, onGoToAccount: function() { switchTab("compte"); }, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
+                tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
                 tab === "matchs" && !selectedMatch && !selectedUpcoming && React.createElement(MatchesPage, { onSelect: goMatch, onSelectUpcoming: goUpcoming, matches: matches, coachUnlocked: coachUnlocked, user: user, customUpcoming: customUpcoming, reloadCustom: () => {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
@@ -5621,7 +5628,7 @@ function PlayersPage({ onSelect }) {
             p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))))));
 }
 // PLAYER DETAIL — with coach notes + graphique présence
-function PlayerDetail({ player, onBack, onGoToAccount, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
+function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
     const stats = getPlayerTotalStats(player.num, matches);
     const [saveStatus, setSaveStatus] = useState("");
     const [presence, setPresence] = useState(null);
@@ -5634,12 +5641,8 @@ function PlayerDetail({ player, onBack, onGoToAccount, coachUnlocked, coachNotes
     var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
     var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
     var hasPresence = (matchPct !== null || trainPct !== null);
-    var isParent = user && user.role !== "coach";
     return (React.createElement("div", { className: "player-detail-layout" },
         !(user && user.role === "coach") && React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
-        isParent && onGoToAccount && React.createElement("div", { className: "card", style: { padding: 16, marginBottom: 20, background: "linear-gradient(135deg, rgba(26,107,46,0.08) 0%, rgba(26,107,46,0.03) 100%)", border: "1px solid var(--green-200)" } },
-            React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } }, "Inviter un 2e parent, calendrier des matchs, fiche sanitaire et documents \u2014 tout est dans Mon compte."),
-            React.createElement("button", { type: "button", onClick: onGoToAccount, style: { padding: "10px 18px", background: "var(--green-700)", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "\uD83D\uDC64 Aller \u00E0 Mon compte")),
         React.createElement("div", { className: "detail-header" },
             React.createElement("img", { className: "detail-photo", src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName }),
             React.createElement("div", { className: "detail-info" },
