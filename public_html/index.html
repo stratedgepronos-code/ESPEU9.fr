@@ -5647,7 +5647,9 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
     var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
     var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
     var hasPresence = (matchPct !== null || trainPct !== null);
-    return (React.createElement("div", { className: "player-detail-layout" },
+    return (React.createElement("div", { style: { maxWidth: 700, margin: "0 auto" } },
+        React.createElement("div", { className: "card", style: { padding: 24 } },
+        React.createElement("div", { className: "player-detail-layout" },
         React.createElement("div", { className: "detail-header" },
             React.createElement("img", { className: "detail-photo", src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName }),
             React.createElement("div", { className: "detail-info" },
@@ -5833,7 +5835,8 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                         React.createElement("span", null, PLAYER_INFO[player.id].parent2.email ? React.createElement("a", { href: `mailto:${PLAYER_INFO[player.id].parent2.email}` }, PLAYER_INFO[player.id].parent2.email) : "—")),
                     React.createElement("div", { className: "admin-row" },
                         React.createElement("span", { className: "admin-label" }, "T\u00E9l\u00E9phone"),
-                        React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—"))))))));
+                        React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—")))))))) )
+        ) ) );
 }
 // MATCHES PAGE
 function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user, customUpcoming, reloadCustom, onMatchAdded }) {
