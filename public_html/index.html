@@ -3833,6 +3833,7 @@ function CovoituragePanel({ matchId, user }) {
     const [seats, setSeats] = useState(3);
     const [message, setMessage] = useState("");
     const [saving, setSaving] = useState(false);
+    const [submitError, setSubmitError] = useState("");
     const [accepting, setAccepting] = useState(null); // passenger id being accepted
     const myUid = user ? user.id : null;
 
@@ -3853,15 +3854,17 @@ function CovoituragePanel({ matchId, user }) {
     const iAmDriver = !!myDriverEntry;
 
     const handleSubmit = () => {
+        setSubmitError("");
         setSaving(true);
         fetch(API_URL + "?action=save_covoiturage", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId, type: formType, seats_total: seats, message: message })
         }).then(r => r.json()).then(d => {
-            setSaving(false); setShowForm(false); setMessage("");
-            if (d.success) load();
-        }).catch(() => setSaving(false));
+            setSaving(false);
+            if (d.success) { setShowForm(false); setMessage(""); load(); }
+            else { setSubmitError(d.error || "Erreur lors de l\u2019enregistrement"); }
+        }).catch(function(err) { setSaving(false); setSubmitError("Erreur r\u00E9seau ou serveur"); });
     };
 
     const handleJoin = (driverCovoitId) => {
@@ -4005,8 +4008,8 @@ function CovoituragePanel({ matchId, user }) {
 
         // Action buttons
         !myEntry && !showForm && user && React.createElement("div", { style: { display: "flex", gap: 10, marginTop: 12 } },
-            React.createElement("button", { onClick: () => { setFormType("driver"); setShowForm(true); }, style: { ...greenBtnS, flex: 1 } }, "\uD83D\uDE97 Je conduis"),
-            React.createElement("button", { onClick: () => { setFormType("passenger"); setShowForm(true); }, style: { ...blueBtnS, flex: 1 } }, "\uD83D\uDE4B Je cherche une place")),
+            React.createElement("button", { type: "button", onClick: () => { setFormType("driver"); setShowForm(true); setSubmitError(""); }, style: { ...greenBtnS, flex: 1 } }, "\uD83D\uDE97 Je conduis"),
+            React.createElement("button", { type: "button", onClick: () => { setFormType("passenger"); setShowForm(true); setSubmitError(""); }, style: { ...blueBtnS, flex: 1 } }, "\uD83D\uDE4B Je cherche une place")),
 
         // Form
         showForm && React.createElement("div", { style: { marginTop: 12, padding: 16, background: "var(--surface)", borderRadius: 12, border: "1px solid var(--border)" } },
@@ -4021,9 +4024,10 @@ function CovoituragePanel({ matchId, user }) {
             React.createElement("input", { type: "text", value: message, onChange: e => setMessage(e.target.value),
                 placeholder: formType === "driver" ? "Ex: D\u00E9part de Ch\u00E2lons centre \u00E0 9h30" : "Ex: Quartier Schmit, 2 enfants", maxLength: 255,
                 style: { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, marginBottom: 12, boxSizing: "border-box" } }),
+            submitError && React.createElement("div", { style: { fontSize: 13, color: "var(--red)", marginBottom: 10, fontWeight: 600 } }, submitError),
             React.createElement("div", { style: { display: "flex", gap: 10 } },
-                React.createElement("button", { onClick: handleSubmit, disabled: saving, style: { ...greenBtnS, flex: 1, opacity: saving ? 0.6 : 1 } }, saving ? "..." : "\u2705 Confirmer"),
-                React.createElement("button", { onClick: () => setShowForm(false), style: { ...btnS, flex: 1, background: "var(--surface2)" } }, "Annuler"))),
+                React.createElement("button", { type: "button", onClick: handleSubmit, disabled: saving, style: { ...greenBtnS, flex: 1, opacity: saving ? 0.6 : 1 } }, saving ? "..." : "\u2705 Confirmer"),
+                React.createElement("button", { type: "button", onClick: () => { setShowForm(false); setSubmitError(""); }, style: { ...btnS, flex: 1, background: "var(--surface2)" } }, "Annuler"))),
 
         // Empty state
         drivers.length === 0 && unmatched.length === 0 && !showForm && React.createElement("div", { style: { textAlign: "center", padding: "16px 0", color: "var(--text-dim)", fontSize: 14 } },
