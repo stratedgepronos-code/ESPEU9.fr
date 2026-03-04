@@ -5689,15 +5689,15 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Assiduit\u00E9 \u2014 matchs et entra\u00EEnements manqu\u00E9s"),
             React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
                 presence && presence.training_streak > 0 && React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--green-400)", marginBottom: 12 } }, "\uD83C\uDFAF S\u00E9rie : ", presence.training_streak, " entra\u00EEnement(s) d'affil\u00E9e"),
-                (presence && (presence.missed_matches && presence.missed_matches.length > 0) || (presence.missed_training_dates && presence.missed_training_dates.length > 0)) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
-                    presence.missed_matches && presence.missed_matches.length > 0 && React.createElement("div", null,
+                (presence && ((presence.missed_matches && presence.missed_matches.length > 0) || (presence.missed_training_dates && presence.missed_training_dates.length > 0))) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
+                    presence && presence.missed_matches && presence.missed_matches.length > 0 && React.createElement("div", null,
                         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "var(--red)", marginBottom: 8 } }, "\u274C Matchs manqu\u00E9s (absences)"),
                         React.createElement("ul", { style: { margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.8 } },
                             presence.missed_matches.map(function(m) {
                                 var label = (m.journee ? "J" + m.journee + " " : "") + (m.date || "") + (m.adversaire ? " vs " + m.adversaire : "");
                                 return React.createElement("li", { key: m.match_id }, label || "Match #" + m.match_id);
                             }))),
-                    presence.missed_training_dates && presence.missed_training_dates.length > 0 && React.createElement("div", null,
+                    presence && presence.missed_training_dates && presence.missed_training_dates.length > 0 && React.createElement("div", null,
                         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "var(--red)", marginBottom: 8 } }, "\u274C Entra\u00EEnements manqu\u00E9s"),
                         React.createElement("ul", { style: { margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.8 } },
                             presence.missed_training_dates.map(function(d) {
