@@ -2263,6 +2263,9 @@ function notifyParentsCovoiturage($db, $exceptUserId, $subject, $htmlBody, $push
 
 case 'get_covoiturage':
     $matchId = (int)($_GET['match_id'] ?? 0);
+    if (!$matchId && !empty($_GET['match_id']) && is_string($_GET['match_id']) && preg_match('/^custom_(\d+)$/', trim($_GET['match_id']), $m)) {
+        $matchId = (int)$m[1];
+    }
     if (!$matchId) { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
     try {
         $db = getDB();
@@ -2307,6 +2310,9 @@ case 'save_covoiturage':
     if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
     $matchId = (int)($in['match_id'] ?? 0);
+    if (!$matchId && !empty($in['match_id']) && is_string($in['match_id']) && preg_match('/^custom_(\d+)$/', trim($in['match_id']), $m)) {
+        $matchId = (int)$m[1];
+    }
     $type = $in['type'] ?? 'driver'; // 'driver' or 'passenger'
     $seatsTotal = max(1, min(8, (int)($in['seats_total'] ?? 3)));
     $message = trim(mb_substr($in['message'] ?? '', 0, 255));
@@ -2335,18 +2341,20 @@ case 'save_covoiturage':
             $st = $db->prepare("INSERT INTO covoiturage (match_id, user_id, type, driver_id, message, display_name) VALUES (:mid, :uid, 'passenger', :did, :msg, :dn) ON DUPLICATE KEY UPDATE type='passenger', driver_id=:did2, message=:msg2, seats_total=0");
             $st->execute([':mid'=>$matchId, ':uid'=>$uid, ':did'=>$driverCovoitId?:null, ':msg'=>$message, ':dn'=>$dname, ':did2'=>$driverCovoitId?:null, ':msg2'=>$message]);
         }
-        $info = covoiturageMatchLabel($db, $matchId);
-        $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
-        if ($type === 'driver') {
-            $subj = 'Covoiturage : ' . $dname . ' propose des places — ' . $info['label'];
-            $body = '<p>' . $dname . ' propose des places pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
-            notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' propose des places', $info['label'], $info['url']);
-        } else {
-            $subj = 'Covoiturage : ' . $dname . ' cherche une place — ' . $info['label'];
-            $body = '<p>' . $dname . ' cherche une place pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
-            notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' cherche une place', $info['label'], $info['url']);
-        }
         echo json_encode(['success'=>true]);
+        try {
+            $info = covoiturageMatchLabel($db, $matchId);
+            $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+            if ($type === 'driver') {
+                $subj = 'Covoiturage : ' . $dname . ' propose des places — ' . $info['label'];
+                $body = '<p>' . $dname . ' propose des places pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
+                notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' propose des places', $info['label'], $info['url']);
+            } else {
+                $subj = 'Covoiturage : ' . $dname . ' cherche une place — ' . $info['label'];
+                $body = '<p>' . $dname . ' cherche une place pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
+                notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' cherche une place', $info['label'], $info['url']);
+            }
+        } catch (Throwable $e) { /* notifications optionnelles : ne pas casser la réponse */ }
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
 
