@@ -2532,27 +2532,36 @@ case 'chat_post':
     $row = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages WHERE id = $id")->fetch(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'message' => $row]);
 
-    // Push notification à tous les abonnés sauf l'expéditeur
+    // Push notification à tous les abonnés sauf l'expéditeur — max 1 push par heure pour ne pas abuser
     try {
-        require_once 'web_push.php';
         $pushDb = getDB();
-        $pst = $pushDb->prepare("SELECT * FROM push_subscriptions WHERE user_id != :uid");
-        $pst->execute([':uid' => $uid]);
-        $pushSubs = $pst->fetchAll(PDO::FETCH_ASSOC);
-        $preview = mb_substr(strip_tags($content), 0, 120);
-        $pushPayload = [
-            'title' => '💬 ' . $displayName,
-            'body' => $preview,
-            'icon' => 'https://espeu9.fr/images/logo-espe.png',
-            'badge' => 'https://espeu9.fr/images/logo-espe.png',
-            'data' => ['url' => 'https://espeu9.fr/tchat.html']
-        ];
-        foreach ($pushSubs as $ps) {
-            $sub = ['endpoint' => $ps['endpoint'], 'keys' => ['p256dh' => $ps['p256dh'], 'auth' => $ps['auth']]];
-            $res = sendWebPush($sub, $pushPayload);
-            if (!$res['success'] && (($res['code'] ?? 0) == 404 || ($res['code'] ?? 0) == 410)) {
-                $pushDb->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $ps['id']]);
+        $pushDb->exec("CREATE TABLE IF NOT EXISTS chat_push_throttle (id INT PRIMARY KEY, last_sent_at TIMESTAMP NULL)");
+        $throttle = $pushDb->query("SELECT last_sent_at FROM chat_push_throttle WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+        $lastSent = $throttle ? strtotime($throttle['last_sent_at']) : 0;
+        $now = time();
+        if (($now - $lastSent) < 3600) {
+            // Moins d'une heure depuis le dernier push tchat → on n'envoie pas
+        } else {
+            require_once 'web_push.php';
+            $pst = $pushDb->prepare("SELECT * FROM push_subscriptions WHERE user_id != :uid");
+            $pst->execute([':uid' => $uid]);
+            $pushSubs = $pst->fetchAll(PDO::FETCH_ASSOC);
+            $preview = mb_substr(strip_tags($content), 0, 120);
+            $pushPayload = [
+                'title' => '💬 ' . $displayName,
+                'body' => $preview,
+                'icon' => 'https://espeu9.fr/images/logo-espe.png',
+                'badge' => 'https://espeu9.fr/images/logo-espe.png',
+                'data' => ['url' => 'https://espeu9.fr/tchat.html']
+            ];
+            foreach ($pushSubs as $ps) {
+                $sub = ['endpoint' => $ps['endpoint'], 'keys' => ['p256dh' => $ps['p256dh'], 'auth' => $ps['auth']]];
+                $res = sendWebPush($sub, $pushPayload);
+                if (!$res['success'] && (($res['code'] ?? 0) == 404 || ($res['code'] ?? 0) == 410)) {
+                    $pushDb->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $ps['id']]);
+                }
             }
+            $pushDb->exec("INSERT INTO chat_push_throttle (id, last_sent_at) VALUES (1, NOW()) ON DUPLICATE KEY UPDATE last_sent_at = NOW()");
         }
     } catch (Exception $e) {}
     break;
