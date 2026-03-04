@@ -3024,7 +3024,7 @@ function TrainingAttendancePanel() {
 
 function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     if (!user) return null;
-    const player = user.player_id ? PLAYERS.find(p => p.id === user.player_id) : null;
+    const player = user.player_id != null ? PLAYERS.find(function(p) { return p.id == user.player_id; }) : null;
     const stats = player ? getPlayerTotalStats(player.num, matches) : null;
     const note = player && coachNotes[player.id] ? coachNotes[player.id] : null;
     const cardStyle = { maxWidth: 700, margin: "0 auto" };
@@ -5634,10 +5634,10 @@ function PlayerDetail({ player, onBack, onGoToAccount, coachUnlocked, coachNotes
     var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
     var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
     var hasPresence = (matchPct !== null || trainPct !== null);
-    var isParentOfPlayer = user && user.player_id === player.id;
+    var isParent = user && user.role !== "coach";
     return (React.createElement("div", { className: "player-detail-layout" },
         !(user && user.role === "coach") && React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
-        isParentOfPlayer && onGoToAccount && React.createElement("div", { className: "card", style: { padding: 16, marginBottom: 20, background: "linear-gradient(135deg, rgba(26,107,46,0.08) 0%, rgba(26,107,46,0.03) 100%)", border: "1px solid var(--green-200)" } },
+        isParent && onGoToAccount && React.createElement("div", { className: "card", style: { padding: 16, marginBottom: 20, background: "linear-gradient(135deg, rgba(26,107,46,0.08) 0%, rgba(26,107,46,0.03) 100%)", border: "1px solid var(--green-200)" } },
             React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } }, "Inviter un 2e parent, calendrier des matchs, fiche sanitaire et documents \u2014 tout est dans Mon compte."),
             React.createElement("button", { type: "button", onClick: onGoToAccount, style: { padding: "10px 18px", background: "var(--green-700)", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "\uD83D\uDC64 Aller \u00E0 Mon compte")),
         React.createElement("div", { className: "detail-header" },
