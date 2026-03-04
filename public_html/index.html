@@ -855,6 +855,18 @@ body {
 }
 
 /* PLAYER DETAIL */
+.player-detail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.player-detail-layout .card { min-width: 0; }
+.player-detail-layout .match-hist-table { min-width: 600px; }
+
 .detail-back {
   display: inline-flex;
   align-items: center;
@@ -5622,7 +5634,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
     var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
     var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
     var hasPresence = (matchPct !== null || trainPct !== null);
-    return (React.createElement(React.Fragment, null,
+    return (React.createElement("div", { className: "player-detail-layout" },
         React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
         React.createElement("div", { className: "detail-header" },
             React.createElement("img", { className: "detail-photo", src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName }),
@@ -5645,7 +5657,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                     " (",
                     player.licenceBC,
                     ")",
-                    (coachUnlocked || (user && user.player_id === player.id)) && React.createElement("a", { href: API_URL + "?action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { marginLeft: 4, padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence"))),
+                    (coachUnlocked || (user && user.player_id === player.id)) && React.createElement("a", { href: API_URL + "?action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { marginLeft: 4, padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence")))),
         React.createElement("div", { className: "section-title" }, "Stats saison"),
         React.createElement("div", { className: "detail-stats-grid" },
             React.createElement("div", { className: "detail-stat-box" },
@@ -5809,7 +5821,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                         React.createElement("span", null, PLAYER_INFO[player.id].parent2.email ? React.createElement("a", { href: `mailto:${PLAYER_INFO[player.id].parent2.email}` }, PLAYER_INFO[player.id].parent2.email) : "—")),
                     React.createElement("div", { className: "admin-row" },
                         React.createElement("span", { className: "admin-label" }, "T\u00E9l\u00E9phone"),
-                        React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—")))))))));
+                        React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—"))))))));
 }
 // MATCHES PAGE
 function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user, customUpcoming, reloadCustom, onMatchAdded }) {
