@@ -3039,6 +3039,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
         fetch(API_URL + "?action=get_required_documents", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setDocStatus(d.documents || []); }).catch(function() {});
         fetch(API_URL + "?action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setPresenceAccount(d); }).catch(function() {});
     }, [player && player.id]);
+    useEffect(function() { window.scrollTo(0, 0); }, []);
     // Coach account
     if (user.role === "coach") {
         return React.createElement("div", { style: cardStyle },
@@ -5022,7 +5023,7 @@ function App() {
             React.createElement("div", { className: "main" },
                 tab === "accueil" && React.createElement(HomePage, { onMatchClick: goMatch, onPlayerClick: goPlayer, onUpcomingClick: goUpcoming, matches: matches, user: user, customUpcoming: customUpcoming }),
                 tab === "joueurs" && !selectedPlayer && React.createElement(PlayersPage, { onSelect: goPlayer }),
-                tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
+                tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, onGoToAccount: function() { switchTab("compte"); }, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
                 tab === "matchs" && !selectedMatch && !selectedUpcoming && React.createElement(MatchesPage, { onSelect: goMatch, onSelectUpcoming: goUpcoming, matches: matches, coachUnlocked: coachUnlocked, user: user, customUpcoming: customUpcoming, reloadCustom: () => {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
@@ -5628,7 +5629,7 @@ function PlayersPage({ onSelect }) {
             p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))))));
 }
 // PLAYER DETAIL — with coach notes + graphique présence
-function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
+function PlayerDetail({ player, onBack, onGoToAccount, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
     const stats = getPlayerTotalStats(player.num, matches);
     const [saveStatus, setSaveStatus] = useState("");
     const [presence, setPresence] = useState(null);
@@ -5643,6 +5644,9 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
     var hasPresence = (matchPct !== null || trainPct !== null);
     return (React.createElement("div", { className: "player-detail-layout" },
         !(user && user.role === "coach") && React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
+        user && user.role !== "coach" && onGoToAccount && React.createElement("div", { style: { marginBottom: 16, padding: "12px 16px", background: "rgba(26,107,46,0.08)", borderRadius: 10, fontSize: 13 } },
+            "Inviter un 2e parent, calendrier, documents \u2014 ",
+            React.createElement("button", { type: "button", onClick: onGoToAccount, style: { background: "none", border: "none", color: "var(--green-700)", fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" } }, "Mon compte")),
         React.createElement("div", { className: "detail-header" },
             React.createElement("img", { className: "detail-photo", src: PLAYER_PHOTOS[player.photoKey], alt: player.lastName }),
             React.createElement("div", { className: "detail-info" },
