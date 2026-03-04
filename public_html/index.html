@@ -4503,6 +4503,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const isCoach = !!(user && user.role === "coach");
     const isHome = u.domExt === "dom";
     const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: "" });
+    useEffect(function() { requestAnimationFrame(function() { window.scrollTo(0, 0); }); }, []);
     const displayDate = extras.date || u.date || "";
     const displayHeure = extras.heure || u.heure || "";
     const displayGymnase = extras.gymnase || u.gymnase || "";
@@ -4942,7 +4943,8 @@ function App() {
     const goPlayer = (p) => { setSelectedPlayer(p); setSelectedMatch(null); setTab("joueurs"); navigateTo("joueurs", p.id); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     const goMatch = (m) => { setSelectedMatch(m); setSelectedPlayer(null); setSelectedUpcoming(null); setTab("matchs"); navigateTo("matchs", m.id); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     const goUpcoming = (u) => { setSelectedUpcoming(u); setSelectedMatch(null); setSelectedPlayer(null); setTab("matchs"); navigateTo("prochain", u.id); window.scrollTo(0, 0); setMobileMenuOpen(false); };
-    const goBack = () => { setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo(tab); window.scrollTo(0, 0); };
+    const [extrasRefresh, setExtrasRefresh] = useState(0);
+    const goBack = () => { setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo(tab); window.scrollTo(0, 0); setExtrasRefresh(function(r){ return r + 1; }); };
     const switchTab = (t) => { setTab(t); setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo(t); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     const goHome = () => { setTab("accueil"); setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo("accueil"); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     return (React.createElement(React.Fragment, null,
@@ -5064,7 +5066,7 @@ function App() {
                 tab === "accueil" && React.createElement(HomePage, { onMatchClick: goMatch, onPlayerClick: goPlayer, onUpcomingClick: goUpcoming, matches: matches, user: user, customUpcoming: customUpcoming }),
                 tab === "joueurs" && !selectedPlayer && React.createElement(PlayersPage, { onSelect: goPlayer }),
                 tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
-                tab === "matchs" && !selectedMatch && !selectedUpcoming && React.createElement(MatchesPage, { onSelect: goMatch, onSelectUpcoming: goUpcoming, matches: matches, coachUnlocked: coachUnlocked, user: user, customUpcoming: customUpcoming, reloadCustom: () => {
+                tab === "matchs" && !selectedMatch && !selectedUpcoming && React.createElement(MatchesPage, { onSelect: goMatch, onSelectUpcoming: goUpcoming, matches: matches, coachUnlocked: coachUnlocked, user: user, customUpcoming: customUpcoming, extrasRefresh: extrasRefresh, reloadCustom: () => {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
                 tab === "matchs" && selectedMatch && React.createElement(MatchDetail, { match: selectedMatch, onBack: goBack, coachUnlocked: coachUnlocked, matchNotes: matchNotes, setMatchNotes: setMatchNotes, user: user, onDelete: handleDeleteMatch }),
@@ -5873,19 +5875,33 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                         React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—"))))))))));
 }
 // MATCHES PAGE
-function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user, customUpcoming, reloadCustom, onMatchAdded }) {
+function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user, customUpcoming, extrasRefresh, reloadCustom, onMatchAdded }) {
     const isCoach = user && user.role === "coach";
     const customMatches = customUpcoming || [];
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({ journee: "", date: "", heure: "", heureRdv: "", lieu: "", gymnase: "", domExt: "dom", adversaire: "", logoUrl: "", edit_id: 0 });
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState("");
+    const [bulkExtras, setBulkExtras] = useState({});
 
     // Merge UPCOMING + custom, sort by date
     const allUpcoming = [...UPCOMING, ...customMatches].sort((a, b) => {
-        const da = a.date.split("/").reverse().join(""); const db = b.date.split("/").reverse().join("");
+        const da = (a.date || "").split("/").reverse().join(""); const db = (b.date || "").split("/").reverse().join("");
         return da.localeCompare(db);
     });
+
+    // Refetch custom list when returning from detail (extrasRefresh increments)
+    useEffect(function() { if (reloadCustom) reloadCustom(); }, [extrasRefresh]);
+    // Fetch bulk match_extras to show updated date/heure/gymnase on the list
+    useEffect(function() {
+        const ids = allUpcoming.map(function(u) { return typeof u.id === "string" && u.id.indexOf("custom_") === 0 ? parseInt(u.id.replace("custom_", ""), 10) : (u.id | 0); }).filter(function(id) { return id > 0; });
+        if (ids.length === 0) { setBulkExtras({}); return; }
+        var uniq = ids.filter(function(v, i, a) { return a.indexOf(v) === i; });
+        fetch(API_URL + "?action=get_bulk_match_extras&match_ids=" + uniq.join(","), { credentials: "same-origin" })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.success && d.extras) setBulkExtras(d.extras); })
+            .catch(function() {});
+    }, [extrasRefresh, allUpcoming.map(function(u) { return u.id; }).join(",")]);
 
     const resetForm = () => setFormData({ journee: "", date: "", heure: "", heureRdv: "", lieu: "", gymnase: "", domExt: "dom", adversaire: "", logoUrl: "", edit_id: 0 });
 
@@ -5954,11 +5970,16 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
         }),
         React.createElement("div", { className: "section-title", style: { marginTop: 40 } }, "Matchs \u00E0 venir"),
         allUpcoming.map((u) => {
+            const numericId = (typeof u.id === "string" && u.id.indexOf("custom_") === 0) ? parseInt(u.id.replace("custom_", ""), 10) : (u.id | 0);
+            const ex = bulkExtras[String(numericId)] || {};
+            const displayDate = ex.date_match || u.date || "";
+            const displayHeure = ex.heure_match || u.heure || "";
+            const parts = displayDate.split("/");
             const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
             return React.createElement("div", { className: "upcoming-card", key: u.id, onClick: () => onSelectUpcoming(u), style: { cursor: "pointer", position: "relative" } },
             React.createElement("div", { className: "upcoming-date" },
-                React.createElement("div", { className: "upcoming-date-day" }, parseInt(u.date.split("/")[0])),
-                React.createElement("div", { className: "upcoming-date-month" }, MONTHS[parseInt(u.date.split("/")[1])])),
+                React.createElement("div", { className: "upcoming-date-day" }, parts[0] ? parseInt(parts[0]) : "-"),
+                React.createElement("div", { className: "upcoming-date-month" }, parts[1] ? MONTHS[parseInt(parts[1])] : "")),
             React.createElement("div", { className: "upcoming-info" },
                 React.createElement("div", { className: "upcoming-adv", style: { display: "flex", alignItems: "center", gap: 6 } },
                     advLogo && React.createElement("img", { src: advLogo, alt: "", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }),
@@ -5966,7 +5987,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                     u.custom && React.createElement("span", { style: { fontSize: 9, background: "#7c3aed", color: "#fff", padding: "1px 6px", borderRadius: 8, fontWeight: 700, marginLeft: 6 } }, "COUPE")),
                 React.createElement("div", { className: "upcoming-meta" },
                     u.journee ? "J" + u.journee + " \u2022 " : "",
-                    u.heure ? u.heure : "Heure TBC", " \u2022 ", u.lieu)),
+                    displayHeure ? displayHeure : "Heure TBC", " \u2022 ", u.lieu)),
             React.createElement("span", { className: "upcoming-badge " + u.domExt }, u.domExt === "dom" ? "DOM" : "EXT"),
             // Edit/delete for custom matches (coach only)
             u.custom && isCoach && React.createElement("div", { style: { position: "absolute", top: 6, right: 6, display: "flex", gap: 4 }, onClick: e => e.stopPropagation() },

@@ -965,6 +965,32 @@ case 'get_match_extras':
     } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
     break;
 
+case 'get_bulk_match_extras':
+    $idsRaw = $_GET['match_ids'] ?? '';
+    if (!$idsRaw) { echo json_encode(['success' => true, 'extras' => (object)[]]); break; }
+    $ids = array_filter(array_map('intval', explode(',', $idsRaw)));
+    if (empty($ids)) { echo json_encode(['success' => true, 'extras' => (object)[]]); break; }
+    try {
+        $db = getDB();
+        try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $st = $db->prepare("SELECT match_id, gymnase, heure_rdv, date_match, heure_match FROM match_extras WHERE match_id IN ($placeholders)");
+        $st->execute(array_values($ids));
+        $extras = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $mid = (int)$r['match_id'];
+            $extras[(string)$mid] = [
+                'gymnase' => $r['gymnase'] ?? '',
+                'heure_rdv' => $r['heure_rdv'] ?? '',
+                'date_match' => $r['date_match'] ?? '',
+                'heure_match' => $r['heure_match'] ?? ''
+            ];
+        }
+        echo json_encode(['success' => true, 'extras' => $extras]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 case 'save_match_extras':
     if($_SERVER['REQUEST_METHOD']!=='POST'){http_response_code(405);echo json_encode(['error'=>'POST requis']);break;}
     if(!isset($_SESSION['role'])||$_SESSION['role']!=='coach'){http_response_code(403);echo json_encode(['error'=>'Coach requis']);break;}
