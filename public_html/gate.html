@@ -447,7 +447,7 @@
               <option value="8" data-name="Robin FISCHESSER">#14 Robin FISCHESSER</option>
             </select>
           </div>
-          <div class="row">
+          <div class="row" id="regParentTypeRow">
             <div class="field">
               <label>Je suis</label>
               <select id="regParentType" name="parent_type">
@@ -456,6 +456,7 @@
               </select>
             </div>
           </div>
+          <p class="field-hint" id="regInviteParentHint" style="display:none; margin-top: 0;"></p>
           <button type="submit" class="btn-primary" id="btnRegister" style="margin-top: 4px;">
             <span class="btn-text">&#127942; Cr&eacute;er mon compte</span>
           </button>
@@ -587,7 +588,20 @@
                 if (d.success && d.player_id) {
                   var sel = document.getElementById('regPlayer');
                   sel.value = String(d.player_id);
+                  if (d.required_parent_type) {
+                    document.getElementById('regParentType').value = d.required_parent_type;
+                    document.getElementById('regParentTypeRow').style.display = 'none';
+                    var label = d.required_parent_type === 'maman' ? 'Maman' : 'Papa';
+                    var hint = document.getElementById('regInviteParentHint');
+                    hint.textContent = 'Vous cr\u00e9ez un compte ' + label + ' de ' + (d.player_name || 'ce joueur') + '.';
+                    hint.style.display = 'block';
+                  } else {
+                    document.getElementById('regParentTypeRow').style.display = '';
+                    document.getElementById('regInviteParentHint').style.display = 'none';
+                  }
                   showOk('Compte 2e parent pour ' + (d.player_name || 'ce joueur') + '. Remplis le formulaire.');
+                } else if (d.error) {
+                  showErr(d.error);
                 }
               })
               .catch(function() {});

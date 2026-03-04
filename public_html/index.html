@@ -2875,16 +2875,19 @@ function AbsencePanel({ user }) {
 function CoachInviteSecondParent() {
     const [selectedPlayerId, setSelectedPlayerId] = useState("");
     const [inviteUrl, setInviteUrl] = useState("");
+    const [inviteError, setInviteError] = useState("");
     return React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
         React.createElement("div", { className: "section-title", style: { marginTop: 24 } }, "\uD83D\uDC65 Inviter un 2e parent"),
-        React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "G\u00E9n\u00E8re un lien pour qu'un second parent cr\u00E9e un compte et acc\u00E8de aux m\u00EAmes infos du joueur."),
+        React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "G\u00E9n\u00E8re un lien pour qu'un second parent cr\u00E9e un compte et acc\u00E8de aux m\u00EAmes infos du joueur. Un seul compte papa et un seul compte maman sont autoris\u00E9s par joueur."),
         React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" } },
-            React.createElement("select", { value: selectedPlayerId, onChange: function(e) { setSelectedPlayerId(e.target.value); setInviteUrl(""); }, style: { padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--input-bg)", color: "var(--text)", minWidth: 200 } },
+            React.createElement("select", { value: selectedPlayerId, onChange: function(e) { setSelectedPlayerId(e.target.value); setInviteUrl(""); setInviteError(""); }, style: { padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--input-bg)", color: "var(--text)", minWidth: 200 } },
                 React.createElement("option", { value: "" }, "\u2014 Choisir un joueur \u2014"),
                 PLAYERS.map(function(p) { return React.createElement("option", { key: p.id, value: p.id }, "#", p.num, " ", p.firstName, " ", p.lastName); })),
             React.createElement("button", { type: "button", disabled: !selectedPlayerId, onClick: function() {
-                fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: parseInt(selectedPlayerId, 10) }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) setInviteUrl(d.invite_url); });
+                setInviteError("");
+                fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: parseInt(selectedPlayerId, 10) }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) { setInviteUrl(d.invite_url); setInviteError(""); } else if (d.error) setInviteError(d.error); });
             }, style: { padding: "8px 16px", background: selectedPlayerId ? "var(--green-700)" : "var(--text-muted)", color: "white", border: "none", borderRadius: 8, fontSize: 13, cursor: selectedPlayerId ? "pointer" : "default" } }, "G\u00E9n\u00E9rer le lien")),
+        inviteError && React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: "var(--red)", fontWeight: 600 } }, inviteError),
         inviteUrl && React.createElement("div", { style: { marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" } },
             React.createElement("input", { type: "text", readOnly: true, value: inviteUrl, style: { flex: 1, minWidth: 200, padding: 8, fontSize: 12, background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", borderRadius: 6 } }),
             React.createElement("button", { type: "button", onClick: function() { navigator.clipboard && navigator.clipboard.writeText(inviteUrl); }, style: { padding: "8px 14px", background: "var(--gold)", color: "#050d07", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer" } }, "Copier")));
@@ -3038,6 +3041,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     const cardStyle = { maxWidth: 700, margin: "0 auto" };
     const [icalUrl, setIcalUrl] = useState("");
     const [inviteUrl, setInviteUrl] = useState("");
+    const [inviteError, setInviteError] = useState("");
     const [docStatus, setDocStatus] = useState(null);
     const [presenceAccount, setPresenceAccount] = useState(null);
     const [ficheUploading, setFicheUploading] = useState(false);
@@ -3095,7 +3099,8 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
         fetch(API_URL + "?action=ical_token", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.url) setIcalUrl(d.url); }).catch(function() {});
     };
     const handleInviteSecond = function() {
-        fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: player.id }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) setInviteUrl(d.invite_url); }).catch(function() {});
+        setInviteError("");
+        fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: player.id }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) { setInviteUrl(d.invite_url); setInviteError(""); } else if (d.error) setInviteError(d.error); }).catch(function() {});
     };
     const handleFicheUpload = function(e) {
         var f = e.target.files && e.target.files[0];
@@ -3117,7 +3122,8 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                 React.createElement("button", { type: "button", onClick: handleGetIcal, style: { padding: "9px 12px", background: "var(--green-700)", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "Calendrier (.ics)"))),
         React.createElement("div", { className: "section-title", style: { marginTop: 4 } }, "\uD83D\uDC65 Inviter un 2e parent"),
         React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
-            React.createElement("div", { style: { fontSize: 14, color: "var(--text-dim)", marginBottom: 12 } }, "L'autre parent peut cr\u00E9er un compte et voir les m\u00EAmes infos (convocations, stats, notes) pour ", player.firstName, "."),
+            React.createElement("div", { style: { fontSize: 14, color: "var(--text-dim)", marginBottom: 12 } }, "L'autre parent peut cr\u00E9er un compte et voir les m\u00EAmes infos (convocations, stats, notes) pour ", player.firstName, ". Un seul compte papa et un seul compte maman sont autoris\u00E9s par joueur."),
+            inviteError && React.createElement("div", { style: { fontSize: 13, color: "var(--red)", marginBottom: 10, fontWeight: 600 } }, inviteError),
             !inviteUrl ? React.createElement("button", { type: "button", onClick: handleInviteSecond, style: { padding: "10px 20px", background: "rgba(200,168,50,0.25)", color: "var(--gold)", border: "2px solid var(--gold)", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer" } }, "\uD83D\uDC65 G\u00E9n\u00E9rer le lien d'invitation") : React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" } },
                 React.createElement("input", { type: "text", readOnly: true, value: inviteUrl, style: { flex: 1, minWidth: 200, padding: 10, fontSize: 13, background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8 } }),
                 React.createElement("button", { type: "button", onClick: function() { navigator.clipboard && navigator.clipboard.writeText(inviteUrl); }, style: { padding: "10px 18px", background: "var(--gold)", color: "#050d07", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" } }, "Copier le lien")))),

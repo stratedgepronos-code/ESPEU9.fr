@@ -443,10 +443,26 @@ case 'register':
     if($inviteToken){
         $db=getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-        $st=$db->prepare("SELECT player_id FROM second_parent_invites WHERE token=:t AND expires_at > NOW()");
+        $st=$db->prepare("SELECT player_id, created_by FROM second_parent_invites WHERE token=:t AND expires_at > NOW()");
         $st->execute([':t'=>$inviteToken]);
         $inv=$st->fetch();
-        if($inv){ $playerId=(int)$inv['player_id']; }
+        if($inv){
+            $playerId=(int)$inv['player_id'];
+            $createdBy=(int)$inv['created_by'];
+            $stInv=$db->prepare("SELECT parent_type FROM users WHERE id=:uid");
+            $stInv->execute([':uid'=>$createdBy]);
+            $ri=$stInv->fetch(PDO::FETCH_ASSOC);
+            $inviterType=($ri&&in_array($ri['parent_type'],['papa','maman']))?$ri['parent_type']:null;
+            if($inviterType!==null){
+                $parentType=($inviterType==='papa')?'maman':'papa';
+            } else {
+                // Invite créée par le coach : attribuer le type (papa ou maman) encore libre
+                $stTaken=$db->prepare("SELECT parent_type FROM users WHERE role='parent' AND player_id=:pid");
+                $stTaken->execute([':pid'=>$playerId]);
+                $taken=[]; while($row=$stTaken->fetch(PDO::FETCH_ASSOC)) $taken[]=$row['parent_type'];
+                if(!in_array('papa',$taken)) $parentType='papa'; elseif(!in_array('maman',$taken)) $parentType='maman'; else { http_response_code(409); echo json_encode(['error'=>'Un compte papa et un compte maman existent déjà pour ce joueur.']); break; }
+            }
+        }
     }
     if(!$username||!$password){http_response_code(400);echo json_encode(['error'=>'Identifiant et mot de passe requis']);break;}
     if(!$email){http_response_code(400);echo json_encode(['error'=>'L\'email est obligatoire']);break;}
@@ -457,6 +473,17 @@ case 'register':
     if(!preg_match('/[A-Za-z]/',$password)||!preg_match('/[0-9]/',$password)){http_response_code(400);echo json_encode(['error'=>'Le mot de passe doit contenir au moins une lettre et un chiffre']);break;}
     if(!$playerId){http_response_code(400);echo json_encode(['error'=>'Sélectionne un joueur']);break;}
     if(!in_array($parentType,['papa','maman'])) $parentType='papa';
+    // Règle : un seul compte papa et un seul compte maman par joueur
+    try {
+        $db=getDB();
+        $stExists=$db->prepare("SELECT id FROM users WHERE role='parent' AND player_id=:pid AND parent_type=:pt");
+        $stExists->execute([':pid'=>$playerId,':pt'=>$parentType]);
+        if($stExists->fetch()){
+            http_response_code(409);
+            echo json_encode(['error'=>'Un compte '.$parentType.' existe déjà pour ce joueur. Un seul compte par type de parent (papa / maman) est autorisé.']);
+            break;
+        }
+    } catch(Exception $e){}
     $displayName=ucfirst($parentType).' de '.$playerName;
     try {
         $db=getDB(); $hash=password_hash($password,PASSWORD_DEFAULT);
@@ -3043,6 +3070,32 @@ case 'create_second_parent_invite':
     if ($role !== 'coach' && $myPid !== $playerId) { http_response_code(403); echo json_encode(['error'=>'Non autorisé']); break; }
     try {
         $db = getDB();
+        // Règle : un seul compte papa et un seul compte maman par joueur
+        $myParentType = $_SESSION['parent_type'] ?? null;
+        if (!in_array($myParentType, ['papa', 'maman'])) {
+            $stMe = $db->prepare("SELECT parent_type FROM users WHERE id = :uid AND role = 'parent'");
+            $stMe->execute([':uid' => $uid]);
+            $r = $stMe->fetch(PDO::FETCH_ASSOC);
+            $myParentType = $r['parent_type'] ?? null;
+        }
+        if (in_array($myParentType, ['papa', 'maman'])) {
+            $otherType = ($myParentType === 'papa') ? 'maman' : 'papa';
+            $stExists = $db->prepare("SELECT id FROM users WHERE role = 'parent' AND player_id = :pid AND parent_type = :pt");
+            $stExists->execute([':pid' => $playerId, ':pt' => $otherType]);
+            if ($stExists->fetch()) {
+                echo json_encode(['success' => false, 'error' => "Un compte " . $otherType . " existe déjà pour ce joueur. Un seul compte par type de parent (papa / maman) est autorisé."]);
+                break;
+            }
+        } else {
+            // Invite créée par le coach : autoriser seulement si au moins un slot (papa ou maman) est libre
+            $stExists = $db->prepare("SELECT parent_type FROM users WHERE role = 'parent' AND player_id = :pid");
+            $stExists->execute([':pid' => $playerId]);
+            $taken = []; while ($row = $stExists->fetch(PDO::FETCH_ASSOC)) $taken[] = $row['parent_type'];
+            if (in_array('papa', $taken) && in_array('maman', $taken)) {
+                echo json_encode(['success' => false, 'error' => 'Un compte papa et un compte maman existent déjà pour ce joueur.']);
+                break;
+            }
+        }
         $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
         $token = bin2hex(random_bytes(24));
         $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
@@ -3059,17 +3112,37 @@ case 'get_invite_info':
     try {
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-        $st = $db->prepare("SELECT player_id, expires_at FROM second_parent_invites WHERE token = :t");
+        $st = $db->prepare("SELECT player_id, created_by, expires_at FROM second_parent_invites WHERE token = :t");
         $st->execute([':t'=>$token]);
         $row = $st->fetch();
         if (!$row || strtotime($row['expires_at']) < time()) { echo json_encode(['success'=>false, 'error'=>'Lien expiré ou invalide']); break; }
         $playerId = (int)$row['player_id'];
+        $createdBy = (int)$row['created_by'];
         $playerName = 'Joueur #'.$playerId;
         try {
             $stP = $db->query("SELECT id, firstName, lastName FROM players");
             if ($stP) while ($p = $stP->fetch(PDO::FETCH_ASSOC)) { if ((int)$p['id'] === $playerId) { $playerName = trim(($p['firstName']??'').' '.($p['lastName']??'')); break; } }
         } catch (Exception $e) {}
-        echo json_encode(['success'=>true, 'player_id'=>$playerId, 'player_name'=>$playerName]);
+        // Type imposé pour le 2e parent : l'inverse de l'invitant, ou le slot libre si invitant = coach (un seul papa, une seule maman par joueur)
+        $stInv = $db->prepare("SELECT parent_type FROM users WHERE id = :uid");
+        $stInv->execute([':uid' => $createdBy]);
+        $ri = $stInv->fetch(PDO::FETCH_ASSOC);
+        $inviterType = ($ri && in_array($ri['parent_type'], ['papa', 'maman'])) ? $ri['parent_type'] : null;
+        if ($inviterType !== null) {
+            $requiredParentType = ($inviterType === 'papa') ? 'maman' : 'papa';
+        } else {
+            $stTaken = $db->prepare("SELECT parent_type FROM users WHERE role = 'parent' AND player_id = :pid");
+            $stTaken->execute([':pid' => $playerId]);
+            $taken = []; while ($row = $stTaken->fetch(PDO::FETCH_ASSOC)) $taken[] = $row['parent_type'];
+            if (!in_array('papa', $taken)) $requiredParentType = 'papa'; elseif (!in_array('maman', $taken)) $requiredParentType = 'maman'; else { echo json_encode(['success'=>false, 'error'=>'Un compte papa et un compte maman existent déjà pour ce joueur.']); break; }
+        }
+        $stExists = $db->prepare("SELECT id FROM users WHERE role = 'parent' AND player_id = :pid AND parent_type = :pt");
+        $stExists->execute([':pid' => $playerId, ':pt' => $requiredParentType]);
+        if ($stExists->fetch()) {
+            echo json_encode(['success'=>false, 'error'=>'Un compte ' . $requiredParentType . ' existe déjà pour ce joueur. Ce lien d\'invitation n\'est plus valide.']);
+            break;
+        }
+        echo json_encode(['success'=>true, 'player_id'=>$playerId, 'player_name'=>$playerName, 'required_parent_type'=>$requiredParentType]);
     } catch (Exception $e) { echo json_encode(['success'=>false, 'error'=>'Erreur']); }
     break;
 
