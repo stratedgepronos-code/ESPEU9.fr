@@ -490,6 +490,16 @@ case 'register':
         $st=$db->prepare("INSERT INTO users (username,password_hash,display_name,email,role,player_id,parent_type) VALUES(:u,:p,:d,:e,'parent',:pid,:pt)");
         $st->execute([':u'=>$username,':p'=>$hash,':d'=>$displayName,':e'=>$email?:null,':pid'=>$playerId,':pt'=>$parentType]);
         $newId=$db->lastInsertId();
+        // Notifier le coach dans sa messagerie à chaque nouvelle inscription
+        try {
+            $coaches = $db->query("SELECT id FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_COLUMN);
+            $subject = "Nouvelle inscription";
+            $body = $displayName . " (identifiant : " . $username . ")" . ($email ? ", email : " . $email : "") . " vient de s'inscrire sur le site.";
+            $insMsg = $db->prepare("INSERT INTO messages (sender_id, recipient_id, subject, body, msg_type) VALUES (:s, :r, :sub, :b, 'general')");
+            foreach ($coaches as $coachId) {
+                $insMsg->execute([':s' => (int)$newId, ':r' => (int)$coachId, ':sub' => $subject, ':b' => $body]);
+            }
+        } catch (Exception $e) { /* ne pas faire échouer l'inscription si la table messages n'existe pas encore */ }
         $_SESSION['user_id']=$newId; $_SESSION['username']=$username; $_SESSION['role']='parent';
         $_SESSION['display_name']=$displayName; $_SESSION['email']=$email?:null;
         $_SESSION['player_id']=$playerId; $_SESSION['parent_type']=$parentType;
