@@ -5835,8 +5835,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                         React.createElement("span", null, PLAYER_INFO[player.id].parent2.email ? React.createElement("a", { href: `mailto:${PLAYER_INFO[player.id].parent2.email}` }, PLAYER_INFO[player.id].parent2.email) : "—")),
                     React.createElement("div", { className: "admin-row" },
                         React.createElement("span", { className: "admin-label" }, "T\u00E9l\u00E9phone"),
-                        React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—")))))))) )
-        ) ) );
+                        React.createElement("span", null, PLAYER_INFO[player.id].parent2.tel ? React.createElement("a", { href: `tel:${PLAYER_INFO[player.id].parent2.tel.replace(/\s/g, "")}` }, PLAYER_INFO[player.id].parent2.tel) : "—"))))))))));
 }
 // MATCHES PAGE
 function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user, customUpcoming, reloadCustom, onMatchAdded }) {
