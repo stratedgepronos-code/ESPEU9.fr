@@ -3948,10 +3948,23 @@ function CovoituragePanel({ matchId, user }) {
                                 style: { ...acceptBtnS, opacity: accepting === p.id ? 0.5 : 1 }
                             }, accepting === p.id ? "\u23F3" : "\uD83D\uDE97", accepting === p.id ? " Prise en charge..." : " Je le prends"))))),
 
-        // ── Drivers list ──
+        // ── Drivers list (avec vue voiture 5 places) ──
         drivers.map(d => {
             const passengerCount = (d.passengers || []).length;
             const seatsFree = d.seats_total - passengerCount;
+            const CAR_SEATS = 5;
+            const driverSeat = { type: "driver", name: d.display_name };
+            const passengerSlots = [];
+            for (let i = 0; i < 4; i++) {
+                if (i >= d.seats_total) passengerSlots.push({ type: "off" });
+                else if ((d.passengers || [])[i]) passengerSlots.push({ type: "taken", name: (d.passengers || [])[i].display_name });
+                else passengerSlots.push({ type: "free" });
+            }
+            const carWrapS = { marginBottom: 12, padding: "12px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" };
+            const carShapeS = { width: "100%", maxWidth: 260, margin: "0 auto", background: "linear-gradient(180deg, #374151 0%, #1f2937 100%)", borderRadius: "20px 20px 8px 8px", padding: "14px 12px", boxShadow: "inset 0 2px 4px rgba(255,255,255,0.1), 0 4px 12px rgba(0,0,0,0.2)" };
+            const seatRowS = { display: "flex", justifyContent: "center", gap: 8, marginBottom: 6 };
+            const seatS = (isFree, clickable) => ({ width: 40, height: 40, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, background: isFree && clickable ? "#d1fae5" : isFree ? "#e5e7eb" : "#fef3c7", color: isFree && clickable ? "#065f46" : isFree ? "#9ca3af" : "#92400e", cursor: clickable ? "pointer" : "default", border: clickable ? "2px solid #10b981" : "2px solid transparent", transition: "all 0.2s", flexShrink: 0 });
+            const seatOffS = { ...seatS(false, false), background: "#4b5563", color: "#9ca3af", opacity: 0.6 };
             return React.createElement("div", { key: d.id, style: { ...driverCardS, borderColor: d.user_id === myUid ? "#f59e0b" : "var(--border)" } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
@@ -3961,18 +3974,18 @@ function CovoituragePanel({ matchId, user }) {
                             React.createElement("span", { style: { ...badgeS(seatsFree), marginLeft: 10 } },
                                 seatsFree > 0 ? seatsFree + " place" + (seatsFree > 1 ? "s" : "") + " dispo" : "\u2705 Complet"))),
                     d.user_id === myUid && React.createElement("button", { onClick: handleDelete, style: redBtnS }, "\u2716 Retirer")),
+                React.createElement("div", { style: { fontSize: 11, color: "var(--text-dim)", marginBottom: 6, textAlign: "center" } }, "Vue voiture (5 places) \u2014 clique sur un si\u00E8ge libre pour r\u00E9server"),
+                React.createElement("div", { style: carWrapS },
+                    React.createElement("div", { style: carShapeS },
+                        React.createElement("div", { style: seatRowS },
+                            React.createElement("div", { style: { ...seatS(false, false), background: "#86efac", color: "#166534" }, (d.display_name || "C").charAt(0).toUpperCase()),
+                            React.createElement("div", { style: passengerSlots[0].type === "free" ? seatS(true, !myEntry && seatsFree > 0) : passengerSlots[0].type === "taken" ? seatS(false, false) : seatOffS, onClick: passengerSlots[0].type === "free" && !myEntry && seatsFree > 0 ? () => handleJoin(d.id) : undefined, title: passengerSlots[0].type === "free" ? "Cliquer pour prendre cette place" : passengerSlots[0].type === "taken" ? passengerSlots[0].name : null }, passengerSlots[0].type === "taken" ? passengerSlots[0].name.charAt(0).toUpperCase() : passengerSlots[0].type === "free" ? "+" : "\u2014")),
+                        React.createElement("div", { style: { ...seatRowS, marginBottom: 0 } },
+                            [1, 2, 3].map(i => React.createElement("div", { key: i, style: passengerSlots[i].type === "free" ? { ...seatS(true, !myEntry && seatsFree > 0), onClick: () => handleJoin(d.id), title: "Cliquer pour prendre cette place" } : passengerSlots[i].type === "taken" ? { ...seatS(false, false), title: passengerSlots[i].name } : seatOffS }, passengerSlots[i].type === "taken" ? passengerSlots[i].name.charAt(0).toUpperCase() : passengerSlots[i].type === "free" ? "+" : "\u2014")))),
                 d.message && React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 8, fontStyle: "italic", paddingLeft: 46 } }, "\uD83D\uDCAC ", d.message),
-                // Passengers list
-                passengerCount > 0 && React.createElement("div", { style: { marginLeft: 46 } },
-                    (d.passengers || []).map((p, i) => React.createElement("div", { key: i, style: { fontSize: 13, padding: "6px 0", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: i < passengerCount - 1 ? "1px solid var(--border)" : "none" } },
-                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-                            React.createElement("span", { style: { color: "#16a34a", fontSize: 14 } }, "\u2705"),
-                            React.createElement("span", { style: { fontWeight: 600 } }, p.display_name),
-                            p.message && React.createElement("span", { style: { color: "var(--text-dim)", fontStyle: "italic" } }, " \u2014 ", p.message)),
-                        p.user_id === myUid && React.createElement("button", { onClick: handleDelete, style: { ...redBtnS, fontSize: 11, padding: "3px 10px" } }, "Annuler")))),
-                // Join button (if not already registered and seats available)
+                (d.passengers || []).length > 0 && React.createElement("div", { style: { marginLeft: 46, fontSize: 13, color: "var(--text-dim)", marginTop: 4 } }, (d.passengers || []).map((p, i) => React.createElement("div", { key: i }, "\u2705 ", p.display_name))),
                 !myEntry && seatsFree > 0 &&
-                    React.createElement("button", { onClick: () => handleJoin(d.id), style: { ...blueBtnS, marginTop: 8, width: "100%", fontSize: 13 } }, "\uD83D\uDE4B R\u00E9server une place"));
+                    React.createElement("button", { onClick: () => handleJoin(d.id), style: { ...blueBtnS, marginTop: 8, width: "100%", fontSize: 13 } }, "\uD83D\uDE4B Ou clic ici pour r\u00E9server une place"));
         }),
 
         // My status (if matched as passenger)

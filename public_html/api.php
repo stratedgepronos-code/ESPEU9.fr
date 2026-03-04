@@ -2237,6 +2237,30 @@ case 'delete_match_chat':
     break;
 
 // ═══ COVOITURAGE ═══
+// Helper : libellé match + URL pour les notifs covoiturage
+function covoiturageMatchLabel($db, $matchId) {
+    $matchId = (int) $matchId;
+    $url = 'https://espeu9.fr/#matchs';
+    try {
+        $st = $db->prepare("SELECT date, adversaire FROM upcoming_matches WHERE id = :mid");
+        $st->execute([':mid' => $matchId]);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        if ($r) return ['label' => 'Match vs ' . ($r['adversaire'] ?? '') . ' (' . ($r['date'] ?? '') . ')', 'url' => $url];
+    } catch (Exception $e) {}
+    return ['label' => 'Match #' . $matchId, 'url' => $url];
+}
+// Notifier tous les parents (sauf un user) par email + push pour covoiturage
+function notifyParentsCovoiturage($db, $exceptUserId, $subject, $htmlBody, $pushTitle, $pushBody, $url) {
+    try {
+        $st = $db->prepare("SELECT id, email FROM users WHERE role = 'parent' AND id != :uid");
+        $st->execute([':uid' => $exceptUserId]);
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            if (!empty($row['email'])) sendEmailNotif($row['email'], $subject, $htmlBody);
+            sendPushToUser((int) $row['id'], $pushTitle, $pushBody, $url);
+        }
+    } catch (Exception $e) {}
+}
+
 case 'get_covoiturage':
     $matchId = (int)($_GET['match_id'] ?? 0);
     if (!$matchId) { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
@@ -2311,6 +2335,17 @@ case 'save_covoiturage':
             $st = $db->prepare("INSERT INTO covoiturage (match_id, user_id, type, driver_id, message, display_name) VALUES (:mid, :uid, 'passenger', :did, :msg, :dn) ON DUPLICATE KEY UPDATE type='passenger', driver_id=:did2, message=:msg2, seats_total=0");
             $st->execute([':mid'=>$matchId, ':uid'=>$uid, ':did'=>$driverCovoitId?:null, ':msg'=>$message, ':dn'=>$dname, ':did2'=>$driverCovoitId?:null, ':msg2'=>$message]);
         }
+        $info = covoiturageMatchLabel($db, $matchId);
+        $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+        if ($type === 'driver') {
+            $subj = 'Covoiturage : ' . $dname . ' propose des places — ' . $info['label'];
+            $body = '<p>' . $dname . ' propose des places pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
+            notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' propose des places', $info['label'], $info['url']);
+        } else {
+            $subj = 'Covoiturage : ' . $dname . ' cherche une place — ' . $info['label'];
+            $body = '<p>' . $dname . ' cherche une place pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
+            notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' cherche une place', $info['label'], $info['url']);
+        }
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
@@ -2323,20 +2358,34 @@ case 'join_covoiturage':
     if (!$matchId || !$driverCovoitId) { http_response_code(400); echo json_encode(['error'=>'Données manquantes']); break; }
     try {
         $db = getDB();
-        // Check seats available
-        $stD = $db->prepare("SELECT seats_total FROM covoiturage WHERE id = :did AND type='driver'");
+        $stD = $db->prepare("SELECT user_id, seats_total FROM covoiturage WHERE id = :did AND type='driver'");
         $stD->execute([':did'=>$driverCovoitId]); $driver = $stD->fetch();
         if (!$driver) { http_response_code(404); echo json_encode(['error'=>'Conducteur non trouvé']); break; }
         $stP = $db->prepare("SELECT COUNT(*) as c FROM covoiturage WHERE driver_id = :did AND type='passenger'");
         $stP->execute([':did'=>$driverCovoitId]); $count = (int)$stP->fetch()['c'];
         if ($count >= $driver['seats_total']) { http_response_code(400); echo json_encode(['error'=>'Plus de place disponible']); break; }
-        // Get display name
         $stN = $db->prepare("SELECT display_name FROM users WHERE id = :id");
         $stN->execute([':id'=>$uid]); $urow = $stN->fetch();
         $dname = $urow ? $urow['display_name'] : '';
-        // Upsert
         $st = $db->prepare("INSERT INTO covoiturage (match_id, user_id, type, driver_id, display_name) VALUES (:mid, :uid, 'passenger', :did, :dn) ON DUPLICATE KEY UPDATE type='passenger', driver_id=:did2, seats_total=0");
         $st->execute([':mid'=>$matchId, ':uid'=>$uid, ':did'=>$driverCovoitId, ':dn'=>$dname, ':did2'=>$driverCovoitId]);
+        $driverUserId = (int) $driver['user_id'];
+        $info = covoiturageMatchLabel($db, $matchId);
+        $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+        $stU = $db->prepare("SELECT display_name, email FROM users WHERE id = :id");
+        $stU->execute([':id' => $driverUserId]);
+        $driverRow = $stU->fetch(PDO::FETCH_ASSOC);
+        $driverName = $driverRow ? ($driverRow['display_name'] ?? 'Un parent') : 'Un parent';
+        if ($driverUserId !== $uid) {
+            $bodyDriver = '<p><strong>' . $dname . '</strong> a rejoint votre covoiturage pour le ' . $info['label'] . '.</p>' . $linkHtml;
+            if (!empty($driverRow['email'])) sendEmailNotif($driverRow['email'], 'Covoiturage : ' . $dname . ' a rejoint votre voiture — ' . $info['label'], $bodyDriver);
+            sendPushToUser($driverUserId, 'Covoiturage : ' . $dname . ' a rejoint votre voiture', $info['label'], $info['url']);
+        }
+        $bodyPass = '<p>Vous êtes inscrit au covoiturage de <strong>' . $driverName . '</strong> pour le ' . $info['label'] . '.</p>' . $linkHtml;
+        $stU->execute([':id' => $uid]);
+        $passRow = $stU->fetch(PDO::FETCH_ASSOC);
+        if (!empty($passRow['email'])) sendEmailNotif($passRow['email'], 'Covoiturage confirmé : vous êtes avec ' . $driverName . ' — ' . $info['label'], $bodyPass);
+        sendPushToUser($uid, 'Covoiturage confirmé', 'Vous êtes avec ' . $driverName . ' pour ' . $info['label'], $info['url']);
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
@@ -2363,6 +2412,28 @@ case 'accept_passenger':
         if (!$stV->fetch()) { http_response_code(400); echo json_encode(['error'=>'Demande déjà prise en charge']); break; }
         // Link passenger to driver
         $db->prepare("UPDATE covoiturage SET driver_id = :did WHERE id = :pid")->execute([':did'=>$driver['id'], ':pid'=>$passengerId]);
+        $info = covoiturageMatchLabel($db, $matchId);
+        $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+        $stPass = $db->prepare("SELECT user_id, display_name FROM covoiturage WHERE id = :pid");
+        $stPass->execute([':pid' => $passengerId]);
+        $passCovoit = $stPass->fetch(PDO::FETCH_ASSOC);
+        $passengerUserId = $passCovoit ? (int) $passCovoit['user_id'] : 0;
+        $passengerName = $passCovoit ? ($passCovoit['display_name'] ?? 'Un parent') : 'Un parent';
+        $stDriverU = $db->prepare("SELECT display_name, email FROM users WHERE id = :id");
+        $stDriverU->execute([':id' => $uid]);
+        $driverU = $stDriverU->fetch(PDO::FETCH_ASSOC);
+        $driverDisplayName = $driverU ? ($driverU['display_name'] ?? 'Le conducteur') : 'Le conducteur';
+        if ($passengerUserId && $passengerUserId !== $uid) {
+            $bodyPass = '<p>Vous avez été accepté dans le covoiturage de <strong>' . $driverDisplayName . '</strong> pour le ' . $info['label'] . '.</p>' . $linkHtml;
+            $stPassU = $db->prepare("SELECT email FROM users WHERE id = :id");
+            $stPassU->execute([':id' => $passengerUserId]);
+            $passEmail = $stPassU->fetch(PDO::FETCH_COLUMN);
+            if ($passEmail) sendEmailNotif($passEmail, 'Covoiturage : vous avez été accepté par ' . $driverDisplayName . ' — ' . $info['label'], $bodyPass);
+            sendPushToUser($passengerUserId, 'Covoiturage : vous avez été accepté', $driverDisplayName . ' vous prend en covoiturage — ' . $info['label'], $info['url']);
+            $bodyDr = '<p><strong>' . $passengerName . '</strong> a rejoint votre covoiturage pour le ' . $info['label'] . '.</p>' . $linkHtml;
+            if (!empty($driverU['email'])) sendEmailNotif($driverU['email'], 'Covoiturage : ' . $passengerName . ' a rejoint votre voiture — ' . $info['label'], $bodyDr);
+            sendPushToUser($uid, 'Covoiturage : ' . $passengerName . ' a rejoint votre voiture', $info['label'], $info['url']);
+        }
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
