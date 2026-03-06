@@ -255,6 +255,31 @@ function sendPushToAll($title, $body, $url = '#accueil') {
 switch ($action) {
 
 // ═══ FAILLE 1 — Données personnelles côté serveur uniquement ═══
+// ═══ TÉLÉCHARGEMENT E-LICENCE (parent de l'enfant ou coach uniquement) ═══
+case 'download_licence':
+    $pid = (int)($_GET['player_id'] ?? 0);
+    if ($pid <= 0) { http_response_code(400); echo json_encode(['error' => 'player_id requis']); break; }
+    if (!$uid) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    if ($role !== 'coach' && ($role !== 'parent' || (int)($_SESSION['player_id'] ?? 0) !== $pid)) {
+        http_response_code(403); echo json_encode(['error' => 'Accès réservé au parent de l\'enfant ou au coach']); break;
+    }
+    $dir = __DIR__ . '/uploads/licences/';
+    $exts = ['.png', '.pdf', '.jpg', '.jpeg'];
+    $found = null;
+    foreach ($exts as $ext) {
+        $path = $dir . $pid . $ext;
+        if (file_exists($path) && is_file($path)) { $found = $path; break; }
+    }
+    if (!$found) { http_response_code(404); echo json_encode(['error' => 'Licence non déposée pour ce joueur']); break; }
+    $mime = (pathinfo($found, PATHINFO_EXTENSION) === 'pdf') ? 'application/pdf' : 'image/png';
+    if (in_array(strtolower(pathinfo($found, PATHINFO_EXTENSION)), ['jpg', 'jpeg'])) $mime = 'image/jpeg';
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: attachment; filename="e-Licence_' . $pid . '.' . pathinfo($found, PATHINFO_EXTENSION) . '"');
+    header('Content-Length: ' . filesize($found));
+    header('Cache-Control: private, no-cache');
+    readfile($found);
+    exit;
+
 case 'get_player_info':
     if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') {
         http_response_code(403); echo json_encode(['error' => 'Accès réservé au coach']); break;
@@ -322,15 +347,29 @@ case 'get_player_info':
     break;
 
 case 'get_all':
-    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') {
-        http_response_code(403); echo json_encode(['error' => 'Accès réservé au coach']); break;
+    // Lecture des notes : coach voit tout ; parent ne reçoit que la note de son enfant (player_id)
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(403); echo json_encode(['error' => 'Non connecté']); break;
     }
     try {
         $db = getDB();
-        $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'player'"); $stmt->execute();
-        $pn = []; while ($r = $stmt->fetch()) { $pn[$r['ref_id']] = $r['content'] ?? ''; }
-        $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'match'"); $stmt->execute();
-        $mn = []; while ($r = $stmt->fetch()) { $mn[$r['ref_id']] = $r['content'] ?? ''; }
+        $role = $_SESSION['role'] ?? '';
+        $playerId = isset($_SESSION['player_id']) ? (int)$_SESSION['player_id'] : null;
+        if ($role === 'coach') {
+            $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'player'"); $stmt->execute();
+            $pn = []; while ($r = $stmt->fetch()) { $pn[$r['ref_id']] = $r['content'] ?? ''; }
+            $stmt = $db->prepare("SELECT ref_id, content FROM coach_notes WHERE type = 'match'"); $stmt->execute();
+            $mn = []; while ($r = $stmt->fetch()) { $mn[$r['ref_id']] = $r['content'] ?? ''; }
+        } else {
+            $pn = [];
+            if ($playerId) {
+                $stmt = $db->prepare("SELECT content FROM coach_notes WHERE type = 'player' AND ref_id = :pid");
+                $stmt->execute([':pid' => $playerId]);
+                $r = $stmt->fetch();
+                if ($r) $pn[$playerId] = $r['content'] ?? '';
+            }
+            $mn = [];
+        }
         echo json_encode(['success'=>true,'coachNotes'=>$pn,'matchNotes'=>$mn]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur']); }
     break;
@@ -353,6 +392,7 @@ case 'login':
         $user=$st->fetch();
         if($user && password_verify($p,$user['password_hash'])){
             clearAttempts($clientIp, 'login');
+            session_regenerate_id(true);
             $_SESSION['user_id']=$user['id']; $_SESSION['username']=$user['username']; $_SESSION['role']=$user['role'];
             $_SESSION['display_name']=$user['display_name']; $_SESSION['email']=$user['email']??null;
             $_SESSION['player_id']=$user['player_id']; $_SESSION['parent_type']=$user['parent_type'];
@@ -399,28 +439,57 @@ case 'register':
     $in=json_decode(file_get_contents('php://input'),true);
     $username=trim($in['username']??''); $password=$in['password']??''; $email=trim($in['email']??'');
     $playerId=$in['player_id']??null; $parentType=$in['parent_type']??'papa'; $playerName=trim($in['player_name']??'');
+    $inviteToken=trim($in['invite_token']??'');
+    if($inviteToken){
+        $db=getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st=$db->prepare("SELECT player_id, created_by FROM second_parent_invites WHERE token=:t AND expires_at > NOW()");
+        $st->execute([':t'=>$inviteToken]);
+        $inv=$st->fetch();
+        if($inv){
+            $playerId=(int)$inv['player_id'];
+            $createdBy=(int)$inv['created_by'];
+            $stInv=$db->prepare("SELECT parent_type FROM users WHERE id=:uid");
+            $stInv->execute([':uid'=>$createdBy]);
+            $ri=$stInv->fetch(PDO::FETCH_ASSOC);
+            $inviterType=($ri&&in_array($ri['parent_type'],['papa','maman']))?$ri['parent_type']:null;
+            if($inviterType!==null){
+                $parentType=($inviterType==='papa')?'maman':'papa';
+            } else {
+                // Invite créée par le coach : attribuer le type (papa ou maman) encore libre
+                $stTaken=$db->prepare("SELECT parent_type FROM users WHERE role='parent' AND player_id=:pid");
+                $stTaken->execute([':pid'=>$playerId]);
+                $taken=[]; while($row=$stTaken->fetch(PDO::FETCH_ASSOC)) $taken[]=$row['parent_type'];
+                if(!in_array('papa',$taken)) $parentType='papa'; elseif(!in_array('maman',$taken)) $parentType='maman'; else { http_response_code(409); echo json_encode(['error'=>'Un compte papa et un compte maman existent déjà pour ce joueur.']); break; }
+            }
+        }
+    }
     if(!$username||!$password){http_response_code(400);echo json_encode(['error'=>'Identifiant et mot de passe requis']);break;}
+    if(!$email){http_response_code(400);echo json_encode(['error'=>'L\'email est obligatoire']);break;}
+    if(!filter_var($email,FILTER_VALIDATE_EMAIL)){http_response_code(400);echo json_encode(['error'=>'Adresse email invalide']);break;}
     if(strlen($username)<3||strlen($username)>50){http_response_code(400);echo json_encode(['error'=>'Identifiant : 3 à 50 caractères']);break;}
     if(!preg_match('/^[a-zA-Z0-9._-]+$/',$username)){http_response_code(400);echo json_encode(['error'=>'Identifiant : lettres, chiffres, points et tirets uniquement']);break;}
-    if(strlen($password)<6){http_response_code(400);echo json_encode(['error'=>'Mot de passe trop court (6 min)']);break;}
+    if(strlen($password)<8){http_response_code(400);echo json_encode(['error'=>'Mot de passe : 8 caractères minimum']);break;}
+    if(!preg_match('/[A-Za-z]/',$password)||!preg_match('/[0-9]/',$password)){http_response_code(400);echo json_encode(['error'=>'Le mot de passe doit contenir au moins une lettre et un chiffre']);break;}
     if(!$playerId){http_response_code(400);echo json_encode(['error'=>'Sélectionne un joueur']);break;}
     if(!in_array($parentType,['papa','maman'])) $parentType='papa';
+    // Règle : un seul compte papa et un seul compte maman par joueur
+    try {
+        $db=getDB();
+        $stExists=$db->prepare("SELECT id FROM users WHERE role='parent' AND player_id=:pid AND parent_type=:pt");
+        $stExists->execute([':pid'=>$playerId,':pt'=>$parentType]);
+        if($stExists->fetch()){
+            http_response_code(409);
+            echo json_encode(['error'=>'Un compte '.$parentType.' existe déjà pour ce joueur. Un seul compte par type de parent (papa / maman) est autorisé.']);
+            break;
+        }
+    } catch(Exception $e){}
     $displayName=ucfirst($parentType).' de '.$playerName;
     try {
         $db=getDB(); $hash=password_hash($password,PASSWORD_DEFAULT);
         $st=$db->prepare("INSERT INTO users (username,password_hash,display_name,email,role,player_id,parent_type) VALUES(:u,:p,:d,:e,'parent',:pid,:pt)");
         $st->execute([':u'=>$username,':p'=>$hash,':d'=>$displayName,':e'=>$email?:null,':pid'=>$playerId,':pt'=>$parentType]);
         $newId=$db->lastInsertId();
-        // Notifier le coach dans sa messagerie à chaque nouvelle inscription
-        try {
-            $coaches = $db->query("SELECT id FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_COLUMN);
-            $subject = "Nouvelle inscription";
-            $body = $displayName . " (identifiant : " . $username . ")" . ($email ? ", email : " . $email : "") . " vient de s'inscrire sur le site.";
-            $insMsg = $db->prepare("INSERT INTO messages (sender_id, recipient_id, subject, body, msg_type) VALUES (:s, :r, :sub, :b, 'general')");
-            foreach ($coaches as $coachId) {
-                $insMsg->execute([':s' => (int)$newId, ':r' => (int)$coachId, ':sub' => $subject, ':b' => $body]);
-            }
-        } catch (Exception $e) { /* ne pas faire échouer l'inscription si la table messages n'existe pas encore */ }
         $_SESSION['user_id']=$newId; $_SESSION['username']=$username; $_SESSION['role']='parent';
         $_SESSION['display_name']=$displayName; $_SESSION['email']=$email?:null;
         $_SESSION['player_id']=$playerId; $_SESSION['parent_type']=$parentType;
@@ -950,51 +1019,20 @@ case 'get_match_extras':
             match_id INT PRIMARY KEY,
             gymnase VARCHAR(255) DEFAULT '',
             heure_rdv VARCHAR(20) DEFAULT '',
-            date_match VARCHAR(20) DEFAULT '',
-            heure_match VARCHAR(10) DEFAULT '',
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
-        try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
-        try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
         $st=$db->prepare("SELECT * FROM match_extras WHERE match_id=:mid"); $st->execute([':mid'=>$matchId]);
         $row=$st->fetch();
+        // Also get sheet photo
         $st2=$db->prepare("SELECT id,filename FROM match_photos WHERE match_id=:mid AND slot='sheet'"); $st2->execute([':mid'=>$matchId]);
         $sheet=$st2->fetch();
         echo json_encode([
             'success'=>true,
-            'gymnase'=>$row?($row['gymnase']??''):'',
-            'heure_rdv'=>$row?($row['heure_rdv']??''):'',
-            'date_match'=>$row?($row['date_match']??''):'',
-            'heure_match'=>$row?($row['heure_match']??''):'',
+            'gymnase'=>$row?$row['gymnase']:'',
+            'heure_rdv'=>$row?$row['heure_rdv']:'',
             'sheet'=>$sheet?['id'=>(int)$sheet['id'],'url'=>'uploads/'.$sheet['filename']]:null
         ]);
     } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
-    break;
-
-case 'get_bulk_match_extras':
-    $idsRaw = $_GET['match_ids'] ?? '';
-    if (!$idsRaw) { echo json_encode(['success' => true, 'extras' => (object)[]]); break; }
-    $ids = array_filter(array_map('intval', explode(',', $idsRaw)));
-    if (empty($ids)) { echo json_encode(['success' => true, 'extras' => (object)[]]); break; }
-    try {
-        $db = getDB();
-        try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
-        try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $st = $db->prepare("SELECT match_id, gymnase, heure_rdv, date_match, heure_match FROM match_extras WHERE match_id IN ($placeholders)");
-        $st->execute(array_values($ids));
-        $extras = [];
-        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-            $mid = (int)$r['match_id'];
-            $extras[(string)$mid] = [
-                'gymnase' => $r['gymnase'] ?? '',
-                'heure_rdv' => $r['heure_rdv'] ?? '',
-                'date_match' => $r['date_match'] ?? '',
-                'heure_match' => $r['heure_match'] ?? ''
-            ];
-        }
-        echo json_encode(['success' => true, 'extras' => $extras]);
-    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
 case 'save_match_extras':
@@ -1002,7 +1040,6 @@ case 'save_match_extras':
     if(!isset($_SESSION['role'])||$_SESSION['role']!=='coach'){http_response_code(403);echo json_encode(['error'=>'Coach requis']);break;}
     $in=json_decode(file_get_contents('php://input'),true);
     $matchId=(int)($in['match_id']??0); $gymnase=trim($in['gymnase']??''); $heureRdv=trim($in['heure_rdv']??'');
-    $dateMatch=trim($in['date_match']??''); $heureMatch=trim($in['heure_match']??'');
     if(!$matchId){http_response_code(400);echo json_encode(['error'=>'match_id requis']);break;}
     try {
         $db=getDB();
@@ -1010,40 +1047,20 @@ case 'save_match_extras':
             match_id INT PRIMARY KEY,
             gymnase VARCHAR(255) DEFAULT '',
             heure_rdv VARCHAR(20) DEFAULT '',
-            date_match VARCHAR(20) DEFAULT '',
-            heure_match VARCHAR(10) DEFAULT '',
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
-        try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
-        try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
-        $st=$db->prepare("INSERT INTO match_extras (match_id,gymnase,heure_rdv,date_match,heure_match) VALUES(:mid,:g,:h,:d,:hm) ON DUPLICATE KEY UPDATE gymnase=:g2,heure_rdv=:h2,date_match=:d2,heure_match=:hm2");
-        $st->execute([':mid'=>$matchId,':g'=>$gymnase,':h'=>$heureRdv,':d'=>$dateMatch,':hm'=>$heureMatch,':g2'=>$gymnase,':h2'=>$heureRdv,':d2'=>$dateMatch,':hm2'=>$heureMatch]);
+        $st=$db->prepare("INSERT INTO match_extras (match_id,gymnase,heure_rdv) VALUES(:mid,:g,:h) ON DUPLICATE KEY UPDATE gymnase=:g2,heure_rdv=:h2");
+        $st->execute([':mid'=>$matchId,':g'=>$gymnase,':h'=>$heureRdv,':g2'=>$gymnase,':h2'=>$heureRdv]);
         echo json_encode(['success'=>true]);
 
-        if ($gymnase || $heureRdv || $dateMatch || $heureMatch) {
+        // ═══ Email notification aux parents ═══
+        if ($gymnase || $heureRdv) {
             $html = "<p>✏️ <strong>Infos match mises à jour</strong></p>";
-            if ($dateMatch) $html .= "<p>📅 Date : <strong>$dateMatch</strong></p>";
-            if ($heureMatch) $html .= "<p>⏰ Heure match : <strong>$heureMatch</strong></p>";
             if ($heureRdv) $html .= "<p>⏰ Heure de RDV : <strong>$heureRdv</strong></p>";
             if ($gymnase) $html .= "<p>🏟️ Gymnase : <strong>$gymnase</strong></p>";
             $html .= "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir le match →</a></p>";
             notifyAllParents("Infos match mises à jour", $html);
         }
-    } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
-    break;
-
-case 'update_upcoming_infos':
-    if($_SERVER['REQUEST_METHOD']!=='POST'){http_response_code(405);echo json_encode(['error'=>'POST requis']);break;}
-    if(!isset($_SESSION['role'])||$_SESSION['role']!=='coach'){http_response_code(403);echo json_encode(['error'=>'Coach requis']);break;}
-    $in=json_decode(file_get_contents('php://input'),true);
-    $id=(int)($in['id']??0); $date=trim($in['date']??''); $heure=trim($in['heure']??''); $heureRdv=trim($in['heure_rdv']??'');
-    $lieu=trim($in['lieu']??''); $gymnase=trim($in['gymnase']??'');
-    if(!$id){http_response_code(400);echo json_encode(['error'=>'id requis']);break;}
-    try {
-        $db=getDB();
-        $st=$db->prepare("UPDATE upcoming_matches SET date=:d, heure=:h, heure_rdv=:hr, lieu=:l, gymnase=:g WHERE id=:id");
-        $st->execute([':d'=>$date,':h'=>$heure,':hr'=>$heureRdv,':l'=>$lieu,':g'=>$gymnase,':id'=>$id]);
-        echo json_encode(['success'=>true]);
     } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
     break;
 
@@ -1322,6 +1339,27 @@ case 'respond_convocation':
         try { $db->exec("ALTER TABLE convocation_responses MODIFY COLUMN response ENUM('present','absent','attente') NOT NULL"); } catch(Exception $e2) {}
         $st = $db->prepare("INSERT INTO convocation_responses (match_id, player_id, user_id, response) VALUES (:mid, :pid, :uid, :r) ON DUPLICATE KEY UPDATE response = :r2, user_id = :uid2, updated_at = CURRENT_TIMESTAMP");
         $st->execute([':mid' => $matchId, ':pid' => $playerId, ':uid' => $uid, ':r' => $response, ':r2' => $response, ':uid2' => $uid]);
+        // Notifier les coachs par push (au moins un) quand un parent met à jour la participation
+        if ($role !== 'coach') {
+            try {
+                $stM = $db->prepare("SELECT date, adversaire FROM upcoming_matches WHERE id = :mid");
+                $stM->execute([':mid' => $matchId]);
+                $matchRow = $stM->fetch(PDO::FETCH_ASSOC);
+                $matchLabel = $matchRow ? ('Match vs ' . ($matchRow['adversaire'] ?? '') . ' (' . ($matchRow['date'] ?? '') . ')') : 'Match';
+                $who = $_SESSION['display_name'] ?? 'Un parent';
+                $respLabel = $response === 'present' ? 'Présent' : ($response === 'absent' ? 'Absent' : 'En attente');
+                $pushTitle = "Convocation mise à jour";
+                $pushBody = $who . ' a répondu ' . $respLabel . ' — ' . $matchLabel;
+                $url = 'https://espeu9.fr/#matchs';
+                $stCoaches = $db->query("SELECT id FROM users WHERE role = 'coach'");
+                while ($c = $stCoaches->fetch(PDO::FETCH_ASSOC)) {
+                    $coachId = (int)$c['id'];
+                    if ($coachId !== $uid) {
+                        sendPushToUser($coachId, $pushTitle, $pushBody, $url);
+                    }
+                }
+            } catch (Throwable $e) { /* ne pas casser la réponse */ }
+        }
         echo json_encode(['success' => true, 'response' => $response]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
@@ -1368,44 +1406,60 @@ case 'get_convocation_responses':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
-case 'remind_convocation_no_response':
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
-    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break; }
-    $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = $in['match_id'] ?? '';
-    $matchLabel = trim($in['match_label'] ?? 'Match à venir');
-    if ($matchId === '' || $matchId === null) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
+// ═══ GET TEAM DATA (pour equipe.html — agrégation joueurs, coachs, matchs) ═══
+case 'get_team_data':
     try {
         $db = getDB();
-        $matchIdNum = is_string($matchId) && strpos($matchId, 'custom_') === 0 ? (int)str_replace('custom_', '', $matchId) : (int)$matchId;
-        $st = $db->prepare("SELECT player_id FROM convocations WHERE match_id = :mid AND player_id > 0 AND convoked = 1");
-        $st->execute([':mid' => $matchId]);
-        $convokedPids = [];
-        while ($r = $st->fetch()) { $convokedPids[] = (int)$r['player_id']; }
-        if (empty($convokedPids)) { echo json_encode(['success' => true, 'reminders_sent' => 0, 'message' => 'Aucun joueur convoqué']); break; }
-        if ($matchIdNum <= 0) { http_response_code(400); echo json_encode(['error' => 'match_id invalide pour les réponses']); break; }
-        $st = $db->prepare("SELECT player_id, response FROM convocation_responses WHERE match_id = :mid");
-        $st->execute([':mid' => $matchIdNum]);
-        $responses = [];
-        while ($r = $st->fetch()) { $responses[(int)$r['player_id']] = $r['response']; }
-        $toRemind = array_filter($convokedPids, function($pid) use ($responses) {
-            return !isset($responses[$pid]) || $responses[$pid] === 'attente';
-        });
-        if (empty($toRemind)) { echo json_encode(['success' => true, 'reminders_sent' => 0, 'message' => 'Tous ont déjà répondu']); break; }
-        $sent = 0;
-        $title = "Rappel convocation : " . $matchLabel;
-        $body = "Merci de répondre à la convocation (Présent / Absent) pour le match du " . $matchLabel . " — Espace Messagerie sur le site.";
-        $bodyHtml = "<p><strong>Rappel</strong></p><p>Merci de répondre à la convocation (Présent / Absent) pour le match : <strong>" . htmlspecialchars($matchLabel) . "</strong>.</p><p>→ Connecte-toi sur le site et va dans <strong>Messagerie</strong> pour répondre.</p>";
-        foreach ($toRemind as $pid) {
-            $st2 = $db->prepare("SELECT id, email, display_name FROM users WHERE player_id = :pid AND role = 'parent'");
-            $st2->execute([':pid' => $pid]);
-            while ($parent = $st2->fetch()) {
-                if ($parent['email']) sendEmailNotif($parent['email'], $title, $bodyHtml);
-                sendPushToUser((int)$parent['id'], 'Rappel convocation', mb_substr($body, 0, 100), '#messagerie');
-                $sent++;
+        $team = ['name' => 'U9 Mixte', 'category' => 'U9', 'division' => ''];
+        $players = [
+            ['id' => 1, 'number' => 6, 'first_name' => 'Malone', 'last_name' => 'HAUTION', 'dob' => '26/06/2017', 'licence' => 'BC178916', 'licence_date' => '20/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 2, 'number' => 8, 'first_name' => 'Tristan', 'last_name' => 'COLLARD', 'dob' => '18/01/2017', 'licence' => 'BC171666', 'licence_date' => '15/07/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'A - Formule A', 'photo_url' => ''],
+            ['id' => 3, 'number' => 9, 'first_name' => 'Gaspard', 'last_name' => 'HAMM', 'dob' => '06/02/2017', 'licence' => 'BC178438', 'licence_date' => '26/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 4, 'number' => 10, 'first_name' => 'Amine', 'last_name' => 'SLAH', 'dob' => '25/06/2017', 'licence' => 'BC172768', 'licence_date' => '01/10/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'A - Formule A', 'photo_url' => ''],
+            ['id' => 5, 'number' => 11, 'first_name' => 'Diego', 'last_name' => 'FRANCART', 'dob' => '06/10/2017', 'licence' => 'BC172771', 'licence_date' => '29/08/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 6, 'number' => 12, 'first_name' => 'Jonas', 'last_name' => 'DELE', 'dob' => '04/05/2017', 'licence' => 'BC170251', 'licence_date' => '15/08/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 7, 'number' => 13, 'first_name' => 'Marceau', 'last_name' => 'FALZON', 'dob' => '19/07/2017', 'licence' => 'BC171646', 'licence_date' => '18/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'A - Formule A', 'photo_url' => ''],
+            ['id' => 8, 'number' => 14, 'first_name' => 'Robin', 'last_name' => 'FISCHESSER', 'dob' => '03/02/2017', 'licence' => 'BC175646', 'licence_date' => '13/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+        ];
+        $coaches = [];
+        try {
+            $stC = $db->query("SELECT display_name FROM users WHERE role = 'coach' LIMIT 5");
+            if ($stC) while ($c = $stC->fetch(PDO::FETCH_ASSOC)) $coaches[] = ['display_name' => $c['display_name'], 'photo_url' => ''];
+        } catch (Exception $e) {}
+        if (empty($coaches)) $coaches[] = ['display_name' => 'Coach', 'photo_url' => ''];
+        $upcoming = [];
+        try {
+            $stU = $db->query("SELECT id, journee, date, heure, heure_rdv, lieu, gymnase, dom_ext, adversaire FROM upcoming_matches ORDER BY STR_TO_DATE(date, '%d/%m/%Y') ASC");
+            if ($stU) while ($u = $stU->fetch(PDO::FETCH_ASSOC)) {
+                $upcoming[] = ['id' => 'custom_' . $u['id'], 'journee' => $u['journee'], 'date' => $u['date'], 'heure' => $u['heure'], 'heure_rdv' => $u['heure_rdv'] ?? '', 'lieu' => $u['lieu'], 'gymnase' => $u['gymnase'], 'dom_ext' => $u['dom_ext'], 'adversaire' => $u['adversaire'], 'adversaire_logo' => '', 'is_custom' => true];
+            }
+        } catch (Exception $e) {}
+        $results = [];
+        try {
+        $tableCheck = $db->query("SHOW TABLES LIKE 'match_results'");
+        if ($tableCheck && $tableCheck->rowCount() > 0) {
+            $stM = $db->query("SELECT * FROM match_results ORDER BY id ASC");
+            while ($m = $stM->fetch(PDO::FETCH_ASSOC)) {
+                $st2 = $db->prepare("SELECT num, nom, minutes AS min, pts, tirs, t3, t2i, t2e, lf, fautes FROM match_player_stats WHERE match_id = :mid AND team_type = 'espe' ORDER BY num ASC");
+                $st2->execute([':mid' => $m['id']]);
+                $espeStats = $st2->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($espeStats as &$s) { $s['minutes'] = $s['min'] ?? '0:00'; unset($s['min']); }
+                $st3 = $db->prepare("SELECT num, nom, minutes AS min, pts, tirs, t3, t2i, t2e, lf, fautes FROM match_player_stats WHERE match_id = :mid AND team_type = 'adv' ORDER BY num ASC");
+                $st3->execute([':mid' => $m['id']]);
+                $advStats = $st3->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($advStats as &$s) { $s['minutes'] = $s['min'] ?? '0:00'; unset($s['min']); }
+                $results[] = [
+                    'id' => (int)$m['id'], 'journee' => (int)$m['journee'], 'date' => $m['date'], 'heure' => $m['heure'], 'lieu' => $m['lieu'], 'dom_ext' => $m['dom_ext'],
+                    'equipe_a_nom' => $m['equipe_a_nom'], 'equipe_a_short' => $m['equipe_a_short'], 'equipe_a_score' => (int)$m['equipe_a_score'],
+                    'equipe_b_nom' => $m['equipe_b_nom'], 'equipe_b_short' => $m['equipe_b_short'], 'equipe_b_score' => (int)$m['equipe_b_score'],
+                    'espe_score' => (int)$m['espe_score'], 'adv_score' => (int)$m['adv_score'], 'win' => (int)$m['win'],
+                    'qt1_a' => (int)$m['qt1_a'], 'qt1_b' => (int)$m['qt1_b'], 'qt2_a' => (int)$m['qt2_a'], 'qt2_b' => (int)$m['qt2_b'], 'qt3_a' => (int)$m['qt3_a'], 'qt3_b' => (int)$m['qt3_b'], 'qt4_a' => (int)$m['qt4_a'], 'qt4_b' => (int)$m['qt4_b'],
+                    'espeStats' => $espeStats, 'advStats' => $advStats, 'adversaire_logo' => ''
+                ];
             }
         }
-        echo json_encode(['success' => true, 'reminders_sent' => $sent, 'players_count' => count($toRemind)]);
+        } catch (Exception $e2) {}
+        echo json_encode(['success' => true, 'team' => $team, 'players' => $players, 'coaches' => $coaches, 'upcoming' => $upcoming, 'standings' => [], 'results' => $results]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
@@ -2210,8 +2264,35 @@ case 'delete_match_chat':
     break;
 
 // ═══ COVOITURAGE ═══
+// Helper : libellé match + URL pour les notifs covoiturage
+function covoiturageMatchLabel($db, $matchId) {
+    $matchId = (int) $matchId;
+    $url = 'https://espeu9.fr/#matchs';
+    try {
+        $st = $db->prepare("SELECT date, adversaire FROM upcoming_matches WHERE id = :mid");
+        $st->execute([':mid' => $matchId]);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        if ($r) return ['label' => 'Match vs ' . ($r['adversaire'] ?? '') . ' (' . ($r['date'] ?? '') . ')', 'url' => $url];
+    } catch (Exception $e) {}
+    return ['label' => 'Match #' . $matchId, 'url' => $url];
+}
+// Notifier tous les parents (sauf un user) par email + push pour covoiturage
+function notifyParentsCovoiturage($db, $exceptUserId, $subject, $htmlBody, $pushTitle, $pushBody, $url) {
+    try {
+        $st = $db->prepare("SELECT id, email FROM users WHERE role = 'parent' AND id != :uid");
+        $st->execute([':uid' => $exceptUserId]);
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            if (!empty($row['email'])) sendEmailNotif($row['email'], $subject, $htmlBody);
+            sendPushToUser((int) $row['id'], $pushTitle, $pushBody, $url);
+        }
+    } catch (Exception $e) {}
+}
+
 case 'get_covoiturage':
     $matchId = (int)($_GET['match_id'] ?? 0);
+    if (!$matchId && !empty($_GET['match_id']) && is_string($_GET['match_id']) && preg_match('/^custom_(\d+)$/', trim($_GET['match_id']), $m)) {
+        $matchId = (int)$m[1];
+    }
     if (!$matchId) { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
     try {
         $db = getDB();
@@ -2256,6 +2337,9 @@ case 'save_covoiturage':
     if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
     $matchId = (int)($in['match_id'] ?? 0);
+    if (!$matchId && !empty($in['match_id']) && is_string($in['match_id']) && preg_match('/^custom_(\d+)$/', trim($in['match_id']), $m)) {
+        $matchId = (int)$m[1];
+    }
     $type = $in['type'] ?? 'driver'; // 'driver' or 'passenger'
     $seatsTotal = max(1, min(8, (int)($in['seats_total'] ?? 3)));
     $message = trim(mb_substr($in['message'] ?? '', 0, 255));
@@ -2285,6 +2369,19 @@ case 'save_covoiturage':
             $st->execute([':mid'=>$matchId, ':uid'=>$uid, ':did'=>$driverCovoitId?:null, ':msg'=>$message, ':dn'=>$dname, ':did2'=>$driverCovoitId?:null, ':msg2'=>$message]);
         }
         echo json_encode(['success'=>true]);
+        try {
+            $info = covoiturageMatchLabel($db, $matchId);
+            $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+            if ($type === 'driver') {
+                $subj = 'Covoiturage : ' . $dname . ' propose des places — ' . $info['label'];
+                $body = '<p>' . $dname . ' propose des places pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
+                notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' propose des places', $info['label'], $info['url']);
+            } else {
+                $subj = 'Covoiturage : ' . $dname . ' cherche une place — ' . $info['label'];
+                $body = '<p>' . $dname . ' cherche une place pour le <strong>' . $info['label'] . '</strong>.</p>' . $linkHtml;
+                notifyParentsCovoiturage($db, $uid, $subj, $body, 'Covoiturage : ' . $dname . ' cherche une place', $info['label'], $info['url']);
+            }
+        } catch (Throwable $e) { /* notifications optionnelles : ne pas casser la réponse */ }
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
 
@@ -2296,20 +2393,34 @@ case 'join_covoiturage':
     if (!$matchId || !$driverCovoitId) { http_response_code(400); echo json_encode(['error'=>'Données manquantes']); break; }
     try {
         $db = getDB();
-        // Check seats available
-        $stD = $db->prepare("SELECT seats_total FROM covoiturage WHERE id = :did AND type='driver'");
+        $stD = $db->prepare("SELECT user_id, seats_total FROM covoiturage WHERE id = :did AND type='driver'");
         $stD->execute([':did'=>$driverCovoitId]); $driver = $stD->fetch();
         if (!$driver) { http_response_code(404); echo json_encode(['error'=>'Conducteur non trouvé']); break; }
         $stP = $db->prepare("SELECT COUNT(*) as c FROM covoiturage WHERE driver_id = :did AND type='passenger'");
         $stP->execute([':did'=>$driverCovoitId]); $count = (int)$stP->fetch()['c'];
         if ($count >= $driver['seats_total']) { http_response_code(400); echo json_encode(['error'=>'Plus de place disponible']); break; }
-        // Get display name
         $stN = $db->prepare("SELECT display_name FROM users WHERE id = :id");
         $stN->execute([':id'=>$uid]); $urow = $stN->fetch();
         $dname = $urow ? $urow['display_name'] : '';
-        // Upsert
         $st = $db->prepare("INSERT INTO covoiturage (match_id, user_id, type, driver_id, display_name) VALUES (:mid, :uid, 'passenger', :did, :dn) ON DUPLICATE KEY UPDATE type='passenger', driver_id=:did2, seats_total=0");
         $st->execute([':mid'=>$matchId, ':uid'=>$uid, ':did'=>$driverCovoitId, ':dn'=>$dname, ':did2'=>$driverCovoitId]);
+        $driverUserId = (int) $driver['user_id'];
+        $info = covoiturageMatchLabel($db, $matchId);
+        $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+        $stU = $db->prepare("SELECT display_name, email FROM users WHERE id = :id");
+        $stU->execute([':id' => $driverUserId]);
+        $driverRow = $stU->fetch(PDO::FETCH_ASSOC);
+        $driverName = $driverRow ? ($driverRow['display_name'] ?? 'Un parent') : 'Un parent';
+        if ($driverUserId !== $uid) {
+            $bodyDriver = '<p><strong>' . $dname . '</strong> a rejoint votre covoiturage pour le ' . $info['label'] . '.</p>' . $linkHtml;
+            if (!empty($driverRow['email'])) sendEmailNotif($driverRow['email'], 'Covoiturage : ' . $dname . ' a rejoint votre voiture — ' . $info['label'], $bodyDriver);
+            sendPushToUser($driverUserId, 'Covoiturage : ' . $dname . ' a rejoint votre voiture', $info['label'], $info['url']);
+        }
+        $bodyPass = '<p>Vous êtes inscrit au covoiturage de <strong>' . $driverName . '</strong> pour le ' . $info['label'] . '.</p>' . $linkHtml;
+        $stU->execute([':id' => $uid]);
+        $passRow = $stU->fetch(PDO::FETCH_ASSOC);
+        if (!empty($passRow['email'])) sendEmailNotif($passRow['email'], 'Covoiturage confirmé : vous êtes avec ' . $driverName . ' — ' . $info['label'], $bodyPass);
+        sendPushToUser($uid, 'Covoiturage confirmé', 'Vous êtes avec ' . $driverName . ' pour ' . $info['label'], $info['url']);
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
@@ -2336,6 +2447,28 @@ case 'accept_passenger':
         if (!$stV->fetch()) { http_response_code(400); echo json_encode(['error'=>'Demande déjà prise en charge']); break; }
         // Link passenger to driver
         $db->prepare("UPDATE covoiturage SET driver_id = :did WHERE id = :pid")->execute([':did'=>$driver['id'], ':pid'=>$passengerId]);
+        $info = covoiturageMatchLabel($db, $matchId);
+        $linkHtml = '<p style="margin-top:14px"><a href="' . $info['url'] . '" style="display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Voir le covoiturage →</a></p>';
+        $stPass = $db->prepare("SELECT user_id, display_name FROM covoiturage WHERE id = :pid");
+        $stPass->execute([':pid' => $passengerId]);
+        $passCovoit = $stPass->fetch(PDO::FETCH_ASSOC);
+        $passengerUserId = $passCovoit ? (int) $passCovoit['user_id'] : 0;
+        $passengerName = $passCovoit ? ($passCovoit['display_name'] ?? 'Un parent') : 'Un parent';
+        $stDriverU = $db->prepare("SELECT display_name, email FROM users WHERE id = :id");
+        $stDriverU->execute([':id' => $uid]);
+        $driverU = $stDriverU->fetch(PDO::FETCH_ASSOC);
+        $driverDisplayName = $driverU ? ($driverU['display_name'] ?? 'Le conducteur') : 'Le conducteur';
+        if ($passengerUserId && $passengerUserId !== $uid) {
+            $bodyPass = '<p>Vous avez été accepté dans le covoiturage de <strong>' . $driverDisplayName . '</strong> pour le ' . $info['label'] . '.</p>' . $linkHtml;
+            $stPassU = $db->prepare("SELECT email FROM users WHERE id = :id");
+            $stPassU->execute([':id' => $passengerUserId]);
+            $passEmail = $stPassU->fetch(PDO::FETCH_COLUMN);
+            if ($passEmail) sendEmailNotif($passEmail, 'Covoiturage : vous avez été accepté par ' . $driverDisplayName . ' — ' . $info['label'], $bodyPass);
+            sendPushToUser($passengerUserId, 'Covoiturage : vous avez été accepté', $driverDisplayName . ' vous prend en covoiturage — ' . $info['label'], $info['url']);
+            $bodyDr = '<p><strong>' . $passengerName . '</strong> a rejoint votre covoiturage pour le ' . $info['label'] . '.</p>' . $linkHtml;
+            if (!empty($driverU['email'])) sendEmailNotif($driverU['email'], 'Covoiturage : ' . $passengerName . ' a rejoint votre voiture — ' . $info['label'], $bodyDr);
+            sendPushToUser($uid, 'Covoiturage : ' . $passengerName . ' a rejoint votre voiture', $info['label'], $info['url']);
+        }
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
@@ -2532,27 +2665,36 @@ case 'chat_post':
     $row = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages WHERE id = $id")->fetch(PDO::FETCH_ASSOC);
     echo json_encode(['success' => true, 'message' => $row]);
 
-    // Push notification à tous les abonnés sauf l'expéditeur
+    // Push notification à tous les abonnés sauf l'expéditeur — max 1 push par heure pour ne pas abuser
     try {
-        require_once 'web_push.php';
         $pushDb = getDB();
-        $pst = $pushDb->prepare("SELECT * FROM push_subscriptions WHERE user_id != :uid");
-        $pst->execute([':uid' => $uid]);
-        $pushSubs = $pst->fetchAll(PDO::FETCH_ASSOC);
-        $preview = mb_substr(strip_tags($content), 0, 120);
-        $pushPayload = [
-            'title' => '💬 ' . $displayName,
-            'body' => $preview,
-            'icon' => 'https://espeu9.fr/images/logo-espe.png',
-            'badge' => 'https://espeu9.fr/images/logo-espe.png',
-            'data' => ['url' => 'https://espeu9.fr/tchat.html']
-        ];
-        foreach ($pushSubs as $ps) {
-            $sub = ['endpoint' => $ps['endpoint'], 'keys' => ['p256dh' => $ps['p256dh'], 'auth' => $ps['auth']]];
-            $res = sendWebPush($sub, $pushPayload);
-            if (!$res['success'] && (($res['code'] ?? 0) == 404 || ($res['code'] ?? 0) == 410)) {
-                $pushDb->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $ps['id']]);
+        $pushDb->exec("CREATE TABLE IF NOT EXISTS chat_push_throttle (id INT PRIMARY KEY, last_sent_at TIMESTAMP NULL)");
+        $throttle = $pushDb->query("SELECT last_sent_at FROM chat_push_throttle WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+        $lastSent = $throttle ? strtotime($throttle['last_sent_at']) : 0;
+        $now = time();
+        if (($now - $lastSent) < 3600) {
+            // Moins d'une heure depuis le dernier push tchat → on n'envoie pas
+        } else {
+            require_once 'web_push.php';
+            $pst = $pushDb->prepare("SELECT * FROM push_subscriptions WHERE user_id != :uid");
+            $pst->execute([':uid' => $uid]);
+            $pushSubs = $pst->fetchAll(PDO::FETCH_ASSOC);
+            $preview = mb_substr(strip_tags($content), 0, 120);
+            $pushPayload = [
+                'title' => '💬 ' . $displayName,
+                'body' => $preview,
+                'icon' => 'https://espeu9.fr/images/logo-espe.png',
+                'badge' => 'https://espeu9.fr/images/logo-espe.png',
+                'data' => ['url' => 'https://espeu9.fr/tchat.html']
+            ];
+            foreach ($pushSubs as $ps) {
+                $sub = ['endpoint' => $ps['endpoint'], 'keys' => ['p256dh' => $ps['p256dh'], 'auth' => $ps['auth']]];
+                $res = sendWebPush($sub, $pushPayload);
+                if (!$res['success'] && (($res['code'] ?? 0) == 404 || ($res['code'] ?? 0) == 410)) {
+                    $pushDb->prepare("DELETE FROM push_subscriptions WHERE id = :id")->execute([':id' => $ps['id']]);
+                }
             }
+            $pushDb->exec("INSERT INTO chat_push_throttle (id, last_sent_at) VALUES (1, NOW()) ON DUPLICATE KEY UPDATE last_sent_at = NOW()");
         }
     } catch (Exception $e) {}
     break;
@@ -2822,26 +2964,44 @@ case 'get_player_presence':
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS training_presence (id INT AUTO_INCREMENT PRIMARY KEY, session_date DATE NOT NULL, player_id INT NOT NULL, present TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uk_session_player (session_date, player_id))");
         $matchTotal = 0; $matchPresent = 0;
-        $st = $db->prepare("SELECT response FROM convocation_responses WHERE player_id = :pid");
+        $st = $db->prepare("SELECT match_id, response FROM convocation_responses WHERE player_id = :pid");
         $st->execute([':pid' => $pid]);
+        $missedMatchIds = [];
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
             $matchTotal++;
             if ($r['response'] === 'present') $matchPresent++;
+            if ($r['response'] === 'absent') $missedMatchIds[] = (int)$r['match_id'];
+        }
+        $missedMatches = [];
+        if (!empty($missedMatchIds)) {
+            $placeholders = implode(',', array_fill(0, count($missedMatchIds), '?'));
+            $st2 = $db->prepare("SELECT id, date, journee, adversaire FROM upcoming_matches WHERE id IN ($placeholders)");
+            $st2->execute(array_values($missedMatchIds));
+            while ($row = $st2->fetch(PDO::FETCH_ASSOC)) {
+                $missedMatches[] = ['match_id' => (int)$row['id'], 'date' => $row['date'], 'journee' => $row['journee'] ?? '', 'adversaire' => $row['adversaire'] ?? ''];
+            }
         }
         $trainSessions = 0; $trainPresent = 0;
-        $st = $db->prepare("SELECT session_date, present FROM training_presence WHERE player_id = :pid");
+        $st = $db->prepare("SELECT session_date, present FROM training_presence WHERE player_id = :pid ORDER BY session_date DESC");
         $st->execute([':pid' => $pid]);
         $seen = [];
+        $missedTrainingDates = [];
+        $trainingStreak = 0;
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
             if (!isset($seen[$r['session_date']])) { $seen[$r['session_date']] = true; $trainSessions++; }
-            if ((int)$r['present']) $trainPresent++;
+            if ((int)$r['present']) { $trainPresent++; $trainingStreak++; }
+            else { $missedTrainingDates[] = $r['session_date']; break; }
         }
+        rsort($missedTrainingDates);
         echo json_encode([
             'success' => true,
             'match_total' => $matchTotal,
             'match_present' => $matchPresent,
             'training_sessions' => $trainSessions,
-            'training_present' => $trainPresent
+            'training_present' => $trainPresent,
+            'training_streak' => $trainingStreak,
+            'missed_matches' => $missedMatches,
+            'missed_training_dates' => $missedTrainingDates
         ]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
@@ -2892,6 +3052,256 @@ case 'cron_match_reminder':
         }
         echo json_encode(['success' => true, 'tomorrow' => $tomorrow, 'matches_found' => count($matchesToRemind), 'reminders_sent' => $sent]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
+// ═══ EXPORT CALENDRIER .ICS (sync Google / Apple / Outlook) ═══
+case 'ical_token':
+    if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS ical_tokens (user_id INT PRIMARY KEY, token VARCHAR(64) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT token FROM ical_tokens WHERE user_id = :uid");
+        $st->execute([':uid' => $uid]);
+        $row = $st->fetch();
+        if ($row) {
+            $token = $row['token'];
+        } else {
+            $token = bin2hex(random_bytes(24));
+            $db->prepare("INSERT INTO ical_tokens (user_id, token) VALUES (:uid, :t)")->execute([':uid' => $uid, ':t' => $token]);
+        }
+        $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'https') . '://' . ($_SERVER['HTTP_HOST'] ?? 'espeu9.fr');
+        $url = $baseUrl . '/api.php?action=ical&token=' . $token;
+        echo json_encode(['success' => true, 'url' => $url, 'token' => $token]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
+    break;
+
+case 'ical':
+    $token = trim($_GET['token'] ?? '');
+    if ($token === '') { header('Content-Type: text/plain; charset=utf-8'); echo 'Token manquant'; exit; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS ical_tokens (user_id INT PRIMARY KEY, token VARCHAR(64) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT user_id FROM ical_tokens WHERE token = :t");
+        $st->execute([':t' => $token]);
+        $row = $st->fetch();
+        if (!$row) { header('Content-Type: text/plain; charset=utf-8'); echo 'Lien invalide ou expiré'; exit; }
+        $uid = (int)$row['user_id'];
+        $events = [];
+        $st = $db->query("SELECT id, journee, date, heure, heure_rdv, lieu, gymnase, adversaire FROM upcoming_matches ORDER BY STR_TO_DATE(date, '%d/%m/%Y') ASC");
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $d = $r['date'];
+            $h = trim($r['heure'] ?: $r['heure_rdv'] ?: '09:00');
+            if (!preg_match('/^\d{1,2}:\d{2}$/', $h)) $h = '09:00';
+            $h = str_pad(str_replace(':', '', $h), 4, '0', STR_PAD_LEFT);
+            $h = substr($h, 0, 2).substr($h, 2, 2).'00';
+            if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $d, $m)) {
+                $events[] = [
+                    'start' => $m[3].$m[2].$m[1].'T'.$h,
+                    'end' => $m[3].$m[2].$m[1].'T'.$h,
+                    'summary' => 'Match vs '.$r['adversaire'],
+                    'desc' => ($r['journee'] ? 'J'.$r['journee'].' - ' : '').$r['lieu'].($r['gymnase'] ? ' ('.$r['gymnase'].')' : '').($r['heure_rdv'] ? ' - Convocation '.$r['heure_rdv'] : ''),
+                    'location' => trim($r['lieu'].' '.$r['gymnase'])
+                ];
+            }
+        }
+        header('Content-Type: text/calendar; charset=utf-8');
+        header('Content-Disposition: inline; filename="espe-u9.ics"');
+        header('Cache-Control: private, max-age=300');
+        echo "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//ESPE U9//Calendrier//FR\r\nCALSCALE:GREGORIAN\r\n";
+        foreach ($events as $e) {
+            $uidEv = 'espe-'.md5($e['start'].$e['summary']).'@espeu9.fr';
+            echo "BEGIN:VEVENT\r\nUID:".$uidEv."\r\nDTSTART:".$e['start']."\r\nDTEND:".$e['end']."\r\nSUMMARY:".str_replace(["\r","\n",','], ['','','\\,'], $e['summary'])."\r\n";
+            if (!empty($e['desc'])) echo "DESCRIPTION:".str_replace(["\r","\n",','], ['',' ','\\,'], $e['desc'])."\r\n";
+            if (!empty($e['location'])) echo "LOCATION:".str_replace(["\r","\n",','], ['',' ','\\,'], $e['location'])."\r\n";
+            echo "END:VEVENT\r\n";
+        }
+        echo "END:VCALENDAR\r\n";
+        exit;
+    } catch (Exception $e) { header('Content-Type: text/plain'); echo 'Erreur'; exit; }
+
+// ═══ RAPPEL CONVOCATION J-2 (cron) ═══
+case 'cron_convocation_reminder':
+    $cronKey = trim($_GET['key'] ?? '');
+    if ($cronKey !== 'espe_cron_2026_secure') { http_response_code(403); echo json_encode(['error' => 'Clé invalide']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS convocation_responses (match_id VARCHAR(50) NOT NULL, player_id INT NOT NULL, user_id INT, response ENUM('present','absent','attente') NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY unique_response (match_id, player_id))");
+        $day2 = date('d/m/Y', strtotime('+2 days'));
+        $matchesToRemind = [];
+        $st = $db->query("SELECT id, date, adversaire FROM upcoming_matches");
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            if ($r['date'] === $day2) $matchesToRemind[] = ['match_id' => 'custom_'.$r['id'], 'adversaire' => $r['adversaire']];
+        }
+        $sent = 0;
+        foreach ($matchesToRemind as $m) {
+            $mid = $m['match_id'];
+            $midInt = (strpos($mid, 'custom_') === 0) ? (int)substr($mid, 7) : (int)$mid;
+            $convoked = $db->prepare("SELECT player_id FROM convocations WHERE match_id = :mid AND convoked = 1 AND player_id > 0");
+            $convoked->execute([':mid' => $mid]);
+            $pids = $convoked->fetchAll(PDO::FETCH_COLUMN);
+            if (empty($pids)) continue;
+            $responses = [];
+            $stR = $db->prepare("SELECT player_id, response FROM convocation_responses WHERE match_id = :mid");
+            $stR->execute([':mid' => $midInt]);
+            while ($rr = $stR->fetch(PDO::FETCH_ASSOC)) $responses[(int)$rr['player_id']] = $rr['response'];
+            $needRemind = [];
+            foreach ($pids as $pid) {
+                $pid = (int)$pid;
+                $r = $responses[$pid] ?? null;
+                if ($r === null || $r === 'attente') $needRemind[] = $pid;
+            }
+            if (empty($needRemind)) continue;
+            $stU = $db->prepare("SELECT id FROM users WHERE player_id = :pid AND role = 'parent'");
+            $userIds = [];
+            foreach ($needRemind as $pid) {
+                $stU->execute([':pid' => $pid]);
+                while ($u = $stU->fetch()) $userIds[(int)$u['id']] = true;
+            }
+            foreach (array_keys($userIds) as $recipientId) {
+                sendPushToUser($recipientId, 'Rappel convocation J-2', 'Match vs '.$m['adversaire'].' dans 2 jours : merci de répondre présent / absent sur le site.', '#accueil');
+                $sent++;
+            }
+        }
+        echo json_encode(['success' => true, 'day' => $day2, 'matches' => count($matchesToRemind), 'reminders_sent' => $sent]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => $e->getMessage()]); }
+    break;
+
+// ═══ INVITATION 2E PARENT (multi-parent) ═══
+case 'create_second_parent_invite':
+    if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $playerId = (int)($in['player_id'] ?? 0);
+    if ($playerId <= 0) { http_response_code(400); echo json_encode(['error'=>'player_id requis']); break; }
+    $myPid = (int)($_SESSION['player_id'] ?? 0);
+    if ($role !== 'coach' && $myPid !== $playerId) { http_response_code(403); echo json_encode(['error'=>'Non autorisé']); break; }
+    try {
+        $db = getDB();
+        // Règle : un seul compte papa et un seul compte maman par joueur
+        $myParentType = $_SESSION['parent_type'] ?? null;
+        if (!in_array($myParentType, ['papa', 'maman'])) {
+            $stMe = $db->prepare("SELECT parent_type FROM users WHERE id = :uid AND role = 'parent'");
+            $stMe->execute([':uid' => $uid]);
+            $r = $stMe->fetch(PDO::FETCH_ASSOC);
+            $myParentType = $r['parent_type'] ?? null;
+        }
+        if (in_array($myParentType, ['papa', 'maman'])) {
+            $otherType = ($myParentType === 'papa') ? 'maman' : 'papa';
+            $stExists = $db->prepare("SELECT id FROM users WHERE role = 'parent' AND player_id = :pid AND parent_type = :pt");
+            $stExists->execute([':pid' => $playerId, ':pt' => $otherType]);
+            if ($stExists->fetch()) {
+                echo json_encode(['success' => false, 'error' => "Un compte " . $otherType . " existe déjà pour ce joueur. Un seul compte par type de parent (papa / maman) est autorisé."]);
+                break;
+            }
+        } else {
+            // Invite créée par le coach : autoriser seulement si au moins un slot (papa ou maman) est libre
+            $stExists = $db->prepare("SELECT parent_type FROM users WHERE role = 'parent' AND player_id = :pid");
+            $stExists->execute([':pid' => $playerId]);
+            $taken = []; while ($row = $stExists->fetch(PDO::FETCH_ASSOC)) $taken[] = $row['parent_type'];
+            if (in_array('papa', $taken) && in_array('maman', $taken)) {
+                echo json_encode(['success' => false, 'error' => 'Un compte papa et un compte maman existent déjà pour ce joueur.']);
+                break;
+            }
+        }
+        $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $token = bin2hex(random_bytes(24));
+        $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
+        $db->prepare("INSERT INTO second_parent_invites (token, player_id, created_by, expires_at) VALUES (:t, :pid, :by, :exp)")->execute([':t'=>$token, ':pid'=>$playerId, ':by'=>$uid, ':exp'=>$expires]);
+        $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'https') . '://' . ($_SERVER['HTTP_HOST'] ?? 'espeu9.fr');
+        $url = $baseUrl . '/gate.html#inscription?invite=' . $token;
+        echo json_encode(['success'=>true, 'invite_url'=>$url, 'token'=>$token, 'expires_at'=>$expires]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
+    break;
+
+case 'get_invite_info':
+    $token = trim($_GET['token'] ?? '');
+    if ($token === '') { echo json_encode(['success'=>false, 'error'=>'Token manquant']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS second_parent_invites (token VARCHAR(64) PRIMARY KEY, player_id INT NOT NULL, created_by INT NOT NULL, expires_at DATETIME NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT player_id, created_by, expires_at FROM second_parent_invites WHERE token = :t");
+        $st->execute([':t'=>$token]);
+        $row = $st->fetch();
+        if (!$row || strtotime($row['expires_at']) < time()) { echo json_encode(['success'=>false, 'error'=>'Lien expiré ou invalide']); break; }
+        $playerId = (int)$row['player_id'];
+        $createdBy = (int)$row['created_by'];
+        $playerName = 'Joueur #'.$playerId;
+        try {
+            $stP = $db->query("SELECT id, firstName, lastName FROM players");
+            if ($stP) while ($p = $stP->fetch(PDO::FETCH_ASSOC)) { if ((int)$p['id'] === $playerId) { $playerName = trim(($p['firstName']??'').' '.($p['lastName']??'')); break; } }
+        } catch (Exception $e) {}
+        // Type imposé pour le 2e parent : l'inverse de l'invitant, ou le slot libre si invitant = coach (un seul papa, une seule maman par joueur)
+        $stInv = $db->prepare("SELECT parent_type FROM users WHERE id = :uid");
+        $stInv->execute([':uid' => $createdBy]);
+        $ri = $stInv->fetch(PDO::FETCH_ASSOC);
+        $inviterType = ($ri && in_array($ri['parent_type'], ['papa', 'maman'])) ? $ri['parent_type'] : null;
+        if ($inviterType !== null) {
+            $requiredParentType = ($inviterType === 'papa') ? 'maman' : 'papa';
+        } else {
+            $stTaken = $db->prepare("SELECT parent_type FROM users WHERE role = 'parent' AND player_id = :pid");
+            $stTaken->execute([':pid' => $playerId]);
+            $taken = []; while ($row = $stTaken->fetch(PDO::FETCH_ASSOC)) $taken[] = $row['parent_type'];
+            if (!in_array('papa', $taken)) $requiredParentType = 'papa'; elseif (!in_array('maman', $taken)) $requiredParentType = 'maman'; else { echo json_encode(['success'=>false, 'error'=>'Un compte papa et un compte maman existent déjà pour ce joueur.']); break; }
+        }
+        $stExists = $db->prepare("SELECT id FROM users WHERE role = 'parent' AND player_id = :pid AND parent_type = :pt");
+        $stExists->execute([':pid' => $playerId, ':pt' => $requiredParentType]);
+        if ($stExists->fetch()) {
+            echo json_encode(['success'=>false, 'error'=>'Un compte ' . $requiredParentType . ' existe déjà pour ce joueur. Ce lien d\'invitation n\'est plus valide.']);
+            break;
+        }
+        echo json_encode(['success'=>true, 'player_id'=>$playerId, 'player_name'=>$playerName, 'required_parent_type'=>$requiredParentType]);
+    } catch (Exception $e) { echo json_encode(['success'=>false, 'error'=>'Erreur']); }
+    break;
+
+// ═══ DOCUMENTS OBLIGATOIRES (fiche sanitaire) ═══
+case 'get_required_documents':
+    if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS required_documents (id INT AUTO_INCREMENT PRIMARY KEY, player_id INT NOT NULL, document_type VARCHAR(50) NOT NULL DEFAULT 'fiche_sanitaire', filename VARCHAR(255) NOT NULL, uploaded_by INT NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_player_type (player_id, document_type))");
+        if ($role === 'coach') {
+            $st = $db->query("SELECT rd.player_id, rd.document_type, rd.uploaded_at FROM required_documents rd ORDER BY rd.player_id");
+            $byPlayer = [];
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                $pid = (int)$r['player_id'];
+                if (!isset($byPlayer[$pid])) $byPlayer[$pid] = [];
+                $byPlayer[$pid][] = ['type' => $r['document_type'], 'uploaded_at' => $r['uploaded_at']];
+            }
+            echo json_encode(['success'=>true, 'by_player'=>$byPlayer]);
+        } else {
+            $myPid = (int)($_SESSION['player_id'] ?? 0);
+            if ($myPid <= 0) { echo json_encode(['success'=>true, 'documents'=>[]]); break; }
+            $st = $db->prepare("SELECT document_type, uploaded_at FROM required_documents WHERE player_id = :pid");
+            $st->execute([':pid'=>$myPid]);
+            $documents = [];
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) $documents[] = ['type'=>$r['document_type'], 'uploaded_at'=>$r['uploaded_at']];
+            echo json_encode(['success'=>true, 'documents'=>$documents]);
+        }
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
+    break;
+
+case 'upload_required_document':
+    if (!$uid || $role !== 'parent') { http_response_code(403); echo json_encode(['error'=>'Réservé aux parents']); break; }
+    $playerId = (int)($_POST['player_id'] ?? 0);
+    $docType = trim($_POST['document_type'] ?? 'fiche_sanitaire');
+    $myPid = (int)($_SESSION['player_id'] ?? 0);
+    if ($playerId <= 0 || $playerId !== $myPid) { http_response_code(403); echo json_encode(['error'=>'Non autorisé']); break; }
+    if (!in_array($docType, ['fiche_sanitaire'])) $docType = 'fiche_sanitaire';
+    if (empty($_FILES['file'])) { http_response_code(400); echo json_encode(['error'=>'Aucun fichier']); break; }
+    $f = $_FILES['file'];
+    if ($f['size'] > 10 * 1024 * 1024) { http_response_code(400); echo json_encode(['error'=>'Fichier trop lourd (10 Mo max)']); break; }
+    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, ['pdf','jpg','jpeg','png'])) { http_response_code(400); echo json_encode(['error'=>'Format accepté : PDF, JPG, PNG']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS required_documents (id INT AUTO_INCREMENT PRIMARY KEY, player_id INT NOT NULL, document_type VARCHAR(50) NOT NULL DEFAULT 'fiche_sanitaire', filename VARCHAR(255) NOT NULL, uploaded_by INT NOT NULL, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_player_type (player_id, document_type))");
+        $dir = __DIR__.'/uploads/required_docs/'.$playerId.'/';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        $filename = $docType.'_'.date('Y').'_'.bin2hex(random_bytes(4)).'.'.$ext;
+        if (!move_uploaded_file($f['tmp_name'], $dir.$filename)) { http_response_code(500); echo json_encode(['error'=>'Erreur enregistrement']); break; }
+        $st = $db->prepare("INSERT INTO required_documents (player_id, document_type, filename, uploaded_by) VALUES (:pid, :typ, :fn, :uid) ON DUPLICATE KEY UPDATE filename = :fn2, uploaded_by = :uid2, uploaded_at = CURRENT_TIMESTAMP");
+        $st->execute([':pid'=>$playerId, ':typ'=>$docType, ':fn'=>$filename, ':uid'=>$uid, ':fn2'=>$filename, ':uid2'=>$uid]);
+        echo json_encode(['success'=>true, 'document_type'=>$docType, 'uploaded_at'=>date('c')]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error'=>'Erreur serveur']); }
     break;
 
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
