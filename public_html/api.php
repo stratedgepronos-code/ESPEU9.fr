@@ -1362,6 +1362,47 @@ case 'get_convocation_responses':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
+case 'remind_convocation_no_response':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $matchId = $in['match_id'] ?? '';
+    $matchLabel = trim($in['match_label'] ?? 'Match à venir');
+    if ($matchId === '' || $matchId === null) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
+    try {
+        $db = getDB();
+        $matchIdNum = is_string($matchId) && strpos($matchId, 'custom_') === 0 ? (int)str_replace('custom_', '', $matchId) : (int)$matchId;
+        $st = $db->prepare("SELECT player_id FROM convocations WHERE match_id = :mid AND player_id > 0 AND convoked = 1");
+        $st->execute([':mid' => $matchId]);
+        $convokedPids = [];
+        while ($r = $st->fetch()) { $convokedPids[] = (int)$r['player_id']; }
+        if (empty($convokedPids)) { echo json_encode(['success' => true, 'reminders_sent' => 0, 'message' => 'Aucun joueur convoqué']); break; }
+        if ($matchIdNum <= 0) { http_response_code(400); echo json_encode(['error' => 'match_id invalide pour les réponses']); break; }
+        $st = $db->prepare("SELECT player_id, response FROM convocation_responses WHERE match_id = :mid");
+        $st->execute([':mid' => $matchIdNum]);
+        $responses = [];
+        while ($r = $st->fetch()) { $responses[(int)$r['player_id']] = $r['response']; }
+        $toRemind = array_filter($convokedPids, function($pid) use ($responses) {
+            return !isset($responses[$pid]) || $responses[$pid] === 'attente';
+        });
+        if (empty($toRemind)) { echo json_encode(['success' => true, 'reminders_sent' => 0, 'message' => 'Tous ont déjà répondu']); break; }
+        $sent = 0;
+        $title = "Rappel convocation : " . $matchLabel;
+        $body = "Merci de répondre à la convocation (Présent / Absent) pour le match du " . $matchLabel . " — Espace Messagerie sur le site.";
+        $bodyHtml = "<p><strong>Rappel</strong></p><p>Merci de répondre à la convocation (Présent / Absent) pour le match : <strong>" . htmlspecialchars($matchLabel) . "</strong>.</p><p>→ Connecte-toi sur le site et va dans <strong>Messagerie</strong> pour répondre.</p>";
+        foreach ($toRemind as $pid) {
+            $st2 = $db->prepare("SELECT id, email, display_name FROM users WHERE player_id = :pid AND role = 'parent'");
+            $st2->execute([':pid' => $pid]);
+            while ($parent = $st2->fetch()) {
+                if ($parent['email']) sendEmailNotif($parent['email'], $title, $bodyHtml);
+                sendPushToUser((int)$parent['id'], 'Rappel convocation', mb_substr($body, 0, 100), '#messagerie');
+                $sent++;
+            }
+        }
+        echo json_encode(['success' => true, 'reminders_sent' => $sent, 'players_count' => count($toRemind)]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 // ═══ MATCHS EN BASE DE DONNÉES ═══
 
 case 'get_matches':

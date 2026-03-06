@@ -3706,6 +3706,20 @@ function ConvocationPanel({ upcoming, user }) {
         }).catch(()=>{});
     };
     const [deletingResponse, setDeletingResponse] = useState(null);
+    const [remindSending, setRemindSending] = useState(false);
+    const [remindResult, setRemindResult] = useState("");
+    const handleRemindNoResponse = () => {
+        const toRemind = convokedPlayers.filter(p => !responses[p.id] || responses[p.id].response === "attente");
+        if (toRemind.length === 0) { setRemindResult("Tous ont d\u00E9j\u00E0 r\u00E9pondu."); setTimeout(() => setRemindResult(""), 3000); return; }
+        setRemindSending(true); setRemindResult("");
+        fetch(API_URL + "?action=remind_convocation_no_response", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: upcoming.id, match_label: matchLabel }) })
+            .then(r => r.json()).then(d => {
+                setRemindSending(false);
+                if (d.success) setRemindResult(d.reminders_sent ? d.reminders_sent + " rappel(s) push + email envoy\u00E9(s)." : (d.message || "Aucun rappel \u00E0 envoyer."));
+                else setRemindResult("Erreur : " + (d.error || ""));
+                setTimeout(() => setRemindResult(""), 5000);
+            }).catch(() => { setRemindSending(false); setRemindResult("Erreur r\u00E9seau"); setTimeout(() => setRemindResult(""), 3000); });
+    };
     const handleDeleteResponse = (playerId) => {
         if(!confirm("Supprimer la r\u00E9ponse de ce joueur ? Il pourra r\u00E9pondre \u00E0 nouveau (utile pour retester la notif push).")) return;
         setDeletingResponse(playerId);
@@ -3843,7 +3857,11 @@ function ConvocationPanel({ upcoming, user }) {
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } },
                 React.createElement("button", { onClick: handleSave, disabled: saving, style: { padding: "12px 28px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 15, opacity: saving?0.6:1 } }, saving ? "\u23F3 Envoi en cours..." : "\uD83D\uDCE8 Enregistrer & Envoyer les convocations"),
                 saved && React.createElement("span", { style: { fontSize: 14, fontWeight: 600, color: saved.includes("Erreur")?"var(--red)":"var(--green-700)" } }, saved)),
-            renderResponseSummary()));
+            renderResponseSummary(),
+            convokedPlayers.length > 0 && React.createElement("div", { style: { marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" } },
+                React.createElement("button", { onClick: handleRemindNoResponse, disabled: remindSending, style: { padding: "10px 20px", background: remindSending ? "#94a3b8" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: remindSending ? "wait" : "pointer", fontSize: 14, opacity: remindSending ? 0.8 : 1, display: "inline-flex", alignItems: "center", gap: 8 } },
+                    remindSending ? "\u23F3 Envoi..." : "\uD83D\uDCE7 Envoyer rappel (push + email) aux joueurs qui n'ont pas r\u00E9pondu"),
+                remindResult && React.createElement("span", { style: { marginLeft: 12, fontSize: 13, fontWeight: 600, color: remindResult.indexOf("Erreur") >= 0 ? "var(--red)" : "var(--green-700)" } }, remindResult))));
 }
 // ── Upcoming Match Detail Page ──
 // ── Covoiturage Panel (away matches only) ──
