@@ -779,11 +779,17 @@ case 'send_message':
         }
         $sent=0;
         $senderName = $_SESSION['display_name'] ?? 'Quelqu\'un';
+        $emailSubject = $subject ?: 'Nouveau message';
+        $emailBody = nl2br(htmlspecialchars($body));
+        $pushTitle = "\u{2709} " . $senderName;
+        $pushBody = $subject ?: mb_substr($body, 0, 100);
         foreach($recipients as $rec){
             $st=$db->prepare("INSERT INTO messages (sender_id,recipient_id,subject,body,msg_type,parent_msg_id) VALUES(:s,:r,:sub,:b,:t,:p)");
             $st->execute([':s'=>$_SESSION['user_id'],':r'=>$rec['id'],':sub'=>$subject,':b'=>$body,':t'=>$msgType,':p'=>$parentMsgId]);
-            if($rec['email']) sendEmailNotif($rec['email'],$subject?:'Nouveau message',nl2br(htmlspecialchars($body)));
-            sendPushToUser((int)$rec['id'], '✉️ ' . $senderName, $subject ?: mb_substr($body, 0, 100), '#messagerie');
+            if (!empty($rec['email'])) {
+                try { sendEmailNotif($rec['email'], $emailSubject, $emailBody); } catch (Throwable $e) { /* ne pas bloquer */ }
+            }
+            try { sendPushToUser((int)$rec['id'], $pushTitle, $pushBody, '#messagerie'); } catch (Throwable $e) { /* ne pas bloquer */ }
             $sent++;
         }
         echo json_encode(['success'=>true,'messages_sent'=>$sent]);
