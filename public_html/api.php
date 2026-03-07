@@ -40,7 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-$action = $_GET['action'] ?? '';
+$action = trim((string)($_GET['action'] ?? ''));
+$parsedPostBody = null;
+if ($action === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $body = file_get_contents('php://input');
+    if ($body !== false && $body !== '') {
+        $parsedPostBody = json_decode($body, true);
+        if (is_array($parsedPostBody) && isset($parsedPostBody['action'])) $action = trim((string)$parsedPostBody['action']);
+    }
+}
 
 // ═══ Session utilisateur globale ═══
 $uid = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
@@ -1365,7 +1373,7 @@ case 'get_convocation_responses':
 case 'remind_convocation_no_response':
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
     if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break; }
-    $in = json_decode(file_get_contents('php://input'), true);
+    $in = is_array($parsedPostBody) ? $parsedPostBody : json_decode(file_get_contents('php://input'), true);
     $matchId = $in['match_id'] ?? '';
     $matchLabel = trim($in['match_label'] ?? 'Match à venir');
     if ($matchId === '' || $matchId === null) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }

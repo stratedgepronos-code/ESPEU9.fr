@@ -3712,7 +3712,7 @@ function ConvocationPanel({ upcoming, user }) {
         const toRemind = convokedPlayers.filter(p => !responses[p.id] || responses[p.id].response === "attente");
         if (toRemind.length === 0) { setRemindResult("Tous ont d\u00E9j\u00E0 r\u00E9pondu."); setTimeout(() => setRemindResult(""), 3000); return; }
         setRemindSending(true); setRemindResult("");
-        fetch(API_URL + "?action=remind_convocation_no_response", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: upcoming.id, match_label: matchLabel }) })
+        fetch(API_URL + "?action=remind_convocation_no_response", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remind_convocation_no_response", match_id: upcoming.id, match_label: matchLabel }) })
             .then(r => r.json()).then(d => {
                 setRemindSending(false);
                 if (d.success) setRemindResult(d.reminders_sent ? d.reminders_sent + " rappel(s) push + email envoy\u00E9(s)." : (d.message || "Aucun rappel \u00E0 envoyer."));
@@ -5916,8 +5916,8 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
         if (ids.length === 0) { setBulkExtras({}); return; }
         var uniq = ids.filter(function(v, i, a) { return a.indexOf(v) === i; });
         fetch(API_URL + "?action=get_bulk_match_extras&match_ids=" + uniq.join(","), { credentials: "same-origin" })
-            .then(function(r) { return r.json(); })
-            .then(function(d) { if (d.success && d.extras) setBulkExtras(d.extras); })
+            .then(function(r) { if (!r.ok) return {}; return r.json(); })
+            .then(function(d) { if (d && d.success && d.extras) setBulkExtras(d.extras); })
             .catch(function() {});
     }, [extrasRefresh, allUpcoming.map(function(u) { return u.id; }).join(",")]);
 
