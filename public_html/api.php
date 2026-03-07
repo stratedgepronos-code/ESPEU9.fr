@@ -1411,6 +1411,63 @@ case 'remind_convocation_no_response':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
+// ═══ GET TEAM DATA (pour equipe.html — agrégation joueurs, coachs, matchs) ═══
+case 'get_team_data':
+    try {
+        $db = getDB();
+        $team = ['name' => 'U9 Mixte', 'category' => 'U9', 'division' => ''];
+        $players = [
+            ['id' => 1, 'number' => 6, 'first_name' => 'Malone', 'last_name' => 'HAUTION', 'dob' => '26/06/2017', 'licence' => 'BC178916', 'licence_date' => '20/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 2, 'number' => 8, 'first_name' => 'Tristan', 'last_name' => 'COLLARD', 'dob' => '18/01/2017', 'licence' => 'BC171666', 'licence_date' => '15/07/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'A - Formule A', 'photo_url' => ''],
+            ['id' => 3, 'number' => 9, 'first_name' => 'Gaspard', 'last_name' => 'HAMM', 'dob' => '06/02/2017', 'licence' => 'BC178438', 'licence_date' => '26/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 4, 'number' => 10, 'first_name' => 'Amine', 'last_name' => 'SLAH', 'dob' => '25/06/2017', 'licence' => 'BC172768', 'licence_date' => '01/10/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'A - Formule A', 'photo_url' => ''],
+            ['id' => 5, 'number' => 11, 'first_name' => 'Diego', 'last_name' => 'FRANCART', 'dob' => '06/10/2017', 'licence' => 'BC172771', 'licence_date' => '29/08/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 6, 'number' => 12, 'first_name' => 'Jonas', 'last_name' => 'DELE', 'dob' => '04/05/2017', 'licence' => 'BC170251', 'licence_date' => '15/08/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+            ['id' => 7, 'number' => 13, 'first_name' => 'Marceau', 'last_name' => 'FALZON', 'dob' => '19/07/2017', 'licence' => 'BC171646', 'licence_date' => '18/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'A - Formule A', 'photo_url' => ''],
+            ['id' => 8, 'number' => 14, 'first_name' => 'Robin', 'last_name' => 'FISCHESSER', 'dob' => '03/02/2017', 'licence' => 'BC175646', 'licence_date' => '13/09/2025', 'sex' => 'M', 'category' => 'Licence 0C - U9', 'assurance' => 'N - Pas d\'assurance', 'photo_url' => ''],
+        ];
+        $coaches = [];
+        try {
+            $stC = $db->query("SELECT display_name FROM users WHERE role = 'coach' LIMIT 5");
+            if ($stC) while ($c = $stC->fetch(PDO::FETCH_ASSOC)) $coaches[] = ['display_name' => $c['display_name'], 'photo_url' => ''];
+        } catch (Exception $e) {}
+        if (empty($coaches)) $coaches[] = ['display_name' => 'Coach', 'photo_url' => ''];
+        $upcoming = [];
+        try {
+            $stU = $db->query("SELECT id, journee, date, heure, heure_rdv, lieu, gymnase, dom_ext, adversaire FROM upcoming_matches ORDER BY STR_TO_DATE(date, '%d/%m/%Y') ASC");
+            if ($stU) while ($u = $stU->fetch(PDO::FETCH_ASSOC)) {
+                $upcoming[] = ['id' => 'custom_' . $u['id'], 'journee' => $u['journee'], 'date' => $u['date'], 'heure' => $u['heure'], 'heure_rdv' => $u['heure_rdv'] ?? '', 'lieu' => $u['lieu'], 'gymnase' => $u['gymnase'], 'dom_ext' => $u['dom_ext'], 'adversaire' => $u['adversaire'], 'adversaire_logo' => '', 'is_custom' => true];
+            }
+        } catch (Exception $e) {}
+        $results = [];
+        try {
+        $tableCheck = $db->query("SHOW TABLES LIKE 'match_results'");
+        if ($tableCheck && $tableCheck->rowCount() > 0) {
+            $stM = $db->query("SELECT * FROM match_results ORDER BY id ASC");
+            while ($m = $stM->fetch(PDO::FETCH_ASSOC)) {
+                $st2 = $db->prepare("SELECT num, nom, minutes AS min, pts, tirs, t3, t2i, t2e, lf, fautes FROM match_player_stats WHERE match_id = :mid AND team_type = 'espe' ORDER BY num ASC");
+                $st2->execute([':mid' => $m['id']]);
+                $espeStats = $st2->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($espeStats as &$s) { $s['minutes'] = $s['min'] ?? '0:00'; unset($s['min']); }
+                $st3 = $db->prepare("SELECT num, nom, minutes AS min, pts, tirs, t3, t2i, t2e, lf, fautes FROM match_player_stats WHERE match_id = :mid AND team_type = 'adv' ORDER BY num ASC");
+                $st3->execute([':mid' => $m['id']]);
+                $advStats = $st3->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($advStats as &$s) { $s['minutes'] = $s['min'] ?? '0:00'; unset($s['min']); }
+                $results[] = [
+                    'id' => (int)$m['id'], 'journee' => (int)$m['journee'], 'date' => $m['date'], 'heure' => $m['heure'], 'lieu' => $m['lieu'], 'dom_ext' => $m['dom_ext'],
+                    'equipe_a_nom' => $m['equipe_a_nom'], 'equipe_a_short' => $m['equipe_a_short'], 'equipe_a_score' => (int)$m['equipe_a_score'],
+                    'equipe_b_nom' => $m['equipe_b_nom'], 'equipe_b_short' => $m['equipe_b_short'], 'equipe_b_score' => (int)$m['equipe_b_score'],
+                    'espe_score' => (int)$m['espe_score'], 'adv_score' => (int)$m['adv_score'], 'win' => (int)$m['win'],
+                    'qt1_a' => (int)$m['qt1_a'], 'qt1_b' => (int)$m['qt1_b'], 'qt2_a' => (int)$m['qt2_a'], 'qt2_b' => (int)$m['qt2_b'], 'qt3_a' => (int)$m['qt3_a'], 'qt3_b' => (int)$m['qt3_b'], 'qt4_a' => (int)$m['qt4_a'], 'qt4_b' => (int)$m['qt4_b'],
+                    'espeStats' => $espeStats, 'advStats' => $advStats, 'adversaire_logo' => ''
+                ];
+            }
+        }
+        } catch (Exception $e2) {}
+        echo json_encode(['success' => true, 'team' => $team, 'players' => $players, 'coaches' => $coaches, 'upcoming' => $upcoming, 'standings' => [], 'results' => $results]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 // ═══ MATCHS EN BASE DE DONNÉES ═══
 
 case 'get_matches':
