@@ -1665,18 +1665,19 @@ case 'delete_match':
 case 'extract_match_stats':
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
     if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
-    // Rate limit: même pool que analyze_match_sheet
     $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     if (!checkRateLimit($clientIp, 'ai_scan', 10, 3600)) {
         http_response_code(429); echo json_encode(['error' => 'Trop de scans IA. Réessaye dans 1 heure.']); break;
     }
     recordAttempt($clientIp, 'ai_scan');
     if (!defined('CLAUDE_API_KEY') || !CLAUDE_API_KEY) { http_response_code(500); echo json_encode(['error' => 'Clé API Claude non configurée']); break; }
-    if (!isset($_FILES['sheet']) || $_FILES['sheet']['error'] !== UPLOAD_ERR_OK) { http_response_code(400); echo json_encode(['error' => 'Fichier image/PDF requis']); break; }
-    $matchId = (int)($_POST['match_id'] ?? 0);
+    $fileKey = isset($_FILES['sheet']) ? 'sheet' : (isset($_FILES['pdf']) ? 'pdf' : null);
+    if (!$fileKey || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) { http_response_code(400); echo json_encode(['error' => 'Fichier image/PDF requis']); break; }
+    $rawMatchId = $_POST['match_id'] ?? '';
+    $matchId = (int)(str_replace('custom_', '', (string)$rawMatchId));
     if (!$matchId) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
 
-    $file = $_FILES['sheet'];
+    $file = $_FILES[$fileKey];
     if ($file['size'] > 15 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Max 15 Mo']); break; }
 
     $pdfData = file_get_contents($file['tmp_name']);
@@ -1697,30 +1698,69 @@ case 'extract_match_stats':
     ];
 
     $statsPrompt = <<<'PROMPT'
-Analyse cette feuille de match de basketball (catégorie U9/U11 en France — FFBB).
+Analyse cette feuille de match officielle FFBB de basketball (catégorie U9/U11 en France).
 
-Extrais UNIQUEMENT les statistiques des joueurs des DEUX équipes.
-Renvoie UNIQUEMENT un objet JSON valide (sans markdown, sans backticks, sans texte avant/après).
+Tu reçois la FEUILLE DE MATCH OFFICIELLE (pas le résumé). Elle contient :
+- Les informations du match (journée, date, heure, lieu, équipes)
+- Les compositions des équipes avec numéros de maillot et noms
+- Les statistiques individuelles détaillées de chaque joueur (temps de jeu, paniers marqués par zone, lancers francs, fautes)
+- Les scores par quart-temps (QT1, QT2, QT3, QT4)
+- Le score final
 
-Format JSON attendu :
+Extrais TOUTES les informations et renvoie UNIQUEMENT un objet JSON valide (sans markdown, sans backticks, sans texte avant/après).
+
+Format JSON exact attendu :
 {
+  "journee": 1,
+  "date": "06/12/2025",
+  "heure": "10:30",
+  "lieu": "Nom de la ville",
+  "domExt": "dom",
+  "equipeA": {
+    "nom": "Nom complet équipe domicile",
+    "short": "NOM COURT",
+    "score": 40
+  },
+  "equipeB": {
+    "nom": "Nom complet équipe visiteur",
+    "short": "NOM COURT",
+    "score": 20
+  },
+  "scores": {
+    "qt1": {"a": 10, "b": 5},
+    "qt2": {"a": 12, "b": 6},
+    "qt3": {"a": 8, "b": 4},
+    "qt4": {"a": 10, "b": 5}
+  },
   "espeStats": [
-    {"num": 6, "nom": "NOM Prénom", "min": "15:06", "pts": 2, "tirs": 1, "t3": 0, "t2i": 1, "t2e": 0, "lf": 0, "fautes": 0}
+    {"num": 6, "nom": "NOM Prénom", "min": "15:06", "pts": 8, "tirs": 4, "t3": 0, "t2i": 3, "t2e": 1, "lf": 0, "fautes": 1}
   ],
   "advStats": [
-    {"num": 4, "nom": "NOM Prénom", "min": "09:20", "pts": 0, "tirs": 0, "t3": 0, "t2i": 0, "t2e": 0, "lf": 0, "fautes": 0}
+    {"num": 4, "nom": "NOM Prénom", "min": "09:20", "pts": 4, "tirs": 2, "t3": 0, "t2i": 2, "t2e": 0, "lf": 0, "fautes": 2}
   ]
 }
 
 RÈGLES IMPORTANTES :
-- L'équipe ESPE (ou "ESPE Basket Châlons", "EBCCA", "Châlons") va dans espeStats, l'autre équipe dans advStats
-- "tirs" = nombre total de tirs réussis (paniers marqués)
-- "t2i" = tirs à 2 points réussis dans la raquette
-- "t2e" = tirs à 2 points réussis hors raquette
-- "t3" = tirs à 3 points réussis
-- "lf" = lancers francs réussis
-- "fautes" = nombre de fautes personnelles
-- "min" = temps de jeu au format "MM:SS"
+- L'équipe ESPE (ou "ESPE Basket Châlons", "EBCCA", "Châlons-en-Champagne") → short = "ESPE", stats dans espeStats
+- L'autre équipe → advStats
+- domExt : "dom" si ESPE joue à domicile (Châlons-en-Champagne), "ext" si à l'extérieur
+- equipeA = équipe qui reçoit (domicile), equipeB = équipe visiteur (extérieur)
+- scores.qt1.a = score cumulé equipeA au QT1, scores.qt2.a = score cumulé equipeA au QT2, etc.
+  ATTENTION : sur la feuille FFBB les scores par quart-temps sont CUMULÉS. Tu dois calculer le score PAR quart-temps :
+  qt1 = score à la fin du QT1
+  qt2 = score à la fin du QT2 - score à la fin du QT1
+  qt3 = score à la fin du QT3 - score à la fin du QT2
+  qt4 = score final - score à la fin du QT3
+- Pour chaque joueur, sur la feuille de match FFBB officielle :
+  - "pts" = points totaux marqués par le joueur
+  - "tirs" = nombre total de paniers (tirs réussis) = t2i + t2e + t3
+  - "t2i" = tirs à 2 points réussis DANS la raquette (zone intérieure)
+  - "t2e" = tirs à 2 points réussis HORS raquette (zone extérieure)
+  - "t3" = tirs à 3 points réussis
+  - "lf" = lancers francs réussis (nombre réussi, pas tentés)
+  - "fautes" = nombre de fautes personnelles (comptées en croix/X sur la feuille)
+  - "min" = temps de jeu au format "MM:SS" (temps total passé sur le terrain)
+  - pts devrait être = (t2i + t2e) * 2 + t3 * 3 + lf * 1
 - Si une donnée est illisible ou absente, mets 0 ou "00:00"
 - Les noms doivent être en format "NOM Prénom" (majuscules pour le nom de famille)
 - Renvoie UNIQUEMENT le JSON, rien d'autre
@@ -1728,7 +1768,7 @@ PROMPT;
 
     $payload = json_encode([
         'model' => 'claude-sonnet-4-20250514',
-        'max_tokens' => 4000,
+        'max_tokens' => 6000,
         'messages' => [
             ['role' => 'user', 'content' => [$docContent, ['type' => 'text', 'text' => $statsPrompt]]]
         ]
@@ -1768,21 +1808,55 @@ PROMPT;
     $textContent = trim(preg_replace('/\s*```$/i', '', $textContent));
 
     $statsData = json_decode($textContent, true);
-    if (!$statsData || (!isset($statsData['espeStats']) && !isset($statsData['advStats']))) {
-        http_response_code(500); echo json_encode(['error' => 'Impossible de parser les stats', 'raw' => substr($textContent, 0, 500)]); break;
+    if (!$statsData) {
+        http_response_code(500); echo json_encode(['error' => 'Impossible de parser la réponse IA', 'raw' => substr($textContent, 0, 500)]); break;
     }
 
-    // Sauvegarder les stats dans la base pour ce match
+    $eqAShort = strtoupper($statsData['equipeA']['short'] ?? '');
+    $espeIsA = ($eqAShort === 'ESPE');
+    $espeScore = $espeIsA ? (int)($statsData['equipeA']['score'] ?? 0) : (int)($statsData['equipeB']['score'] ?? 0);
+    $advScore  = $espeIsA ? (int)($statsData['equipeB']['score'] ?? 0) : (int)($statsData['equipeA']['score'] ?? 0);
+    $win = $espeScore > $advScore ? 1 : 0;
+
     try {
         $db = getDB();
-        // Vérifier que le match existe
         $st = $db->prepare("SELECT id FROM match_results WHERE id = :mid"); $st->execute([':mid' => $matchId]);
-        if (!$st->fetch()) { http_response_code(404); echo json_encode(['error' => 'Match introuvable']); break; }
+        $matchExists = (bool)$st->fetch();
 
-        // Supprimer les anciennes stats
+        if ($matchExists) {
+            $upd = $db->prepare("UPDATE match_results SET equipe_a_score = :sa, equipe_b_score = :sb, espe_score = :es, adv_score = :as2, win = :w, qt1_a = :q1a, qt1_b = :q1b, qt2_a = :q2a, qt2_b = :q2b, qt3_a = :q3a, qt3_b = :q3b, qt4_a = :q4a, qt4_b = :q4b WHERE id = :mid");
+            $scores = $statsData['scores'] ?? ['qt1'=>['a'=>0,'b'=>0],'qt2'=>['a'=>0,'b'=>0],'qt3'=>['a'=>0,'b'=>0],'qt4'=>['a'=>0,'b'=>0]];
+            $upd->execute([
+                ':sa' => (int)($statsData['equipeA']['score'] ?? 0),
+                ':sb' => (int)($statsData['equipeB']['score'] ?? 0),
+                ':es' => $espeScore, ':as2' => $advScore, ':w' => $win,
+                ':q1a' => (int)($scores['qt1']['a'] ?? 0), ':q1b' => (int)($scores['qt1']['b'] ?? 0),
+                ':q2a' => (int)($scores['qt2']['a'] ?? 0), ':q2b' => (int)($scores['qt2']['b'] ?? 0),
+                ':q3a' => (int)($scores['qt3']['a'] ?? 0), ':q3b' => (int)($scores['qt3']['b'] ?? 0),
+                ':q4a' => (int)($scores['qt4']['a'] ?? 0), ':q4b' => (int)($scores['qt4']['b'] ?? 0),
+                ':mid' => $matchId
+            ]);
+        } else {
+            $ins = $db->prepare("INSERT INTO match_results (journee, date, heure, lieu, dom_ext, equipe_a_nom, equipe_a_short, equipe_a_score, equipe_b_nom, equipe_b_short, equipe_b_score, espe_score, adv_score, win, qt1_a, qt1_b, qt2_a, qt2_b, qt3_a, qt3_b, qt4_a, qt4_b) VALUES (:j,:d,:h,:l,:de,:an,:as3,:asc,:bn,:bs,:bsc,:es,:adv,:w,:q1a,:q1b,:q2a,:q2b,:q3a,:q3b,:q4a,:q4b)");
+            $scores = $statsData['scores'] ?? ['qt1'=>['a'=>0,'b'=>0],'qt2'=>['a'=>0,'b'=>0],'qt3'=>['a'=>0,'b'=>0],'qt4'=>['a'=>0,'b'=>0]];
+            $ins->execute([
+                ':j' => (int)($statsData['journee'] ?? 0),
+                ':d' => $statsData['date'] ?? '', ':h' => $statsData['heure'] ?? '',
+                ':l' => $statsData['lieu'] ?? '', ':de' => $statsData['domExt'] ?? 'dom',
+                ':an' => $statsData['equipeA']['nom'] ?? '', ':as3' => $statsData['equipeA']['short'] ?? '',
+                ':asc' => (int)($statsData['equipeA']['score'] ?? 0),
+                ':bn' => $statsData['equipeB']['nom'] ?? '', ':bs' => $statsData['equipeB']['short'] ?? '',
+                ':bsc' => (int)($statsData['equipeB']['score'] ?? 0),
+                ':es' => $espeScore, ':adv' => $advScore, ':w' => $win,
+                ':q1a' => (int)($scores['qt1']['a'] ?? 0), ':q1b' => (int)($scores['qt1']['b'] ?? 0),
+                ':q2a' => (int)($scores['qt2']['a'] ?? 0), ':q2b' => (int)($scores['qt2']['b'] ?? 0),
+                ':q3a' => (int)($scores['qt3']['a'] ?? 0), ':q3b' => (int)($scores['qt3']['b'] ?? 0),
+                ':q4a' => (int)($scores['qt4']['a'] ?? 0), ':q4b' => (int)($scores['qt4']['b'] ?? 0)
+            ]);
+            $matchId = (int)$db->lastInsertId();
+        }
+
         $db->prepare("DELETE FROM match_player_stats WHERE match_id = :mid")->execute([':mid' => $matchId]);
-
-        // Insérer les nouvelles stats
         $stIns = $db->prepare("INSERT INTO match_player_stats (match_id, team_type, num, nom, minutes, pts, tirs, t3, t2i, t2e, lf, fautes) VALUES (:mid, :tt, :n, :nom, :min, :pts, :tirs, :t3, :t2i, :t2e, :lf, :f)");
         foreach (($statsData['espeStats'] ?? []) as $s) {
             $stIns->execute([':mid' => $matchId, ':tt' => 'espe', ':n' => (int)($s['num'] ?? 0), ':nom' => $s['nom'] ?? '', ':min' => $s['min'] ?? '00:00', ':pts' => (int)($s['pts'] ?? 0), ':tirs' => (int)($s['tirs'] ?? 0), ':t3' => (int)($s['t3'] ?? 0), ':t2i' => (int)($s['t2i'] ?? 0), ':t2e' => (int)($s['t2e'] ?? 0), ':lf' => (int)($s['lf'] ?? 0), ':f' => (int)($s['fautes'] ?? 0)]);
@@ -1793,11 +1867,17 @@ PROMPT;
 
         echo json_encode([
             'success' => true,
+            'match_id' => $matchId,
+            'match_created' => !$matchExists,
+            'scores_updated' => true,
             'espeStats' => $statsData['espeStats'] ?? [],
             'advStats' => $statsData['advStats'] ?? [],
-            'message' => 'Stats extraites et sauvegardées'
+            'scores' => $statsData['scores'] ?? null,
+            'espeScore' => $espeScore,
+            'advScore' => $advScore,
+            'message' => $matchExists ? 'Match mis à jour avec scores et stats' : 'Match créé avec scores et stats'
         ]);
-    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur: ' . $e->getMessage()]); }
     break;
 
 // ═══ GALERIE MÉDIAS ═══

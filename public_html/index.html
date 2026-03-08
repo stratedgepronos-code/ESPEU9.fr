@@ -3498,12 +3498,10 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
             }
         }).catch(e=>{ setUploading(false); setUploadError("Erreur réseau: " + e.message); });
     };
-    // Combined: select file → upload → scan IA → create match (one click)
     const handleUploadAndScan = () => {
         const file = scanRef.current.files[0]; if(!file) return;
         if(file.size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; }
         setScanning(true); setScanStatus("upload"); setUploadError("");
-        // Step 1: Upload the sheet
         const form = new FormData(); form.append("sheet",file); form.append("match_id",String(matchId));
         fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:form})
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
@@ -3511,36 +3509,22 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
             if(!d.success) throw new Error(d.error || "Upload échoué");
             setSheet({ id: d.sheet_id || 0, url: d.url });
             setScanStatus("scan");
-            // Step 2: Fetch the uploaded image and send to AI
             return fetch(d.url).then(r=>{ if(!r.ok) throw new Error("Impossible de charger l'image"); return r.blob(); }).then(blob => {
                 const scanForm = new FormData();
                 const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-                scanForm.append(onMatchCreated ? "pdf" : "sheet", blob, "feuille." + ext);
-                if (!onMatchCreated) scanForm.append("match_id", String(matchId));
-                const action = onMatchCreated ? "analyze_match_sheet" : "extract_match_stats";
-                return fetch(API_URL + "?action=" + action, { method: "POST", credentials: "same-origin", body: scanForm });
+                scanForm.append("sheet", blob, "feuille." + ext);
+                scanForm.append("match_id", String(matchId));
+                return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
             });
         })
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d => {
-            if (onMatchCreated && d.success && d.matchData) {
-                setScanStatus("save");
-                fetch(API_URL + "?action=save_match", {
-                    method: "POST", credentials: "same-origin",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(d.matchData)
-                })
-                .then(r=>r.json())
-                .then(d2 => {
-                    setScanning(false);
-                    if(d2.success) { setScanStatus("ok"); onMatchCreated(); }
-                    else { setScanStatus("error:Erreur sauvegarde: " + (d2.error||"")); }
-                }).catch(() => { setScanning(false); setScanStatus("error:Erreur réseau sauvegarde"); });
-            } else if (d.success && onStatsExtracted) {
-                setScanning(false); setScanStatus("ok");
-                onStatsExtracted(d.espeStats || [], d.advStats || []);
+            setScanning(false);
+            if (d.success) {
+                setScanStatus("ok");
+                if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
+                if (onMatchCreated && d.match_created) onMatchCreated();
             } else {
-                setScanning(false);
                 setScanStatus("error:" + (d.error || "Erreur analyse IA"));
             }
         })
@@ -3557,37 +3541,19 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
         fetch(sheet.url).then(r=>r.blob()).then(blob => {
             const form = new FormData();
             const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-            form.append(onMatchCreated ? "pdf" : "sheet", blob, "feuille." + ext);
-            if (!onMatchCreated) form.append("match_id", String(matchId));
-            const action = onMatchCreated ? "analyze_match_sheet" : "extract_match_stats";
-            return fetch(API_URL + "?action=" + action, { method: "POST", credentials: "same-origin", body: form });
+            form.append("sheet", blob, "feuille." + ext);
+            form.append("match_id", String(matchId));
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: form });
         })
         .then(r=>r.json())
         .then(d => {
-            if (onMatchCreated && d.success && d.matchData) {
-                // Match à venir : sauvegarder le match complet
-                fetch(API_URL + "?action=save_match", {
-                    method: "POST", credentials: "same-origin",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(d.matchData)
-                })
-                .then(r=>r.json())
-                .then(d2 => {
-                    setScanning(false);
-                    if(d2.success) {
-                        setScanStatus("ok");
-                        onMatchCreated();
-                        setTimeout(() => setScanStatus(""), 5000);
-                    } else { setScanStatus("error:" + (d2.error || "Erreur sauvegarde")); setTimeout(() => setScanStatus(""), 8000); }
-                }).catch(() => { setScanning(false); setScanStatus("error:Erreur réseau"); });
-            } else if (d.success && onStatsExtracted) {
-                // Match passé : mettre à jour les stats
-                setScanning(false);
+            setScanning(false);
+            if (d.success) {
                 setScanStatus("ok");
-                onStatsExtracted(d.espeStats || [], d.advStats || []);
+                if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
+                if (onMatchCreated && d.match_created) onMatchCreated();
                 setTimeout(() => setScanStatus(""), 5000);
             } else {
-                setScanning(false);
                 setScanStatus("error:" + (d.error || "Erreur inconnue"));
                 setTimeout(() => setScanStatus(""), 8000);
             }
@@ -3640,18 +3606,18 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
                                 React.createElement("img", { src: sheet.url+"?t="+Date.now(), alt: "Feuille", style: { maxWidth: 300, borderRadius: 10, cursor: "zoom-in", maxHeight: 200, objectFit: "contain" }, onClick: ()=>setLightbox(sheet.url) }),
                             React.createElement("button", { onClick: handleDeleteSheet, style: { position: "absolute", top: -8, right: -8, background: "var(--red)", color: "white", border: "none", borderRadius: "50%", width: 24, height: 24, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" } }, "\u2715")),
                         (onStatsExtracted || onMatchCreated) && React.createElement("div", { style: { marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
-                            React.createElement("button", { onClick: handleScanStats, disabled: scanning, style: { padding: "10px 20px", background: scanning ? "#86efac" : "linear-gradient(135deg, #1a6b2e, #22c55e)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: scanning ? "wait" : "pointer", fontSize: 13, opacity: scanning ? 0.7 : 1 } }, scanning ? "\u23F3 Analyse IA en cours... (30-60s)" : onMatchCreated ? "\uD83E\uDD16 Scanner et cr\u00E9er le match" : "\uD83E\uDD16 Scanner les stats via IA"),
-                            scanStatus === "ok" && React.createElement("span", { style: { color: "#16a34a", fontWeight: 700, fontSize: 13 } }, onMatchCreated ? "\u2705 Match cr\u00E9\u00E9 avec les stats !" : "\u2705 Stats extraites !"),
+                            React.createElement("button", { onClick: handleScanStats, disabled: scanning, style: { padding: "10px 20px", background: scanning ? "#86efac" : "linear-gradient(135deg, #1a6b2e, #22c55e)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: scanning ? "wait" : "pointer", fontSize: 13, opacity: scanning ? 0.7 : 1 } }, scanning ? "\u23F3 Analyse IA en cours... (30-60s)" : "\uD83E\uDD16 Scanner la feuille de match (IA)"),
+                            scanStatus === "ok" && React.createElement("span", { style: { color: "#16a34a", fontWeight: 700, fontSize: 13 } }, "\u2705 Scores et stats extraits !"),
                             scanStatus.startsWith("error:") && React.createElement("span", { style: { color: "#dc2626", fontWeight: 600, fontSize: 12 } }, "\u274C " + scanStatus.replace("error:","")))) :
                     React.createElement("div", null,
                         // Combined upload + AI scan button
                         (onStatsExtracted || onMatchCreated) && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
                             React.createElement("input", { type: "file", ref: scanRef, accept: "image/*,application/pdf", style: { display: "none" }, onChange: handleUploadAndScan }),
                             React.createElement("button", { onClick: ()=>scanRef.current.click(), disabled: uploading || scanning, style: { padding: "10px 20px", background: scanning ? "#86efac" : "linear-gradient(135deg, #1a6b2e, #22c55e)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: (uploading||scanning) ? "wait" : "pointer", fontSize: 13, opacity: (uploading||scanning) ? 0.7 : 1 } },
-                                scanning ? (scanStatus === "upload" ? "\u23F3 1/3 Upload de la feuille..." : scanStatus === "scan" ? "\uD83E\uDD16 2/3 Analyse IA en cours..." : scanStatus === "save" ? "\uD83D\uDCBE 3/3 Sauvegarde du match..." : "\u23F3 Traitement...") :
-                                onMatchCreated ? "\uD83E\uDD16 Ajouter + Scanner la feuille (IA)" : "\uD83E\uDD16 Ajouter + Scanner (IA)"),
+                                scanning ? (scanStatus === "upload" ? "\u23F3 1/2 Upload de la feuille..." : scanStatus === "scan" ? "\uD83E\uDD16 2/2 Analyse IA en cours..." : "\u23F3 Traitement...") :
+                                "\uD83E\uDD16 Importer + Scanner la feuille (IA)"),
                             !scanning && React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, "JPG, PNG ou PDF \u2022 Max 10 Mo"),
-                            scanStatus === "ok" && React.createElement("span", { style: { color: "#16a34a", fontWeight: 700, fontSize: 13 } }, onMatchCreated ? "\u2705 Match cr\u00E9\u00E9 avec les stats !" : "\u2705 Stats extraites !"),
+                            scanStatus === "ok" && React.createElement("span", { style: { color: "#16a34a", fontWeight: 700, fontSize: 13 } }, "\u2705 Scores et stats extraits !"),
                             scanStatus.startsWith("error:") && React.createElement("span", { style: { color: "#dc2626", fontWeight: 600, fontSize: 12, maxWidth: 300 } }, "\u274C " + scanStatus.replace("error:",""))),
                         // Error display
                         uploadError && React.createElement("div", { style: { marginTop: 8, padding: "8px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600 } }, "\u26A0\uFE0F " + uploadError)))),
@@ -4563,7 +4529,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
             React.createElement(CalendarButton, { upcoming: u, extras: extras }),
             isCoach && React.createElement(TrombiButton, { matchId: u.id, upcoming: u })),
         React.createElement(QuickConvocationResponse, { matchId: u.id, user: user }),
-        React.createElement(MatchExtrasPanel, { matchId: u.id, isCoach: isCoach, initialDate: u.date, initialHeure: u.heure, initialLieu: u.lieu, isCustomMatch: isCustomMatch, upcomingDbId: upcomingDbId, onExtrasLoaded: (e) => setExtras(function(prev){ return { ...prev, ...e }; }), onMatchCreated: isCoach ? onMatchCreated : null }),
+        React.createElement(MatchExtrasPanel, { matchId: u.id, isCoach: isCoach, initialDate: u.date, initialHeure: u.heure, initialLieu: u.lieu, isCustomMatch: isCustomMatch, upcomingDbId: upcomingDbId, onExtrasLoaded: (e) => setExtras(function(prev){ return { ...prev, ...e }; }), onStatsExtracted: function() {}, onMatchCreated: isCoach ? onMatchCreated : null }),
         !isHome && React.createElement(CovoituragePanel, { matchId: u.id, user: user }),
         React.createElement(ConvocationPanel, { upcoming: u, user: user }),
         React.createElement(MatchChatPanel, { matchId: u.id, user: user }));
@@ -6232,8 +6198,8 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
                     " \u2022 ",
                     m.lieu)),
             isHome ? advTeam : espeTeam),
-        React.createElement(MatchPhotos, { matchId: m.id, coachUnlocked: coachUnlocked }),
         React.createElement(MatchExtrasPanel, { matchId: m.id, isCoach: coachUnlocked, onExtrasLoaded: () => {}, onStatsExtracted: (espe, adv) => { setLocalEspeStats(espe); setLocalAdvStats(adv); m.espeStats = espe; m.advStats = adv; setMSaved("stats_ok"); setTimeout(() => setMSaved(""), 3000); } }),
+        React.createElement(MatchPhotos, { matchId: m.id, coachUnlocked: coachUnlocked }),
         React.createElement(MatchChatPanel, { matchId: m.id, user: user }),
         coachUnlocked && React.createElement("div", { className: "coach-notes", style: { marginBottom: 24 } },
             React.createElement("div", { className: "coach-notes-title" }, "\uD83D\uDCCB Note du coach \u2014 Match"),

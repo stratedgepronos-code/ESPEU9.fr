@@ -2934,12 +2934,10 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
             }
         }).catch(e=>{ setUploading(false); setUploadError("Erreur réseau: " + e.message); });
     };
-    // Combined: select file → upload → scan IA → create match (one click)
     const handleUploadAndScan = () => {
         const file = scanRef.current.files[0]; if(!file) return;
         if(file.size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; }
         setScanning(true); setScanStatus("upload"); setUploadError("");
-        // Step 1: Upload the sheet
         const form = new FormData(); form.append("sheet",file); form.append("match_id",String(matchId));
         fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:form})
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
@@ -2947,36 +2945,22 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
             if(!d.success) throw new Error(d.error || "Upload échoué");
             setSheet({ id: d.sheet_id || 0, url: d.url });
             setScanStatus("scan");
-            // Step 2: Fetch the uploaded image and send to AI
             return fetch(d.url).then(r=>{ if(!r.ok) throw new Error("Impossible de charger l'image"); return r.blob(); }).then(blob => {
                 const scanForm = new FormData();
                 const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-                scanForm.append(onMatchCreated ? "pdf" : "sheet", blob, "feuille." + ext);
-                if (!onMatchCreated) scanForm.append("match_id", String(matchId));
-                const action = onMatchCreated ? "analyze_match_sheet" : "extract_match_stats";
-                return fetch(API_URL + "action=" + action, { method: "POST", credentials: "same-origin", body: scanForm });
+                scanForm.append("sheet", blob, "feuille." + ext);
+                scanForm.append("match_id", String(matchId));
+                return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
             });
         })
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d => {
-            if (onMatchCreated && d.success && d.matchData) {
-                setScanStatus("save");
-                fetch(API_URL + "action=save_match", {
-                    method: "POST", credentials: "same-origin",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(d.matchData)
-                })
-                .then(r=>r.json())
-                .then(d2 => {
-                    setScanning(false);
-                    if(d2.success) { setScanStatus("ok"); onMatchCreated(); }
-                    else { setScanStatus("error:Erreur sauvegarde: " + (d2.error||"")); }
-                }).catch(() => { setScanning(false); setScanStatus("error:Erreur réseau sauvegarde"); });
-            } else if (d.success && onStatsExtracted) {
-                setScanning(false); setScanStatus("ok");
-                onStatsExtracted(d.espeStats || [], d.advStats || []);
+            setScanning(false);
+            if (d.success) {
+                setScanStatus("ok");
+                if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
+                if (onMatchCreated && d.match_created) onMatchCreated();
             } else {
-                setScanning(false);
                 setScanStatus("error:" + (d.error || "Erreur analyse IA"));
             }
         })
@@ -2993,37 +2977,19 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
         fetch(sheet.url).then(r=>r.blob()).then(blob => {
             const form = new FormData();
             const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-            form.append(onMatchCreated ? "pdf" : "sheet", blob, "feuille." + ext);
-            if (!onMatchCreated) form.append("match_id", String(matchId));
-            const action = onMatchCreated ? "analyze_match_sheet" : "extract_match_stats";
-            return fetch(API_URL + "action=" + action, { method: "POST", credentials: "same-origin", body: form });
+            form.append("sheet", blob, "feuille." + ext);
+            form.append("match_id", String(matchId));
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: form });
         })
         .then(r=>r.json())
         .then(d => {
-            if (onMatchCreated && d.success && d.matchData) {
-                // Match à venir : sauvegarder le match complet
-                fetch(API_URL + "action=save_match", {
-                    method: "POST", credentials: "same-origin",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(d.matchData)
-                })
-                .then(r=>r.json())
-                .then(d2 => {
-                    setScanning(false);
-                    if(d2.success) {
-                        setScanStatus("ok");
-                        onMatchCreated();
-                        setTimeout(() => setScanStatus(""), 5000);
-                    } else { setScanStatus("error:" + (d2.error || "Erreur sauvegarde")); setTimeout(() => setScanStatus(""), 8000); }
-                }).catch(() => { setScanning(false); setScanStatus("error:Erreur réseau"); });
-            } else if (d.success && onStatsExtracted) {
-                // Match passé : mettre à jour les stats
-                setScanning(false);
+            setScanning(false);
+            if (d.success) {
                 setScanStatus("ok");
-                onStatsExtracted(d.espeStats || [], d.advStats || []);
+                if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
+                if (onMatchCreated && d.match_created) onMatchCreated();
                 setTimeout(() => setScanStatus(""), 5000);
             } else {
-                setScanning(false);
                 setScanStatus("error:" + (d.error || "Erreur inconnue"));
                 setTimeout(() => setScanStatus(""), 8000);
             }
