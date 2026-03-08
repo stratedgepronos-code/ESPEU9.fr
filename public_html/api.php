@@ -3247,12 +3247,13 @@ case 'ffbb_sync':
                 } else {
                     $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
                     $check->execute([':fid' => $m['ffbb_id']]);
+                    $lieu = $m['domExt'] === 'dom' ? 'Châlons-en-Champagne' : '';
                     if ($check->fetch()) {
-                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv WHERE ffbb_id=:fid");
-                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
+                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv, lieu=:l WHERE ffbb_id=:fid");
+                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':fid'=>$m['ffbb_id']]);
                     } else {
-                        $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:fid)");
-                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
+                        $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, lieu, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:l,:fid)");
+                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':fid'=>$m['ffbb_id']]);
                     }
                     $synced++;
                 }
