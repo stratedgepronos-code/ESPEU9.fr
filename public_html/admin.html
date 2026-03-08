@@ -226,7 +226,7 @@ function App() {
   }, []);
 
   if (loading) return h("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" } }, h("div", { className: "loader", style: { width: 40, height: 40 } }));
-  if (!user) return null;
+  if (!user) return h("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", flexDirection: "column", gap: 16 } }, h("div", { className: "loader" }), h("p", { style: { color: "var(--text-dim)", fontSize: 14 } }, "Redirection vers la connexion..."));
 
   var tabs = [
     { id: "dashboard", label: "Tableau de bord", icon: "\uD83D\uDCCA" },

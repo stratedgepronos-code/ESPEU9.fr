@@ -1,7 +1,9 @@
 # ═══ ESPE U9 — Protection serveur ═══
 
-# ═══ Mode maintenance : créer le fichier "maintenance.on" à la racine pour activer.
-#     Supprimer "maintenance.on" pour désactiver et rouvrir le site.
+# ═══ Mode maintenance : bloque TOUT LE MONDE sauf l'admin (coach).
+#     Fichier uploads/maintenance.on = maintenance active.
+#     Seuls les visiteurs avec le cookie espeu9_coach (posé à la connexion coach) peuvent accéder au site.
+#     gate.html et api.php restent accessibles pour permettre au coach de se connecter.
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /

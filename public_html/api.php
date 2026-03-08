@@ -380,6 +380,9 @@ case 'logout':
 
 case 'check_session':
     if(isset($_SESSION['user_id'])){
+        if (($_SESSION['role'] ?? '') === 'coach') {
+            setcookie('espeu9_coach', '1', ['path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax', 'expires' => time() + 86400 * 30]);
+        }
         echo json_encode(['logged_in'=>true,'user'=>[
             'id'=>(int)$_SESSION['user_id'],'username'=>$_SESSION['username'],'role'=>$_SESSION['role'],
             'display_name'=>$_SESSION['display_name'],'email'=>$_SESSION['email']??null,
