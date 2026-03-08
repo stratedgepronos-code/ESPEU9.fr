@@ -1483,12 +1483,12 @@ body {
 .fb-card-btn svg { width: 18px; height: 18px; fill: white; }
 
 /* ═══ OBJETS PERDUS ═══ */
-.lost-section { margin-top: 40px; }
+.lost-section { margin-top: 0; }
 .lost-header {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
 }
 .lost-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px;
 }
 .lost-card {
   background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
@@ -5772,8 +5772,10 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                 React.createElement("div", { className: "hero-stat" },
                     React.createElement("div", { className: "hero-stat-val" }, totalOpp),
                     React.createElement("div", { className: "hero-stat-label" }, "Points encaiss\u00E9s")))),
-        // Actualités
-        React.createElement(NewsSection, { user: user }),
+        // Actualités + Objets perdus
+        React.createElement("div", { className: "grid-2", style: { marginBottom: 0 } },
+            React.createElement("div", null, React.createElement(NewsSection, { user: user })),
+            React.createElement("div", null, React.createElement(LostObjectsPanel, { user: user }))),
         React.createElement(BirthdaySection, { onPlayerClick: onPlayerClick }),
         React.createElement("div", { className: "grid-2", style: { marginBottom: 40 } },
             React.createElement("div", null,
@@ -5826,7 +5828,6 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                     m.lieu)),
             React.createElement("span", { className: `result-badge ${m.win ? "win" : "loss"}` }, m.win ? "VICTOIRE" : "DÉFAITE"));
         }),
-        React.createElement(LostObjectsPanel, { user: user }),
         React.createElement("div", { className: "fb-section" },
             React.createElement("div", { className: "section-title" }, "Suivez-nous sur Facebook"),
             React.createElement("div", { className: "fb-cards-row" },
