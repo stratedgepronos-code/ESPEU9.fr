@@ -1165,67 +1165,10 @@ case 'analyze_match_sheet':
     ];
 
     $prompt = <<<'PROMPT'
-Tu reçois une FEUILLE DE MATCH OFFICIELLE FFBB (e-marque V2) de basketball, catégorie U9/U11 en France.
-Ce document PDF contient 2 pages. Tu DOIS analyser LES DEUX PAGES.
-
-=== STRUCTURE DU DOCUMENT ===
-
-PAGE 1 — Informations générales :
-- En-tête : numéro de rencontre, journée, date, heure, lieu/salle
-- Noms des 2 équipes (équipe A = domicile, équipe B = visiteur)
-- Liste des joueurs de chaque équipe : n° licence, nom, prénom, n° maillot
-- Score progression (score cumulé courant, colonne A et colonne B)
-- Lignes séparant les quart-temps dans la progression du score
-- Fautes individuelles et fautes d'équipe par quart-temps
-
-PAGE 2 — Statistiques individuelles détaillées :
-- Un tableau pour CHAQUE équipe avec les colonnes :
-  N° maillot | Nom | Pts | 2pts Int (R/T) | 2pts Ext (R/T) | 3pts (R/T) | LF (R/T) | Fautes | Temps de jeu
-  Où R = Réussis, T = Tentés
-- Score final et scores cumulés à la fin de chaque quart-temps
-
-Renvoie UNIQUEMENT un objet JSON valide (pas de markdown, pas de backticks, pas de texte autour) :
-
-{
-  "journee": 1,
-  "date": "06/12/2025",
-  "heure": "10:30",
-  "lieu": "Nom de la salle ou ville",
-  "domExt": "dom",
-  "equipeA": {
-    "nom": "Nom complet équipe domicile tel qu'écrit",
-    "short": "ABBREVIATION",
-    "score": 40
-  },
-  "equipeB": {
-    "nom": "Nom complet équipe visiteur tel qu'écrit",
-    "short": "ABBREVIATION",
-    "score": 20
-  },
-  "scores": {
-    "qt1": {"a": 10, "b": 5},
-    "qt2": {"a": 12, "b": 6},
-    "qt3": {"a": 8, "b": 4},
-    "qt4": {"a": 10, "b": 5}
-  },
-  "espeStats": [
-    {"num": 6, "nom": "NOM Prénom", "min": "15:06", "pts": 8, "tirs": 4, "t3": 0, "t2i": 3, "t2e": 1, "lf": 0, "fautes": 1}
-  ],
-  "advStats": [
-    {"num": 4, "nom": "NOM Prénom", "min": "09:20", "pts": 4, "tirs": 2, "t3": 0, "t2i": 2, "t2e": 0, "lf": 0, "fautes": 2}
-  ]
-}
-
-RÈGLES :
-- L'équipe "ESPE", "EBCCA" ou "Châlons" → short = "ESPE", stats dans espeStats
-- equipeA = domicile, equipeB = visiteur
-- SCORES QT : la feuille montre des scores CUMULÉS. Calcule les scores PAR quart-temps en soustrayant.
-  Exemple : cumulé QT1=8-6, QT2=20-14 → qt1={a:8,b:6}, qt2={a:12,b:8}
-- STATS JOUEURS (page 2) : num = n° maillot, pts = points totaux, t2i/t2e/t3/lf = tirs RÉUSSIS (valeur R), fautes = total fautes
-- tirs = t2i + t2e + t3
-- pts devrait = (t2i+t2e)×2 + t3×3 + lf
-- Inclus TOUS les joueurs même avec 0 pts. Format nom : "NOM Prénom"
-- Si illisible → 0 ou "00:00". Renvoie UNIQUEMENT le JSON.
+Tu reçois un document officiel FFBB d'un match de basketball U9/U11.
+Analyse TOUTES les pages. Renvoie UNIQUEMENT un JSON valide avec : journee, date, heure, lieu, domExt, equipeA{nom,short,score}, equipeB{nom,short,score}, scores{qt1-qt4{a,b}}, espeStats[{num,nom,min,pts,tirs,t3,t2i,t2e,lf,fautes}], advStats[...].
+ESPE/Châlons → espeStats. equipeA=domicile (LOCAUX), equipeB=visiteur. Scores QT par quart-temps (pas cumulés). num=maillot (pas licence). Inclus TOUS les joueurs même 0 pts.
+Stats depuis le résumé : pts=Nb Pts Marqués, t2i=2 Int Réussis, t2e=2 Ext Réussis, t3=3 Pts Réussis, lf=LF Réussis, tirs=Nb Tirs Réussis, fautes=Ftes Com, min=Tps de jeu.
 PROMPT;
 
     $payload = json_encode([
@@ -1713,58 +1656,65 @@ case 'extract_match_stats':
     if (empty($docContents)) { http_response_code(400); echo json_encode(['error' => 'Aucun fichier valide (PDF ou image requis)']); break; }
 
     $statsPrompt = <<<'PROMPT'
-Tu reçois un ou plusieurs documents officiels FFBB (e-marque V2) d'un match de basketball, catégorie U9/U11 en France.
-Tu peux recevoir : la FEUILLE DE MATCH (avec composition, fautes, progression du score) ET/OU le RÉSUMÉ (avec les stats individuelles détaillées des joueurs, scores par QT).
-Tu DOIS analyser TOUS les documents et TOUTES les pages fournis pour extraire un maximum de données.
+Tu reçois un ou plusieurs documents officiels FFBB d'un match de basketball, catégorie U9/U11 en France.
+Tu peux recevoir 2 types de documents. Analyse TOUS les documents et TOUTES les pages fournis.
 
-=== STRUCTURE DU DOCUMENT ===
+=== DOCUMENT 1 : LE RÉSUMÉ (resume_*.pdf) ===
 
-PAGE 1 — Informations générales :
-- En-tête : numéro de rencontre, journée, date, heure, lieu/salle
-- Noms des 2 équipes (équipe A = domicile, équipe B = visiteur)
-- Liste des joueurs de chaque équipe : n° licence, nom, prénom, n° maillot
-- Score progression (score cumulé courant, colonne A et colonne B)
-- Lignes horizontales séparant les quart-temps dans la progression du score
-- Fautes individuelles (P, T, U, D) et fautes d'équipe par quart-temps
+PAGE 1 du résumé — Statistiques individuelles détaillées :
+- En-tête : Equipe A (nom complet), Equipe B (nom complet), Rencontre N°, Date, Heure, Lieu
+- Section "LOCAUX" = Equipe A (domicile) avec un tableau joueur par joueur :
+  Colonnes : N° Maillot | NOM Prénom | 5 de départ | Tps de jeu | Nb Pts Marqués | Nb Tirs Réussis | 3 Pts Réussis | 2 Int Réussis | 2 Ext Réussis | LF Réussis | Ftes Com
+- Section "VISITEURS" = Equipe B avec le même tableau
+- Lignes de totaux : Total Equipe, Total Banc, Total 5 de Départ, Total 1ère Mi-temps, Total 2ème Mi-temps
 
-PAGE 2 — Statistiques individuelles détaillées :
-- Un tableau pour CHAQUE équipe avec les colonnes :
-  N° maillot | Nom | Pts | 2pts Int (R/T) | 2pts Ext (R/T) | 3pts (R/T) | LF (R/T) | Fautes | Temps de jeu
-  Où R = Réussis, T = Tentés
-- Score final et scores cumulés à la fin de chaque quart-temps
-- Vérification : Pts = (2pts Int R × 2) + (2pts Ext R × 2) + (3pts R × 3) + (LF R × 1)
+PAGE 2 du résumé — Données, ratios et graphique de progression du score (pas de stats joueurs utiles ici)
+
+=== DOCUMENT 2 : LA FEUILLE DE MATCH (feuillematch_*.pdf) ===
+
+PAGE 1 de la feuille — Composition et progression du score :
+- En-tête : mêmes infos (Rencontre N°, Date, Heure, Lieu)
+- Composition Equipe A : licences, noms, N° maillot, fautes individuelles
+- Composition Equipe B : licences, noms, N° maillot, fautes individuelles
+- MARQUE COURANTE : progression panier par panier (scores cumulés colonnes A et B)
+- EN BAS DE LA PAGE : encadré "RÉSULTATS" avec scores PAR quart-temps :
+  QT1 A=X B=Y, QT2 A=X B=Y, QT3 A=X B=Y, QT4 A=X B=Y
+  ET "RÉSULTAT FINAL" : Equipe A = XX, Equipe B = YY
+  Ces scores QT sont DÉJÀ par quart-temps (PAS cumulés), tu peux les utiliser directement.
+
+PAGE 2 de la feuille — Réserves, fautes techniques, officiels (pas utile pour les stats)
 
 === CE QUE TU DOIS EXTRAIRE ===
 
-Renvoie UNIQUEMENT un objet JSON valide (pas de markdown, pas de backticks, pas de texte autour).
+Renvoie UNIQUEMENT un objet JSON valide (pas de markdown, pas de backticks, pas de texte).
 
 {
-  "journee": 1,
-  "date": "06/12/2025",
-  "heure": "10:30",
-  "lieu": "Nom de la salle ou ville",
+  "journee": 47,
+  "date": "08/03/2026",
+  "heure": "10:15",
+  "lieu": "CHALONS EN CHAMPAGNE",
   "domExt": "dom",
   "equipeA": {
-    "nom": "Nom complet équipe domicile tel qu'écrit sur la feuille",
-    "short": "ABBREVIATION",
-    "score": 40
+    "nom": "ESPE BASKET CHALONS EN CHAMPAGNE",
+    "short": "ESPE",
+    "score": 32
   },
   "equipeB": {
-    "nom": "Nom complet équipe visiteur tel qu'écrit sur la feuille",
-    "short": "ABBREVIATION",
-    "score": 20
+    "nom": "REIMS CHAMPAGNE BASKET - 2",
+    "short": "RCB",
+    "score": 14
   },
   "scores": {
-    "qt1": {"a": 10, "b": 5},
-    "qt2": {"a": 12, "b": 6},
-    "qt3": {"a": 8, "b": 4},
-    "qt4": {"a": 10, "b": 5}
+    "qt1": {"a": 8, "b": 2},
+    "qt2": {"a": 6, "b": 4},
+    "qt3": {"a": 10, "b": 6},
+    "qt4": {"a": 8, "b": 2}
   },
   "espeStats": [
-    {"num": 6, "nom": "NOM Prénom", "min": "15:06", "pts": 8, "tirs": 4, "t3": 0, "t2i": 3, "t2e": 1, "lf": 0, "fautes": 1}
+    {"num": 6, "nom": "HAUTION Malone", "min": "16:10", "pts": 6, "tirs": 3, "t3": 0, "t2i": 3, "t2e": 0, "lf": 0, "fautes": 1}
   ],
   "advStats": [
-    {"num": 4, "nom": "NOM Prénom", "min": "09:20", "pts": 4, "tirs": 2, "t3": 0, "t2i": 2, "t2e": 0, "lf": 0, "fautes": 2}
+    {"num": 4, "nom": "JOURNET Sasha", "min": "08:25", "pts": 0, "tirs": 0, "t3": 0, "t2i": 0, "t2e": 0, "lf": 0, "fautes": 0}
   ]
 }
 
@@ -1773,35 +1723,30 @@ Renvoie UNIQUEMENT un objet JSON valide (pas de markdown, pas de backticks, pas 
 IDENTIFICATION DES ÉQUIPES :
 - L'équipe contenant "ESPE", "EBCCA", "Châlons" ou "ESPE Basket Châlons" → short = "ESPE", ses joueurs vont dans espeStats
 - L'autre équipe → advStats
-- equipeA = équipe DOMICILE (celle qui reçoit), equipeB = VISITEUR
-- domExt = "dom" si ESPE est domicile, "ext" sinon
+- equipeA = équipe A du document = LOCAUX = domicile
+- equipeB = équipe B du document = VISITEURS
+- domExt = "dom" si ESPE est equipeA (locaux/domicile), "ext" si ESPE est equipeB (visiteurs)
 
 SCORES PAR QUART-TEMPS :
-- ATTENTION : la feuille FFBB affiche les scores CUMULÉS à la fin de chaque QT
-- Exemple : si le score cumulé est QT1=8-6, QT2=20-14, QT3=28-22, QT4=38-30
-  Alors les scores PAR quart-temps (ce que je veux) sont :
-  qt1 = {a: 8, b: 6}
-  qt2 = {a: 12, b: 8}   (20-8=12, 14-6=8)
-  qt3 = {a: 8, b: 8}    (28-20=8, 22-14=8)
-  qt4 = {a: 10, b: 8}   (38-28=10, 30-22=8)
-- Le score total de equipeA = dernière valeur cumulée colonne A, equipeB = colonne B
+- PRIORITÉ : utilise l'encadré "RÉSULTATS" en bas de la feuille de match, les scores y sont DÉJÀ par quart-temps
+- Si seul le résumé est fourni, cherche les totaux "Total 1ère Mi-temps" et "Total 2ème Mi-temps" pour reconstituer
+- Vérification : la somme des 4 QT doit être = score final de chaque équipe
 
-STATISTIQUES JOUEURS (depuis le tableau PAGE 2) :
-- "num" = numéro de maillot du joueur (pas le numéro de licence !)
-- "nom" = "NOM Prénom" en majuscules pour le nom de famille
-- "pts" = points totaux (colonne Pts du tableau)
-- "t2i" = tirs à 2 points réussis INTÉRIEUR (la valeur R dans "2pts Int R/T")
-- "t2e" = tirs à 2 points réussis EXTÉRIEUR (la valeur R dans "2pts Ext R/T")
-- "t3" = tirs à 3 points réussis (la valeur R dans "3pts R/T")
-- "lf" = lancers francs réussis (la valeur R dans "LF R/T")
-- "tirs" = t2i + t2e + t3 (nombre total de paniers réussis hors LF)
-- "fautes" = nombre de fautes personnelles du joueur
-- "min" = temps de jeu au format "MM:SS"
-- Vérification : pts devrait = (t2i + t2e) × 2 + t3 × 3 + lf × 1
+STATISTIQUES JOUEURS (depuis le tableau du RÉSUMÉ, page 1) :
+- "num" = N° Maillot (PAS le numéro de licence !)
+- "nom" = "NOM Prénom" (nom de famille en MAJUSCULES, prénom normal)
+- "pts" = colonne "Nb Pts Marqués"
+- "t2i" = colonne "2 Int Réussis" (tirs à 2 points intérieurs réussis)
+- "t2e" = colonne "2 Ext Réussis" (tirs à 2 points extérieurs réussis)
+- "t3" = colonne "3 Pts Réussis" (tirs à 3 points réussis)
+- "lf" = colonne "LF Réussis" (lancers francs réussis)
+- "tirs" = colonne "Nb Tirs Réussis" (ou t2i + t2e + t3)
+- "fautes" = colonne "Ftes Com" (fautes commises)
+- "min" = colonne "Tps de jeu" au format "MM:SS"
+- Vérification : pts = (t2i + t2e) × 2 + t3 × 3 + lf
 
 IMPORTANT :
-- Inclus TOUS les joueurs listés dans le tableau de stats, même ceux avec 0 points
-- Si un joueur n'a pas joué (temps = 00:00), inclus-le quand même avec des 0
+- Inclus TOUS les joueurs des 2 équipes, même ceux avec 0 points ou 0 minutes
 - Si une donnée est illisible, mets 0 ou "00:00"
 - Renvoie UNIQUEMENT le JSON, absolument rien d'autre
 PROMPT;
