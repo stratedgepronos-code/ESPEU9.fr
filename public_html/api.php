@@ -364,12 +364,19 @@ case 'login':
             $_SESSION['user_id']=$user['id']; $_SESSION['username']=$user['username']; $_SESSION['role']=$user['role'];
             $_SESSION['display_name']=$user['display_name']; $_SESSION['email']=$user['email']??null;
             $_SESSION['player_id']=$user['player_id']; $_SESSION['parent_type']=$user['parent_type'];
+            if (($user['role'] ?? '') === 'coach') {
+                setcookie('espeu9_coach', '1', ['path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax', 'expires' => time() + 86400 * 30]);
+            }
             echo json_encode(['success'=>true,'user'=>buildUserResponse($user)]);
         } else { recordAttempt($clientIp, 'login'); http_response_code(401); echo json_encode(['error'=>'Identifiant ou mot de passe incorrect']); }
     } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
     break;
 
-case 'logout': session_destroy(); echo json_encode(['success'=>true]); break;
+case 'logout':
+    if (isset($_COOKIE['espeu9_coach'])) {
+        setcookie('espeu9_coach', '', ['path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax', 'expires' => time() - 3600]);
+    }
+    session_destroy(); echo json_encode(['success'=>true]); break;
 
 case 'check_session':
     if(isset($_SESSION['user_id'])){
@@ -1554,43 +1561,6 @@ case 'save_match':
     $win = $espeScore > $advScore ? 1 : 0;
     try {
         $db = getDB();
-        $db->exec("CREATE TABLE IF NOT EXISTS match_results (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            journee INT NOT NULL DEFAULT 0,
-            date VARCHAR(30) NOT NULL DEFAULT '',
-            heure VARCHAR(20) DEFAULT '',
-            lieu VARCHAR(255) DEFAULT '',
-            dom_ext VARCHAR(10) DEFAULT 'dom',
-            equipe_a_nom VARCHAR(100) DEFAULT '',
-            equipe_a_short VARCHAR(20) DEFAULT '',
-            equipe_a_score INT DEFAULT 0,
-            equipe_b_nom VARCHAR(100) DEFAULT '',
-            equipe_b_short VARCHAR(20) DEFAULT '',
-            equipe_b_score INT DEFAULT 0,
-            espe_score INT DEFAULT 0,
-            adv_score INT DEFAULT 0,
-            win TINYINT DEFAULT 0,
-            qt1_a INT DEFAULT 0, qt1_b INT DEFAULT 0,
-            qt2_a INT DEFAULT 0, qt2_b INT DEFAULT 0,
-            qt3_a INT DEFAULT 0, qt3_b INT DEFAULT 0,
-            qt4_a INT DEFAULT 0, qt4_b INT DEFAULT 0
-        )");
-        $db->exec("CREATE TABLE IF NOT EXISTS match_player_stats (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            match_id INT NOT NULL,
-            team_type VARCHAR(10) NOT NULL DEFAULT 'espe',
-            num INT DEFAULT 0,
-            nom VARCHAR(100) DEFAULT '',
-            minutes VARCHAR(20) DEFAULT '00:00',
-            pts INT DEFAULT 0,
-            tirs INT DEFAULT 0,
-            t3 INT DEFAULT 0,
-            t2i INT DEFAULT 0,
-            t2e INT DEFAULT 0,
-            lf INT DEFAULT 0,
-            fautes INT DEFAULT 0,
-            INDEX idx_match_team (match_id, team_type)
-        )");
         if ($matchId > 0) {
             // Mise à jour
             $st = $db->prepare("UPDATE match_results SET journee=:j, date=:d, heure=:h, lieu=:l, dom_ext=:de, equipe_a_nom=:ean, equipe_a_short=:eas, equipe_a_score=:easc, equipe_b_nom=:ebn, equipe_b_short=:ebs, equipe_b_score=:ebsc, espe_score=:es, adv_score=:as2, win=:w, qt1_a=:q1a, qt1_b=:q1b, qt2_a=:q2a, qt2_b=:q2b, qt3_a=:q3a, qt3_b=:q3b, qt4_a=:q4a, qt4_b=:q4b WHERE id=:id");
@@ -1633,36 +1603,31 @@ case 'save_match':
         }
         echo json_encode(['success' => true, 'match_id' => $matchId]);
 
-        // ═══ Email notification aux parents (ne pas faire échouer la requête) ═══
-        try {
-            $advNom = ($eqA['short'] ?? '') === 'ESPE' ? ($eqB['nom'] ?? 'Adversaire') : ($eqA['nom'] ?? 'Adversaire');
-            $ts = strtotime(str_replace('/', '-', $date));
-            $dateFormatted = ($ts !== false) ? date('d/m/Y', $ts) : $date;
-            $hasStats = !empty($espeStats);
+        // ═══ Email notification aux parents ═══
+        $advNom = ($eqA['short'] ?? '') === 'ESPE' ? ($eqB['nom'] ?? 'Adversaire') : ($eqA['nom'] ?? 'Adversaire');
+        $dateFormatted = date('d/m/Y', strtotime($date));
+        $hasStats = !empty($espeStats);
 
-            if ($isNewMatch) {
-                $subj = "Nouveau match — J$journee vs $advNom";
-                $html = "<p>📅 <strong>J$journee — $dateFormatted</strong>" . ($heure ? " à $heure" : "") . "</p>"
-                      . "<p>🆚 ESPE vs <strong>$advNom</strong></p>"
-                      . ($lieu ? "<p>📍 $lieu ($domExt)</p>" : "")
-                      . "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir le match →</a></p>";
-                notifyAllParents($subj, $html);
-            } elseif ($hasStats) {
-                $resultat = $espeScore > $advScore ? "Victoire 🎉" : ($espeScore < $advScore ? "Défaite" : "Égalité");
-                $subj = "Stats — J$journee vs $advNom ($espeScore-$advScore)";
-                $html = "<p>📊 <strong>Les stats du match sont disponibles !</strong></p>"
-                      . "<p>🆚 ESPE <strong>$espeScore - $advScore</strong> $advNom → $resultat</p>"
-                      . "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir les stats →</a></p>";
-                notifyAllParents($subj, $html);
-            } else {
-                $subj = "Match modifié — J$journee vs $advNom";
-                $html = "<p>✏️ <strong>Le match J$journee a été mis à jour</strong></p>"
-                      . "<p>📅 $dateFormatted" . ($heure ? " à $heure" : "") . "</p>"
-                      . "<p>🆚 ESPE <strong>$espeScore - $advScore</strong> $advNom</p>"
-                      . "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir le match →</a></p>";
-                notifyAllParents($subj, $html);
-            }
-        } catch (Throwable $e) { /* notifications optionnelles */ }
+        if ($isNewMatch) {
+            $subj = "Nouveau match — J$journee vs $advNom";
+            $html = "<p>📅 <strong>J$journee — $dateFormatted</strong>" . ($heure ? " à $heure" : "") . "</p>"
+                  . "<p>🆚 ESPE vs <strong>$advNom</strong></p>"
+                  . ($lieu ? "<p>📍 $lieu ($domExt)</p>" : "")
+                  . "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir le match →</a></p>";
+        } elseif ($hasStats) {
+            $resultat = $espeScore > $advScore ? "Victoire 🎉" : ($espeScore < $advScore ? "Défaite" : "Égalité");
+            $subj = "Stats — J$journee vs $advNom ($espeScore-$advScore)";
+            $html = "<p>📊 <strong>Les stats du match sont disponibles !</strong></p>"
+                  . "<p>🆚 ESPE <strong>$espeScore - $advScore</strong> $advNom → $resultat</p>"
+                  . "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir les stats →</a></p>";
+        } else {
+            $subj = "Match modifié — J$journee vs $advNom";
+            $html = "<p>✏️ <strong>Le match J$journee a été mis à jour</strong></p>"
+                  . "<p>📅 $dateFormatted" . ($heure ? " à $heure" : "") . "</p>"
+                  . "<p>🆚 ESPE <strong>$espeScore - $advScore</strong> $advNom</p>"
+                  . "<p style='margin-top:16px'><a href='https://espeu9.fr/#matchs' style='display:inline-block;background:#1a6b2e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold'>Voir le match →</a></p>";
+        }
+        notifyAllParents($subj, $html);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
@@ -3386,38 +3351,6 @@ case 'admin_dashboard':
         try { $r = $db->query("SELECT COUNT(*) as c FROM users")->fetch(); $usersCount = (int)$r['c']; } catch(Exception $e) {}
         echo json_encode(['success' => true, 'stats' => $stats, 'upcoming' => $upcoming, 'recent' => $recentMatches, 'standings' => $standings, 'last_sync' => $lastSync, 'users_count' => $usersCount]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
-    break;
-
-// ═══ MAINTENANCE (coach uniquement) ═══
-case 'get_maintenance_status':
-    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coach') {
-        http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break;
-    }
-    $flagFile = __DIR__ . '/uploads/maintenance.on';
-    $active = file_exists($flagFile);
-    echo json_encode(['success' => true, 'maintenance' => $active]);
-    break;
-
-case 'set_maintenance':
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
-    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coach') {
-        http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break;
-    }
-    $in = json_decode(file_get_contents('php://input'), true);
-    $on = !empty($in['on']);
-    $uploadDir = __DIR__ . '/uploads';
-    if (!is_dir($uploadDir)) @mkdir($uploadDir, 0755, true);
-    $flagFile = $uploadDir . '/maintenance.on';
-    if ($on) {
-        if (@file_put_contents($flagFile, '') === false) {
-            http_response_code(500); echo json_encode(['error' => 'Impossible d\'activer la maintenance (droits d\'écriture)']); break;
-        }
-    } else {
-        if (file_exists($flagFile) && !@unlink($flagFile)) {
-            http_response_code(500); echo json_encode(['error' => 'Impossible de désactiver la maintenance']); break;
-        }
-    }
-    echo json_encode(['success' => true, 'maintenance' => $on]);
     break;
 
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;

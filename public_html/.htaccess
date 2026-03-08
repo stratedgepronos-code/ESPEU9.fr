@@ -11,6 +11,7 @@
     RewriteCond %{REQUEST_URI} !^/maintenance-control\.html [NC]
     RewriteCond %{REQUEST_URI} !^/gate\.html [NC]
     RewriteCond %{DOCUMENT_ROOT}/uploads/maintenance.on -f
+    RewriteCond %{HTTP_COOKIE} !espeu9_coach= [NC]
     RewriteRule ^(.*)$ /maintenance.html [L,R=302]
 </IfModule>
 
