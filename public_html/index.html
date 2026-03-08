@@ -246,12 +246,7 @@ const INITIAL_MATCHES = [
         scores: { qt1: { a: 8, b: 6 }, qt2: { a: 11, b: 6 }, qt3: { a: 10, b: 5 }, qt4: { a: 4, b: 5 } },
     },
 ];
-const UPCOMING = [
-    { id: 47, journee: 6, date: "08/03/2026", heure: "11:15", lieu: "Châlons", gymnase: "", domExt: "dom", adversaire: "Reims Champagne Basket - 2" },
-    { id: 64, journee: 8, date: "21/03/2026", heure: "15:00", lieu: "Courtisols", gymnase: "", domExt: "ext", adversaire: "Avenir Sportif Courtisols" },
-    { id: 75, journee: 9, date: "28/03/2026", heure: "13:00", lieu: "Cormontreuil", gymnase: "", domExt: "ext", adversaire: "Assoc. Cormontreuil" },
-    { id: 83, journee: 10, date: "04/04/2026", heure: "", lieu: "Châlons", gymnase: "", domExt: "dom", adversaire: "Gauloise de Vitry" },
-];
+const UPCOMING = [];
 const STANDINGS = [
     { rank: 1, team: "Gauloise de Vitry", pts: 8, v: 4, d: 0 },
     { rank: 2, team: "ESPE Châlons", pts: 7, v: 3, d: 1, isUs: true },
@@ -425,9 +420,18 @@ body {
 
 .nav-logo-text {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 2px;
   color: var(--green-900);
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.nav-logo-sub {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--green-700);
+  opacity: 0.7;
 }
 
 .nav-btn {
@@ -1497,7 +1501,8 @@ body {
   .nav { padding: 0 12px; }
   .nav-inner { gap: 2px; height: 56px; }
   .nav-logo img { width: 36px; height: 36px; }
-  .nav-logo-text { font-size: 16px; letter-spacing: 1px; }
+  .nav-logo-text { font-size: 15px; letter-spacing: 1px; }
+  .nav-logo-sub { font-size: 11px; letter-spacing: 2px; }
   .nav-logo { gap: 8px; }
   /* Hide desktop nav items on mobile */
   .nav-desktop-items { display: none !important; }
@@ -4036,7 +4041,7 @@ function MatchChatPanel({ matchId, user }) {
     const [sending, setSending] = useState(false);
     const [expanded, setExpanded] = useState(true);
     const chatEndRef = useRef(null);
-    const prevCountRef = useRef(0);
+    const prevCountRef = useRef(-1);
     const isCoach = user && user.role === "coach";
 
     const load = () => {
@@ -4045,7 +4050,7 @@ function MatchChatPanel({ matchId, user }) {
     };
     useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, [matchId]);
     useEffect(() => {
-        // Only scroll if a NEW message was added (not on every reload)
+        if (prevCountRef.current === -1) { prevCountRef.current = messages.length; return; }
         if (expanded && messages.length > prevCountRef.current && chatEndRef.current) {
             chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
@@ -4496,7 +4501,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const isCoach = !!(user && user.role === "coach");
     const isHome = u.domExt === "dom";
     const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: "" });
-    useEffect(function() { requestAnimationFrame(function() { window.scrollTo(0, 0); }); }, []);
+    useEffect(function() { window.scrollTo(0, 0); var t = setTimeout(function() { window.scrollTo(0, 0); }, 300); return function() { clearTimeout(t); }; }, []);
     const displayDate = extras.date || u.date || "";
     const displayHeure = extras.heure || u.heure || "";
     const displayGymnase = extras.gymnase || u.gymnase || "";
@@ -4947,7 +4952,7 @@ function App() {
                 React.createElement("div", { className: "nav-inner" },
                     React.createElement("div", { className: "nav-logo", onClick: goHome },
                         React.createElement("img", { src: LOGO, alt: "ESPE" }),
-                        React.createElement("span", { className: "nav-logo-text" }, TEAM_NAME)),
+                        React.createElement("span", { className: "nav-logo-text" }, React.createElement("span", null, "ESPE BASKET"), React.createElement("span", { className: "nav-logo-sub" }, "U9"))),
                     // Desktop items (hidden on mobile via CSS)
                     React.createElement("div", { className: "nav-desktop-items" },
                         TABS.map((t) => (t === "joueurs" ? (React.createElement("div", { key: t, className: "nav-btn-wrap" },
@@ -6172,7 +6177,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
 // MATCH DETAIL
 // ── Scan Stats Button (IA extraction from match sheet) ──
 function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, user, onDelete }) {
-    useEffect(function() { window.scrollTo(0, 0); }, []);
+    useEffect(function() { window.scrollTo(0, 0); var t = setTimeout(function() { window.scrollTo(0, 0); }, 300); return function() { clearTimeout(t); }; }, []);
     const m = match;
     const advName = m.equipeA.short === "ESPE" ? m.equipeB.nom : m.equipeA.nom;
     const advShort = m.equipeA.short === "ESPE" ? m.equipeB.short : m.equipeA.short;

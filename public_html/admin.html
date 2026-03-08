@@ -538,6 +538,8 @@ function MatchesTab({ showToast }) {
   const [loading, setLoading] = useState(true);
   const [editMatch, setEditMatch] = useState(null);
   const [editStats, setEditStats] = useState(null);
+  const [sheetUploading, setSheetUploading] = useState(false);
+  const sheetInputRef = useRef(null);
 
   var loadAll = function() {
     setLoading(true);
@@ -552,6 +554,26 @@ function MatchesTab({ showToast }) {
   };
   useEffect(loadAll, []);
 
+  var handleSheetChange = function(e) {
+    var files = Array.from(e.target.files);
+    if (!files.length) return;
+    var mid = e.target.dataset.matchId;
+    if (!mid) return;
+    setSheetUploading(true);
+    showToast("Upload + analyse IA en cours...");
+    var form = new FormData();
+    form.append("match_id", String(mid));
+    files.forEach(function(f, i) { form.append(i === 0 ? "sheet" : "sheet2", f); });
+    fetch(API + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: form })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setSheetUploading(false);
+        if (d.success) { showToast("Scores et stats extraits !"); loadAll(); }
+        else showToast(d.error || "Erreur analyse IA", "error");
+      }).catch(function() { setSheetUploading(false); showToast("Erreur r\u00E9seau", "error"); });
+    e.target.value = "";
+  };
+
   var handleDelete = function(id) {
     if (!confirm("Supprimer ce match et toutes ses stats ?")) return;
     fetch(API + "?action=delete_match", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: id }) })
@@ -562,6 +584,7 @@ function MatchesTab({ showToast }) {
   if (loading) return h("div", { style: { textAlign: "center", padding: 40 } }, h("div", { className: "loader" }));
 
   return h("div", null,
+    h("input", { type: "file", ref: sheetInputRef, accept: "application/pdf,image/*", multiple: true, style: { display: "none" }, onChange: handleSheetChange }),
     h("div", { className: "section-title" }, "\uD83C\uDFC0 MATCHS DISPUT\u00C9S"),
     matches.length === 0 ? h("div", { className: "card empty-state" }, h("div", { className: "empty-icon" }, "\uD83C\uDFC0"), h("p", null, "Aucun match enregistr\u00E9. Synchronisez la FFBB ou ajoutez un match.")) :
     h("div", { className: "card", style: { overflowX: "auto" } },
@@ -583,8 +606,10 @@ function MatchesTab({ showToast }) {
               hasStats ? h("span", { className: "tag tag-synced" }, "\u2705 ", m.espeStats.length, " joueurs") : h("span", { className: "tag tag-manual" }, "\u26A0 Pas de stats")),
             h("td", null,
               h("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+                h("a", { className: "btn btn-ghost", style: { padding: "4px 8px", fontSize: 11, textDecoration: "none" }, href: "index.html#matchs/" + m.id, target: "_blank" }, "\uD83D\uDD17 Voir"),
                 h("button", { className: "btn btn-ghost", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { setEditMatch(m); } }, "\u270F\uFE0F \u00C9diter"),
                 h("button", { className: "btn btn-ghost", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { setEditStats(m); } }, "\uD83D\uDCCA Stats"),
+                h("button", { className: "btn btn-ghost", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { sheetInputRef.current.dataset.matchId = m.id; sheetInputRef.current.click(); } }, "\uD83D\uDCC4 Feuille"),
                 h("button", { className: "btn btn-danger", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { handleDelete(m.id); } }, "\uD83D\uDDD1"))));
         })))),
     // Upcoming

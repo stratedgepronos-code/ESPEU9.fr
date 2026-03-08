@@ -3461,7 +3461,7 @@ function MatchChatPanel({ matchId, user }) {
     const [sending, setSending] = useState(false);
     const [expanded, setExpanded] = useState(true);
     const chatEndRef = useRef(null);
-    const prevCountRef = useRef(0);
+    const prevCountRef = useRef(-1);
     const isCoach = user && user.role === "coach";
 
     const load = () => {
@@ -3470,7 +3470,7 @@ function MatchChatPanel({ matchId, user }) {
     };
     useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, [matchId]);
     useEffect(() => {
-        // Only scroll if a NEW message was added (not on every reload)
+        if (prevCountRef.current === -1) { prevCountRef.current = messages.length; return; }
         if (expanded && messages.length > prevCountRef.current && chatEndRef.current) {
             chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
@@ -5548,7 +5548,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
 // MATCH DETAIL
 // ── Scan Stats Button (IA extraction from match sheet) ──
 function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, user, onDelete }) {
-    useEffect(function() { window.scrollTo(0, 0); }, []);
+    useEffect(function() { window.scrollTo(0, 0); var t = setTimeout(function() { window.scrollTo(0, 0); }, 300); return function() { clearTimeout(t); }; }, []);
     const m = match;
     const advName = m.equipeA.short === "ESPE" ? m.equipeB.nom : m.equipeA.nom;
     const advShort = m.equipeA.short === "ESPE" ? m.equipeB.short : m.equipeA.short;
