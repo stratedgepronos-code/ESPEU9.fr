@@ -4501,7 +4501,12 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const isCoach = !!(user && user.role === "coach");
     const isHome = u.domExt === "dom";
     const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: "" });
-    useEffect(function() { window.scrollTo(0, 0); var t = setTimeout(function() { window.scrollTo(0, 0); }, 300); return function() { clearTimeout(t); }; }, []);
+    useEffect(function() {
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        window.scrollTo(0, 0);
+        var ids = [100, 300, 600, 1000].map(function(d) { return setTimeout(function() { window.scrollTo(0, 0); }, d); });
+        return function() { ids.forEach(clearTimeout); };
+    }, []);
     const displayDate = extras.date || u.date || "";
     const displayHeure = extras.heure || u.heure || "";
     const displayGymnase = extras.gymnase || u.gymnase || "";
@@ -6177,7 +6182,12 @@ function MatchPhotos({ matchId, coachUnlocked }) {
 // MATCH DETAIL
 // ── Scan Stats Button (IA extraction from match sheet) ──
 function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, user, onDelete }) {
-    useEffect(function() { window.scrollTo(0, 0); var t = setTimeout(function() { window.scrollTo(0, 0); }, 300); return function() { clearTimeout(t); }; }, []);
+    useEffect(function() {
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        window.scrollTo(0, 0);
+        var ids = [100, 300, 600, 1000].map(function(d) { return setTimeout(function() { window.scrollTo(0, 0); }, d); });
+        return function() { ids.forEach(clearTimeout); };
+    }, []);
     const m = match;
     const advName = m.equipeA.short === "ESPE" ? m.equipeB.nom : m.equipeA.nom;
     const advShort = m.equipeA.short === "ESPE" ? m.equipeB.short : m.equipeA.short;
