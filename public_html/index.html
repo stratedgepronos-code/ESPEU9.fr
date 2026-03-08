@@ -2584,6 +2584,41 @@ function CoachPushPanel() {
                         React.createElement("option", { value: "#joueurs" }, "Joueurs"))),
                 React.createElement("button", { onClick: handleSend, disabled: loading || subCount === 0, style: { padding: "12px 28px", background: subCount > 0 ? "#1a6b2e" : "#999", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: subCount > 0 ? "pointer" : "not-allowed", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" } }, loading ? "Envoi..." : "\uD83D\uDE80 Envoyer"))));
 }
+// ── Maintenance du site (coach) ──
+function MaintenancePanel() {
+    const [active, setActive] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState("");
+    const load = () => {
+        fetch(API_URL + "?action=get_maintenance_status", { credentials: "same-origin" })
+            .then(r => r.json()).then(d => { if (d.success) setActive(d.maintenance); }).catch(() => setActive(false));
+    };
+    useEffect(load, []);
+    const setMaintenance = (on) => {
+        setLoading(true); setMsg("");
+        fetch(API_URL + "?action=set_maintenance", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ on: on })
+        }).then(r => r.json()).then(d => {
+            setLoading(false);
+            if (d.success) { setActive(d.maintenance); setMsg(on ? "Maintenance activ\u00E9e. Le site est bloqu\u00E9." : "Maintenance d\u00E9sactiv\u00E9e. Le site est en ligne."); }
+            else { setMsg(d.error || "Erreur"); }
+        }).catch(() => { setLoading(false); setMsg("Erreur r\u00E9seau"); });
+    };
+    if (active === null) return React.createElement("div", { className: "card", style: { padding: 20 } }, "\u23F3 Chargement...");
+    const cardS = { padding: 20, marginBottom: 24, border: active ? "2px solid #f59e0b" : "2px solid var(--border)" };
+    return React.createElement("div", { className: "card", style: cardS },
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 } },
+            "\uD83D\uDD27", " Maintenance du site"),
+        React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } },
+            active ? "Le site affiche une page de maintenance pour tous les visiteurs. Toi (coach) peux toujours acc\u00E9der \u00E0 cette page." : "Le site est en ligne. Active la maintenance pour bloquer l\u2019acc\u00E8s pendant une mise \u00E0 jour."),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontSize: 14, fontWeight: 600, color: active ? "#d97706" : "var(--green-600)" } }, active ? "\u26A0\uFE0F Maintenance activ\u00E9e" : "\u2705 Site en ligne"),
+            React.createElement("button", { type: "button", onClick: () => setMaintenance(true), disabled: loading || active, style: { padding: "10px 18px", background: active ? "#666" : "#f59e0b", color: "white", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: active ? "default" : "pointer", opacity: loading ? 0.6 : 1 } }, "Activer"),
+            React.createElement("button", { type: "button", onClick: () => setMaintenance(false), disabled: loading || !active, style: { padding: "10px 18px", background: !active ? "#666" : "#16a34a", color: "white", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: !active ? "default" : "pointer", opacity: loading ? 0.6 : 1 } }, "D\u00E9sactiver"))),
+        msg && React.createElement("div", { style: { marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--green-600)" } }, msg));
+}
 // ── Coach Password Reset Panel ──
 function CoachPasswordPanel() {
     const [parents, setParents] = useState([]);
@@ -3074,6 +3109,8 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
             React.createElement(AttendancePanel),
             React.createElement(TrainingAttendancePanel),
             React.createElement(CoachPushPanel),
+            React.createElement("div", { className: "section-title", style: { marginTop: 24 } }, "\uD83D\uDD27 Maintenance du site"),
+            React.createElement(MaintenancePanel),
             React.createElement(CoachPasswordPanel),
             React.createElement("div", { className: "section-title", style: { marginTop: 32 } }, "\uD83D\uDCF1 Mes notifications"),
             React.createElement("div", { className: "card", style: { padding: 20 } }, React.createElement(PushNotifToggle)));

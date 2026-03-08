@@ -1,5 +1,19 @@
 # ═══ ESPE U9 — Protection serveur ═══
 
+# ═══ Mode maintenance : créer le fichier "maintenance.on" à la racine pour activer.
+#     Supprimer "maintenance.on" pour désactiver et rouvrir le site.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    RewriteCond %{REQUEST_URI} !^/maintenance\.html$ [NC]
+    RewriteCond %{REQUEST_URI} !^/maintenance\.on$ [NC]
+    RewriteCond %{REQUEST_URI} !^/api\.php [NC]
+    RewriteCond %{REQUEST_URI} !^/maintenance-control\.html [NC]
+    RewriteCond %{REQUEST_URI} !^/gate\.html [NC]
+    RewriteCond %{DOCUMENT_ROOT}/maintenance.on -f
+    RewriteRule ^(.*)$ /maintenance.html [L,R=302]
+</IfModule>
+
 # Bloquer l'accès direct aux fichiers sensibles
 <FilesMatch "^(config\.php|web_push\.php|push-debug\.php|composer\.json|composer\.lock|\.cursorrules)$">
     <IfModule mod_authz_core.c>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrôle maintenance — ESPE U9</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 400px; margin: 60px auto; padding: 24px; background: #0f172a; color: #e2e8f0; text-align: center; }
+        h1 { font-size: 1.25rem; margin-bottom: 16px; }
+        p { font-size: 14px; color: #94a3b8; margin-bottom: 20px; }
+        button { padding: 12px 24px; background: #16a34a; color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
+        button:disabled { background: #666; cursor: default; }
+        .msg { margin-top: 16px; font-size: 13px; font-weight: 600; color: #22c55e; }
+        .err { color: #ef4444; }
+        a { color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <h1>Contrôle maintenance</h1>
+    <p>Réservé au coach. Désactive la maintenance pour rouvrir le site.</p>
+    <button id="btn" disabled>Chargement...</button>
+    <p id="msg" class="msg"></p>
+    <p style="margin-top:24px;font-size:12px"><a href="gate.html">Connexion</a> · <a href="index.html">Accueil</a></p>
+    <script>
+        (function() {
+            var API = (typeof window.ESPE_U9_API !== 'undefined') ? window.ESPE_U9_API : 'api.php';
+            var btn = document.getElementById('btn');
+            var msg = document.getElementById('msg');
+            function load() {
+                fetch(API + '?action=get_maintenance_status', { credentials: 'same-origin' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d.success) {
+                            if (d.maintenance) {
+                                btn.textContent = 'Désactiver la maintenance';
+                                btn.disabled = false;
+                                btn.onclick = function() {
+                                    btn.disabled = true;
+                                    msg.textContent = '';
+                                    fetch(API + '?action=set_maintenance', {
+                                        method: 'POST', credentials: 'same-origin',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ on: false })
+                                    }).then(function(r) { return r.json(); }).then(function(res) {
+                                        if (res.success) {
+                                            msg.textContent = 'Maintenance désactivée. Redirection...';
+                                            msg.className = 'msg';
+                                            setTimeout(function() { window.location.href = 'index.html'; }, 1500);
+                                        } else {
+                                            msg.textContent = res.error || 'Erreur';
+                                            msg.className = 'msg err';
+                                            btn.disabled = false;
+                                        }
+                                    }).catch(function() {
+                                        msg.textContent = 'Erreur réseau';
+                                        msg.className = 'msg err';
+                                        btn.disabled = false;
+                                    });
+                                };
+                            } else {
+                                btn.textContent = 'Site déjà en ligne';
+                                msg.textContent = 'La maintenance n\'est pas activée.';
+                            }
+                        } else {
+                            btn.textContent = 'Accès refusé';
+                            msg.textContent = 'Connecte-toi en tant que coach.';
+                            msg.className = 'msg err';
+                        }
+                    })
+                    .catch(function() {
+                        btn.textContent = 'Erreur';
+                        msg.textContent = 'Impossible de joindre l\'API.';
+                        msg.className = 'msg err';
+                    });
+            }
+            load();
+        })();
+    </script>
+</body>
+</html>
