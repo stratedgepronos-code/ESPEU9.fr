@@ -3037,30 +3037,25 @@ case 'ffbb_sync':
         $matches = [];
         $standings = [];
 
-        // Parse match rows from the calendar section
-        // Pattern: #NUMBER \n JDAY \n DATE TIME \n Domicile|Extérieur \n OPPONENT \n SCORE
-        if (preg_match_all('/#(\d+)\s*\n\s*\n\s*(J\d+)\s*\n\s*\n\s*(\d{1,2}\s+\w+\.?\s+\d{1,2}h\d{2})\s*\n\s*\n\s*(Domicile|Extérieur)\s*\n\s*\n\s*\[([^\]]+)\]/s', $html, $m, PREG_SET_ORDER)) {
+        // Parse match info: #ID, Journée, Date, Dom/Ext from HTML divs
+        if (preg_match_all('/#(\d+)<\/div><div[^>]*>(J\d+)<\/div><div[^>]*>([^<]+)<\/div><div[^>]*>(Domicile|Ext[^<]*)<\/div>/u', $html, $m, PREG_SET_ORDER)) {
             foreach ($m as $row) {
                 $matchNum = (int)$row[1];
                 $journee = $row[2];
                 $dateTimeRaw = trim($row[3]);
-                $domExt = $row[4] === 'Domicile' ? 'dom' : 'ext';
-                $adversaire = trim($row[5]);
+                $domExt = (strpos($row[4], 'Domicile') !== false) ? 'dom' : 'ext';
 
-                // Parse date: "6 déc. 11h30" -> "06/12/2025"
                 $dtParts = preg_split('/\s+/', $dateTimeRaw);
                 $day = str_pad($dtParts[0] ?? '1', 2, '0', STR_PAD_LEFT);
                 $monthStr = strtolower(str_replace('.', '', $dtParts[1] ?? ''));
-                $monthMap = ['janv'=>'01','jan'=>'01','févr'=>'02','fev'=>'02','fév'=>'02','mars'=>'03','mar'=>'03','avr'=>'04','avril'=>'04','mai'=>'05','juin'=>'06','juil'=>'07','juill'=>'07','août'=>'08','aout'=>'08','sept'=>'09','sep'=>'09','oct'=>'10','nov'=>'11','déc'=>'12','dec'=>'12'];
+                $monthMap = ['janv'=>'01','jan'=>'01','f\xc3\xa9vr'=>'02','fevr'=>'02','fev'=>'02','f\xc3\xa9v'=>'02','mars'=>'03','mar'=>'03','avr'=>'04','avril'=>'04','mai'=>'05','juin'=>'06','juil'=>'07','juill'=>'07','ao\xc3\xbbt'=>'08','aout'=>'08','sept'=>'09','sep'=>'09','oct'=>'10','nov'=>'11','d\xc3\xa9c'=>'12','dec'=>'12'];
                 $month = $monthMap[$monthStr] ?? '01';
                 $timeRaw = $dtParts[2] ?? '00h00';
                 $heure = str_replace('h', ':', $timeRaw);
                 if (strlen($heure) === 4) $heure = '0' . $heure;
 
-                // Determine year based on month
                 $year = ((int)$month >= 8) ? '2025' : '2026';
                 $dateFormatted = "$day/$month/$year";
-
                 $journeeNum = (int)str_replace('J', '', $journee);
 
                 $matches[] = [
@@ -3069,57 +3064,37 @@ case 'ffbb_sync':
                     'date' => $dateFormatted,
                     'heure' => $heure,
                     'domExt' => $domExt,
-                    'adversaire' => $adversaire,
-                    'score_raw' => null
+                    'adversaire' => '',
+                    'score_home' => 0,
+                    'score_away' => 0,
+                    'played' => false
                 ];
             }
         }
 
-        // Parse scores: they appear as links like [1433](matchUrl) or [00](matchUrl)
-        if (preg_match_all('/\[(\d{2,6})\]\(https:\/\/competitions\.ffbb\.com\/[^)]*\/match\/\d+\)/', $html, $scoreMatches, PREG_SET_ORDER)) {
-            foreach ($scoreMatches as $idx => $sm) {
+        // Parse adversaire names: title="TEAM NAME" href="/ligues/.../equipes/..."
+        if (preg_match_all('/title="([^"]+?)"\s+href="\/ligues\/[^"]*?\/clubs\/[^"]*?\/equipes\/\d+"/u', $html, $teamM, PREG_SET_ORDER)) {
+            foreach ($teamM as $idx => $tm) {
                 if (isset($matches[$idx])) {
-                    $matches[$idx]['score_raw'] = $sm[1];
+                    $matches[$idx]['adversaire'] = trim($tm[1]);
                 }
             }
         }
 
-        // Parse scores into home/away
-        foreach ($matches as &$match) {
-            $raw = $match['score_raw'];
-            if (!$raw || $raw === '00') {
-                $match['played'] = false;
-                $match['score_home'] = 0;
-                $match['score_away'] = 0;
-            } else {
-                $match['played'] = true;
-                $len = strlen($raw);
-                // Split score: try middle split first, adjusting for uneven scores
-                // Scores are concatenated: home_score + away_score
-                // We need to figure out the split point
-                $bestSplit = intdiv($len, 2);
-                // For U9, scores rarely exceed 99, usually 2 digits each
-                if ($len <= 2) {
-                    $match['score_home'] = (int)$raw[0];
-                    $match['score_away'] = (int)substr($raw, 1);
-                } elseif ($len === 3) {
-                    // Could be X-YY or XX-Y, try both
-                    $s1h = (int)substr($raw, 0, 1); $s1a = (int)substr($raw, 1);
-                    $s2h = (int)substr($raw, 0, 2); $s2a = (int)substr($raw, 2);
-                    // The sum of QT scores should be reasonable; pick the one with smaller difference
-                    if (abs($s1h - $s1a) < abs($s2h - $s2a)) {
-                        $match['score_home'] = $s1h; $match['score_away'] = $s1a;
-                    } else {
-                        $match['score_home'] = $s2h; $match['score_away'] = $s2a;
-                    }
-                } else {
-                    // 4+ digits: split in half
-                    $half = intdiv($len, 2);
-                    $match['score_home'] = (int)substr($raw, 0, $half);
-                    $match['score_away'] = (int)substr($raw, $half);
+        // Parse scores: two <span> tags containing digits around each match score area
+        // Format: <span ...>SCORE_HOME</span>...<svg>...</svg>...<span ...>SCORE_AWAY</span>
+        if (preg_match_all('/href="\/ligues\/[^"]*\/match\/\d+"[^>]*>.*?<span[^>]*>(\d+)<\/span>.*?<span[^>]*>(\d+)<\/span>/su', $html, $scoreM, PREG_SET_ORDER)) {
+            foreach ($scoreM as $idx => $sm) {
+                if (isset($matches[$idx])) {
+                    $matches[$idx]['score_home'] = (int)$sm[1];
+                    $matches[$idx]['score_away'] = (int)$sm[2];
+                    $matches[$idx]['played'] = ((int)$sm[1] + (int)$sm[2]) > 0;
                 }
             }
-            // Determine ESPE score vs opponent
+        }
+
+        // Compute ESPE vs opponent scores
+        foreach ($matches as &$match) {
             if ($match['domExt'] === 'dom') {
                 $match['espe_score'] = $match['score_home'];
                 $match['adv_score'] = $match['score_away'];
@@ -3131,8 +3106,9 @@ case 'ffbb_sync':
         }
         unset($match);
 
-        // Parse standings
-        if (preg_match_all('/\[(\d+)([A-Z][A-Z\s\-\'\.]+?)(\d+)\]\(https:\/\/competitions\.ffbb\.com\/[^)]*\/equipes\/\d+\)/', $html, $standM, PREG_SET_ORDER)) {
+        // Parse standings from the classement section
+        // HTML format: rank + team name + points concatenated in link text
+        if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d+)<\/(?:div|a)>/u', $html, $standM, PREG_SET_ORDER)) {
             foreach ($standM as $s) {
                 $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
             }
