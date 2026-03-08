@@ -3447,5 +3447,29 @@ case 'admin_dashboard':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
+case 'get_maintenance_status':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $maintenanceFile = __DIR__ . '/uploads/maintenance.on';
+    $active = file_exists($maintenanceFile);
+    $since = $active ? date('d/m/Y H:i', filemtime($maintenanceFile)) : null;
+    echo json_encode(['success' => true, 'active' => $active, 'since' => $since]);
+    break;
+
+case 'set_maintenance':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $enable = !empty($in['enable']);
+    $maintenanceFile = __DIR__ . '/uploads/maintenance.on';
+    if ($enable) {
+        @mkdir(dirname($maintenanceFile), 0755, true);
+        file_put_contents($maintenanceFile, date('Y-m-d H:i:s'));
+        echo json_encode(['success' => true, 'active' => true, 'message' => 'Mode maintenance activé']);
+    } else {
+        if (file_exists($maintenanceFile)) @unlink($maintenanceFile);
+        echo json_encode(['success' => true, 'active' => false, 'message' => 'Mode maintenance désactivé']);
+    }
+    break;
+
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
 }

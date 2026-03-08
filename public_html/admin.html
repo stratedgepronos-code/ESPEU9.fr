@@ -364,6 +364,80 @@
     .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
     .tag-synced { background: rgba(45,217,85,0.1); color: var(--green-400); }
     .tag-manual { background: rgba(232,185,48,0.1); color: var(--gold); }
+
+    /* ── MAINTENANCE MODULE ── */
+    .maint-card {
+      position: relative; overflow: hidden; border-radius: 20px; padding: 28px;
+      margin-top: 24px; transition: all 0.5s cubic-bezier(.4,0,.2,1);
+    }
+    .maint-card.maint-off {
+      background: linear-gradient(135deg, rgba(22,29,53,0.8) 0%, rgba(15,22,40,0.9) 100%);
+      border: 1px solid rgba(45,217,85,0.15);
+    }
+    .maint-card.maint-on {
+      background: linear-gradient(135deg, rgba(60,20,20,0.7) 0%, rgba(40,10,10,0.85) 100%);
+      border: 1px solid rgba(248,113,113,0.3);
+      box-shadow: 0 0 40px rgba(248,113,113,0.08), inset 0 0 60px rgba(248,113,113,0.03);
+    }
+    .maint-glow {
+      position: absolute; width: 200px; height: 200px; border-radius: 50%;
+      filter: blur(80px); opacity: 0.3; pointer-events: none; transition: all 0.5s;
+    }
+    .maint-off .maint-glow { background: rgba(45,217,85,0.4); top: -60px; right: -40px; }
+    .maint-on .maint-glow { background: rgba(248,113,113,0.4); top: -60px; right: -40px; animation: maint-pulse 3s ease-in-out infinite; }
+    @keyframes maint-pulse {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.15); }
+    }
+    .maint-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; position: relative; z-index: 1; }
+    .maint-icon {
+      width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center;
+      justify-content: center; font-size: 28px; flex-shrink: 0; transition: all 0.4s;
+    }
+    .maint-off .maint-icon { background: rgba(45,217,85,0.12); box-shadow: 0 0 20px rgba(45,217,85,0.1); }
+    .maint-on .maint-icon { background: rgba(248,113,113,0.15); box-shadow: 0 0 20px rgba(248,113,113,0.15); animation: maint-icon-glow 2s ease-in-out infinite; }
+    @keyframes maint-icon-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(248,113,113,0.15); }
+      50% { box-shadow: 0 0 35px rgba(248,113,113,0.3); }
+    }
+    .maint-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; }
+    .maint-off .maint-title { color: var(--green-400); }
+    .maint-on .maint-title { color: var(--red); }
+    .maint-subtitle { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+    .maint-body { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .maint-status-pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px;
+      border-radius: 100px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .maint-off .maint-status-pill { background: rgba(45,217,85,0.1); color: var(--green-400); }
+    .maint-on .maint-status-pill { background: rgba(248,113,113,0.12); color: var(--red); }
+    .maint-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .maint-off .maint-dot { background: var(--green-400); box-shadow: 0 0 8px var(--green-400); }
+    .maint-on .maint-dot { background: var(--red); box-shadow: 0 0 8px var(--red); animation: maint-blink 1.5s ease-in-out infinite; }
+    @keyframes maint-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .maint-toggle-btn {
+      padding: 12px 28px; border: none; border-radius: 12px; font-family: 'Outfit';
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.3s;
+      display: inline-flex; align-items: center; gap: 8px; letter-spacing: 0.3px;
+    }
+    .maint-toggle-btn:hover { transform: translateY(-2px); }
+    .maint-toggle-btn:active { transform: translateY(0); }
+    .maint-toggle-btn.maint-activate {
+      background: linear-gradient(135deg, #dc2626, #b91c1c); color: white;
+      box-shadow: 0 4px 15px rgba(220,38,38,0.3);
+    }
+    .maint-toggle-btn.maint-activate:hover { box-shadow: 0 6px 25px rgba(220,38,38,0.4); }
+    .maint-toggle-btn.maint-deactivate {
+      background: linear-gradient(135deg, var(--green-500), var(--green-700)); color: white;
+      box-shadow: 0 4px 15px rgba(45,217,85,0.3);
+    }
+    .maint-toggle-btn.maint-deactivate:hover { box-shadow: 0 6px 25px rgba(45,217,85,0.4); }
+    .maint-since { font-size: 11px; color: var(--text-muted); margin-top: 8px; position: relative; z-index: 1; }
   </style>
 </head>
 <body>
@@ -526,7 +600,70 @@ function DashboardTab({ showToast }) {
             h("span", { className: "badge badge-" + u.dom_ext }, u.dom_ext === "dom" ? "DOM" : "EXT"),
             h("span", { style: { flex: 1, fontSize: 13, fontWeight: 600 } }, u.adversaire),
             h("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, u.date, " ", u.heure));
-        }) : h("div", { className: "empty-state" }, "Aucun match \u00E0 venir"))));
+        }) : h("div", { className: "empty-state" }, "Aucun match \u00E0 venir"))),
+    h(MaintenanceModule, { showToast: showToast }));
+}
+
+// ═══════════════════════════════════════════
+// MAINTENANCE MODULE
+// ═══════════════════════════════════════════
+function MaintenanceModule({ showToast }) {
+  const [active, setActive] = useState(false);
+  const [since, setSince] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  var loadStatus = function() {
+    fetch(API + "?action=get_maintenance_status", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success) { setActive(d.active); setSince(d.since || null); } setLoading(false); })
+      .catch(function() { setLoading(false); });
+  };
+  useEffect(loadStatus, []);
+
+  var handleToggle = function() {
+    if (!active && !confirm) { setConfirm(true); return; }
+    setToggling(true); setConfirm(false);
+    fetch(API + "?action=set_maintenance", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enable: !active })
+    }).then(function(r) { return r.json(); })
+      .then(function(d) {
+        setToggling(false);
+        if (d.success) {
+          setActive(d.active);
+          setSince(d.active ? new Date().toLocaleString("fr-FR") : null);
+          showToast(d.active ? "\uD83D\uDD12 Maintenance activée — site bloqué pour les visiteurs" : "\u2705 Site réouvert au public");
+        } else showToast(d.error || "Erreur", "error");
+      }).catch(function() { setToggling(false); showToast("Erreur réseau", "error"); });
+  };
+
+  if (loading) return h("div", { className: "maint-card maint-off", style: { textAlign: "center" } },
+    h("div", { className: "loader" }));
+
+  return h("div", { className: "maint-card " + (active ? "maint-on" : "maint-off") },
+    h("div", { className: "maint-glow" }),
+    h("div", { className: "maint-header" },
+      h("div", { className: "maint-icon" }, active ? "\uD83D\uDD12" : "\uD83D\uDD13"),
+      h("div", null,
+        h("div", { className: "maint-title" }, active ? "MAINTENANCE ACTIVE" : "SITE EN LIGNE"),
+        h("div", { className: "maint-subtitle" }, active
+          ? "Le site est bloqué pour tous les visiteurs. Seul le coach (vous) peut y accéder."
+          : "Le site est accessible à tous les utilisateurs. Activez la maintenance pour bloquer l'accès."))),
+    h("div", { className: "maint-body" },
+      h("div", { className: "maint-status-pill" },
+        h("span", { className: "maint-dot" }),
+        active ? "MAINTENANCE" : "EN LIGNE"),
+      confirm ? h("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+        h("span", { style: { fontSize: 13, color: "var(--red)", fontWeight: 600 } }, "\u26A0\uFE0F Bloquer l'accès au site ?"),
+        h("button", { className: "maint-toggle-btn maint-activate", onClick: handleToggle, disabled: toggling }, toggling ? "\u23F3 ..." : "\u2705 Confirmer"),
+        h("button", { className: "maint-toggle-btn", style: { background: "var(--surface2)", color: "var(--text-dim)" }, onClick: function() { setConfirm(false); } }, "Annuler"))
+      : h("button", { className: "maint-toggle-btn " + (active ? "maint-deactivate" : "maint-activate"), onClick: handleToggle, disabled: toggling },
+          toggling ? h("span", null, h("span", { className: "loader", style: { width: 14, height: 14, marginRight: 6 } }), "...") :
+          active ? "\uD83D\uDD13 Désactiver la maintenance" : "\uD83D\uDD12 Activer la maintenance")),
+    active && since && h("div", { className: "maint-since" }, "\uD83D\uDD52 Active depuis le ", since));
 }
 
 // ═══════════════════════════════════════════
