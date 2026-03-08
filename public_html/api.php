@@ -3135,9 +3135,12 @@ case 'ffbb_sync':
                 $existing = $check->fetch();
 
                 $equipeANom = $m['domExt'] === 'dom' ? 'ESPE Basket Châlons' : $m['adversaire'];
-                $equipeAShort = $m['domExt'] === 'dom' ? 'ESPE' : strtoupper(explode(' ', $m['adversaire'])[0]);
+                $advShort = $m['adversaire'];
+                $shortMap = ['REIMS CHAMPAGNE BASKET'=>'REIMS','AVENIR SPORTIF COURTISOLS'=>'COURTISOLS','ASSOCIATION CORMONTREUIL'=>'CORMONTREUIL','GAULOISE DE VITRY'=>'VITRY'];
+                foreach ($shortMap as $k => $v) { if (stripos($m['adversaire'], $k) !== false) { $advShort = $v; break; } }
+                $equipeAShort = $m['domExt'] === 'dom' ? 'ESPE' : $advShort;
                 $equipeBNom = $m['domExt'] === 'dom' ? $m['adversaire'] : 'ESPE Basket Châlons';
-                $equipeBShort = $m['domExt'] === 'dom' ? strtoupper(explode(' ', $m['adversaire'])[0]) : 'ESPE';
+                $equipeBShort = $m['domExt'] === 'dom' ? $advShort : 'ESPE';
 
                 if ($existing) {
                     // Update scores only, preserve stats
