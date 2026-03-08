@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — ESPE Basket U9</title>
+  <meta name="theme-color" content="#050d07">
+  <link rel="icon" type="image/png" href="/images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #050d07;
+      --green-900: #071a0b; --green-800: #0f3d1a; --green-700: #1a6b2e; --green-600: #1e8035;
+      --green-500: #22a83d; --green-400: #34d058; --green-glow: rgba(34,168,61,0.35);
+      --gold: #c8a832; --gold-light: #e8cc5a;
+      --text: #eaf5ec; --text-dim: #7a9b82; --text-muted: #4a6b52;
+      --border: rgba(255,255,255,0.08); --border-hover: rgba(255,255,255,0.15);
+      --card-bg: rgba(10,40,18,0.55);
+      --input-bg: rgba(0,0,0,0.35);
+      --surface: rgba(255,255,255,0.03);
+      --surface2: rgba(255,255,255,0.06);
+      --red: #ef4444; --blue: #3b82f6;
+    }
+    html { height: 100%; scroll-behavior: smooth; }
+    body {
+      min-height: 100vh; font-family: 'Outfit', sans-serif;
+      background: var(--bg); color: var(--text); overflow-x: hidden;
+    }
+    /* ── BG ── */
+    .bg-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .bg-gradient {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 120% 60% at 50% -30%, rgba(26,107,46,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 50% at 20% 110%, rgba(34,168,61,0.05) 0%, transparent 50%);
+    }
+    .bg-grid {
+      position: absolute; inset: 0;
+      background-image: linear-gradient(rgba(26,107,46,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(26,107,46,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 70%);
+    }
+    .bg-logo {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: min(60vw, 450px); height: min(60vw, 450px);
+      background: url('/images/logo-espe.png') center/contain no-repeat;
+      opacity: 0.04; pointer-events: none;
+    }
+    /* ── LAYOUT ── */
+    .admin-wrap { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+    .admin-header {
+      display: flex; align-items: center; justify-content: space-between; padding: 16px 24px;
+      background: rgba(5,13,7,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .admin-header-left { display: flex; align-items: center; gap: 14px; }
+    .admin-header img { width: 38px; height: 38px; border-radius: 50%; }
+    .admin-header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; color: var(--gold); }
+    .admin-header-right { display: flex; gap: 10px; align-items: center; }
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: linear-gradient(135deg, var(--green-700), var(--green-500)); color: white; }
+    .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn-ghost { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--border-hover); color: var(--text); }
+    .btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    .btn-blue { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: white; }
+    .btn-blue:hover { filter: brightness(1.15); }
+    .btn-gold { background: linear-gradient(135deg, #92700c, var(--gold)); color: #1a1a00; }
+    .btn-gold:hover { filter: brightness(1.15); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* ── TABS ── */
+    .tabs { display: flex; gap: 2px; padding: 12px 24px; background: rgba(5,13,7,0.6); border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .tab { padding: 10px 20px; border-radius: 8px 8px 0 0; border: none; background: transparent; color: var(--text-dim); font-family: 'Outfit'; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .tab:hover { color: var(--text); background: var(--surface); }
+    .tab.active { color: var(--gold); background: var(--card-bg); border-bottom: 2px solid var(--gold); }
+    /* ── CONTENT ── */
+    .admin-content { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+    .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1.5px; color: var(--gold); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    /* ── CARDS ── */
+    .card {
+      background: var(--card-bg); backdrop-filter: blur(16px); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: all 0.3s;
+    }
+    .card:hover { border-color: var(--border-hover); }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card {
+      background: linear-gradient(135deg, rgba(26,107,46,0.12), rgba(10,40,18,0.3));
+      border: 1px solid var(--border); border-radius: 14px; padding: 18px; text-align: center;
+    }
+    .stat-card .stat-value { font-family: 'Bebas Neue'; font-size: 36px; color: var(--gold); line-height: 1; }
+    .stat-card .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+    /* ── TABLE ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); border-bottom: 1px solid var(--border); font-weight: 600; }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .data-table tr:hover td { background: var(--surface); }
+    .data-table .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge-win { background: rgba(22,163,74,0.15); color: #22c55e; }
+    .badge-loss { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .badge-dom { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .badge-ext { background: rgba(168,85,247,0.15); color: #c084fc; }
+    /* ── FORMS ── */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input {
+      width: 100%; padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: 'Outfit'; font-size: 14px; transition: border-color 0.2s;
+    }
+    .form-input:focus { outline: none; border-color: var(--green-500); box-shadow: 0 0 0 3px rgba(34,168,61,0.15); }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    /* ── MODAL ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal {
+      background: linear-gradient(145deg, rgba(10,40,18,0.95), rgba(5,13,7,0.98));
+      border: 1px solid var(--border-hover); border-radius: 20px; padding: 28px;
+      max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    }
+    .modal h2 { font-family: 'Bebas Neue'; font-size: 22px; color: var(--gold); margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    /* ── STANDINGS ── */
+    .standings-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; margin-bottom: 4px; }
+    .standings-row:nth-child(1) { background: linear-gradient(90deg, rgba(200,168,50,0.1), transparent); }
+    .standings-row:nth-child(2) { background: linear-gradient(90deg, rgba(26,107,46,0.1), transparent); }
+    .standings-rank { font-family: 'Bebas Neue'; font-size: 22px; color: var(--gold); width: 30px; text-align: center; }
+    .standings-team { flex: 1; font-weight: 600; font-size: 14px; }
+    .standings-pts { font-family: 'Bebas Neue'; font-size: 20px; color: var(--text-dim); }
+    .espe-highlight { color: var(--green-400); }
+    /* ── SYNC STATUS ── */
+    .sync-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-radius: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-400); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .sync-text { font-size: 13px; color: var(--text-dim); flex: 1; }
+    /* ── TOAST ── */
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 22px; border-radius: 12px; font-weight: 600; font-size: 14px; z-index: 2000; animation: slideUp 0.3s ease; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+    .toast-success { background: linear-gradient(135deg, #065f46, #059669); color: white; }
+    .toast-error { background: linear-gradient(135deg, #7f1d1d, #dc2626); color: white; }
+    @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .admin-header { padding: 12px 16px; }
+      .admin-header h1 { font-size: 18px; }
+      .admin-content { padding: 16px; }
+      .tabs { padding: 8px 16px; }
+      .tab { padding: 8px 14px; font-size: 13px; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .form-row { grid-template-columns: 1fr; }
+      .modal { padding: 20px; border-radius: 16px; }
+      .data-table { font-size: 12px; }
+      .data-table th, .data-table td { padding: 8px 6px; }
+      .stat-card .stat-value { font-size: 28px; }
+    }
+    @media (max-width: 480px) {
+      .stat-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .stat-card { padding: 12px; }
+      .admin-header h1 { font-size: 16px; letter-spacing: 1px; }
+      .btn { padding: 7px 12px; font-size: 12px; }
+    }
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--green-800); border-radius: 3px; }
+    /* ── LOADING ── */
+    .loader { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--green-400); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    /* ── EDIT INLINE ── */
+    .inline-input { background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Outfit'; font-size: 13px; padding: 4px 8px; width: 60px; text-align: center; }
+    .inline-input:focus { outline: none; border-color: var(--green-500); }
+    .inline-input-wide { width: 120px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .tag-synced { background: rgba(34,168,61,0.12); color: var(--green-400); }
+    .tag-manual { background: rgba(200,168,50,0.12); color: var(--gold); }
+  </style>
+</head>
+<body>
+<div class="bg-layer"><div class="bg-gradient"></div><div class="bg-grid"></div></div>
+<div class="bg-logo"></div>
+
+<div class="admin-wrap" id="app"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script>
+const { useState, useEffect, useRef, useCallback } = React;
+const h = React.createElement;
+const API = "api.php";
+
+const PLAYERS = [
+  { id: 1, num: 6, firstName: "Malone", lastName: "HAUTION" },
+  { id: 2, num: 8, firstName: "Tristan", lastName: "COLLARD" },
+  { id: 3, num: 9, firstName: "Gaspard", lastName: "HAMM" },
+  { id: 4, num: 10, firstName: "Amine", lastName: "SLAH" },
+  { id: 5, num: 11, firstName: "Diego", lastName: "FRANCART" },
+  { id: 6, num: 12, firstName: "Jonas", lastName: "DELE" },
+  { id: 7, num: 13, firstName: "Marceau", lastName: "FALZON" },
+  { id: 8, num: 14, firstName: "Robin", lastName: "FISCHESSER" },
+];
+
+function Toast({ message, type, onClose }) {
+  useEffect(function() { var t = setTimeout(onClose, 3500); return function() { clearTimeout(t); }; }, []);
+  return h("div", { className: "toast toast-" + type }, message);
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("dashboard");
+  const [toast, setToast] = useState(null);
+
+  const showToast = function(msg, type) { setToast({ message: msg, type: type || "success" }); };
+
+  useEffect(function() {
+    fetch(API + "?action=check_session", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.logged_in && d.user && d.user.role === "coach") setUser(d.user);
+        else window.location.href = "gate.html";
+        setLoading(false);
+      }).catch(function() { window.location.href = "gate.html"; });
+  }, []);
+
+  if (loading) return h("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" } }, h("div", { className: "loader", style: { width: 40, height: 40 } }));
+  if (!user) return null;
+
+  var tabs = [
+    { id: "dashboard", label: "Tableau de bord", icon: "\uD83D\uDCCA" },
+    { id: "matches", label: "Matchs", icon: "\uD83C\uDFC0" },
+    { id: "players", label: "Joueurs", icon: "\uD83D\uDC65" },
+    { id: "ffbb", label: "FFBB Sync", icon: "\uD83D\uDD04" },
+  ];
+
+  return h("div", null,
+    h("div", { className: "admin-header" },
+      h("div", { className: "admin-header-left" },
+        h("img", { src: "/images/logo-espe.png", alt: "ESPE" }),
+        h("h1", null, "ESPACE ADMIN")),
+      h("div", { className: "admin-header-right" },
+        h("a", { href: "index.html", className: "btn btn-ghost" }, "\u2190 Retour site"),
+        h("span", { style: { fontSize: 13, color: "var(--text-dim)" } }, "\uD83D\uDC64 ", user.display_name))),
+    h("div", { className: "tabs" },
+      tabs.map(function(t) {
+        return h("button", { key: t.id, className: "tab" + (tab === t.id ? " active" : ""), onClick: function() { setTab(t.id); } }, t.icon, " ", t.label);
+      })),
+    h("div", { className: "admin-content" },
+      tab === "dashboard" && h(DashboardTab, { showToast: showToast }),
+      tab === "matches" && h(MatchesTab, { showToast: showToast }),
+      tab === "players" && h(PlayersTab, { showToast: showToast }),
+      tab === "ffbb" && h(FFBBTab, { showToast: showToast })),
+    toast && h(Toast, { message: toast.message, type: toast.type, onClose: function() { setToast(null); } }));
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD TAB
+// ═══════════════════════════════════════════
+function DashboardTab({ showToast }) {
+  const [data, setData] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+
+  var load = function() {
+    fetch(API + "?action=admin_dashboard", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success) setData(d); })
+      .catch(function() {});
+  };
+  useEffect(load, []);
+
+  var handleSync = function() {
+    setSyncing(true);
+    fetch(API + "?action=ffbb_sync", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setSyncing(false);
+        if (d.success) { showToast(d.matches_synced + " match(s) synchronis\u00E9(s) depuis la FFBB"); load(); }
+        else showToast(d.error || "Erreur sync", "error");
+      }).catch(function() { setSyncing(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+
+  if (!data) return h("div", { style: { textAlign: "center", padding: 40 } }, h("div", { className: "loader" }));
+
+  var s = data.stats;
+  var winRate = s.matches_played > 0 ? Math.round(s.wins / s.matches_played * 100) : 0;
+
+  return h("div", null,
+    h("div", { className: "section-title" }, "\uD83D\uDCCA TABLEAU DE BORD"),
+    h("div", { className: "sync-bar" },
+      h("div", { className: "sync-dot" }),
+      h("span", { className: "sync-text" }, data.last_sync ? "Derni\u00E8re synchro FFBB : " + data.last_sync : "Jamais synchronis\u00E9 avec la FFBB"),
+      h("button", { className: "btn btn-blue", onClick: handleSync, disabled: syncing }, syncing ? h("span", null, h("span", { className: "loader", style: { width: 14, height: 14, marginRight: 6 } }), "Sync...") : "\uD83D\uDD04 Synchroniser FFBB")),
+    h("div", { className: "stat-grid" },
+      h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, s.matches_played), h("div", { className: "stat-label" }, "Matchs jou\u00E9s")),
+      h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, s.wins, "V ", s.losses, "D"), h("div", { className: "stat-label" }, "Bilan")),
+      h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, winRate, "%"), h("div", { className: "stat-label" }, "Taux de victoire")),
+      h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, s.total_scored), h("div", { className: "stat-label" }, "Points marqu\u00E9s")),
+      h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, s.total_conceded), h("div", { className: "stat-label" }, "Points encaiss\u00E9s")),
+      h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, data.users_count), h("div", { className: "stat-label" }, "Utilisateurs"))),
+    // Classement
+    data.standings && data.standings.length > 0 && h("div", { className: "card" },
+      h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 18, color: "var(--gold)", marginBottom: 12 } }, "\uD83C\uDFC6 CLASSEMENT"),
+      data.standings.map(function(s, i) {
+        var isEspe = s.team_name.indexOf("ESPE") >= 0 || s.team_name.indexOf("CHALONS") >= 0;
+        return h("div", { key: i, className: "standings-row" },
+          h("div", { className: "standings-rank" }, s.rank_pos),
+          h("div", { className: "standings-team" + (isEspe ? " espe-highlight" : "") }, s.team_name),
+          h("div", { className: "standings-pts" }, s.points, " pts"));
+      })),
+    // Derniers matchs
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginTop: 16 } },
+      h("div", { className: "card" },
+        h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 18, color: "var(--gold)", marginBottom: 12 } }, "\uD83C\uDFC0 DERNIERS MATCHS"),
+        data.recent && data.recent.length > 0 ? data.recent.map(function(m) {
+          return h("div", { key: m.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)" } },
+            h("span", { className: "badge " + (parseInt(m.win) ? "badge-win" : "badge-loss") }, parseInt(m.win) ? "V" : "D"),
+            h("span", { style: { flex: 1, fontSize: 13, fontWeight: 600 } }, "J", m.journee, " \u2022 ", m.equipe_a_short === "ESPE" ? m.equipe_b_nom : m.equipe_a_nom),
+            h("span", { style: { fontFamily: "'Bebas Neue'", fontSize: 18 } }, m.espe_score, "-", m.adv_score));
+        }) : h("div", { className: "empty-state" }, "Aucun match")),
+      h("div", { className: "card" },
+        h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 18, color: "var(--gold)", marginBottom: 12 } }, "\uD83D\uDCC5 PROCHAINS MATCHS"),
+        data.upcoming && data.upcoming.length > 0 ? data.upcoming.map(function(u) {
+          return h("div", { key: u.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)" } },
+            h("span", { className: "badge badge-" + u.dom_ext }, u.dom_ext === "dom" ? "DOM" : "EXT"),
+            h("span", { style: { flex: 1, fontSize: 13, fontWeight: 600 } }, u.adversaire),
+            h("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, u.date, " ", u.heure));
+        }) : h("div", { className: "empty-state" }, "Aucun match \u00E0 venir"))));
+}
+
+// ═══════════════════════════════════════════
+// MATCHES TAB
+// ═══════════════════════════════════════════
+function MatchesTab({ showToast }) {
+  const [matches, setMatches] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editMatch, setEditMatch] = useState(null);
+  const [editStats, setEditStats] = useState(null);
+
+  var loadAll = function() {
+    setLoading(true);
+    Promise.all([
+      fetch(API + "?action=get_matches", { credentials: "same-origin" }).then(function(r) { return r.json(); }),
+      fetch(API + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(function(r) { return r.json(); })
+    ]).then(function(res) {
+      if (res[0].success) setMatches(res[0].matches || []);
+      if (res[1].success) setUpcoming(res[1].matches || []);
+      setLoading(false);
+    }).catch(function() { setLoading(false); });
+  };
+  useEffect(loadAll, []);
+
+  var handleDelete = function(id) {
+    if (!confirm("Supprimer ce match et toutes ses stats ?")) return;
+    fetch(API + "?action=delete_match", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: id }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success) { showToast("Match supprim\u00E9"); loadAll(); } else showToast(d.error, "error"); });
+  };
+
+  if (loading) return h("div", { style: { textAlign: "center", padding: 40 } }, h("div", { className: "loader" }));
+
+  return h("div", null,
+    h("div", { className: "section-title" }, "\uD83C\uDFC0 MATCHS DISPUT\u00C9S"),
+    matches.length === 0 ? h("div", { className: "card empty-state" }, h("div", { className: "empty-icon" }, "\uD83C\uDFC0"), h("p", null, "Aucun match enregistr\u00E9. Synchronisez la FFBB ou ajoutez un match.")) :
+    h("div", { className: "card", style: { overflowX: "auto" } },
+      h("table", { className: "data-table" },
+        h("thead", null, h("tr", null,
+          h("th", null, "#"), h("th", null, "Date"), h("th", null, "Adversaire"), h("th", null, "Score"), h("th", null, "R\u00E9s."), h("th", null, "Stats"), h("th", null, "Actions"))),
+        h("tbody", null, matches.map(function(m) {
+          var advName = m.equipeA && m.equipeA.short === "ESPE" ? (m.equipeB ? m.equipeB.nom : "") : (m.equipeA ? m.equipeA.nom : "");
+          var hasStats = m.espeStats && m.espeStats.length > 0;
+          return h("tr", { key: m.id },
+            h("td", null, h("span", { style: { fontWeight: 700 } }, "J", m.journee)),
+            h("td", null, m.date, " ", m.heure),
+            h("td", null,
+              h("span", { style: { fontWeight: 600 } }, advName),
+              h("span", { className: "badge badge-" + m.domExt, style: { marginLeft: 6 } }, m.domExt === "dom" ? "DOM" : "EXT")),
+            h("td", null, h("span", { style: { fontFamily: "'Bebas Neue'", fontSize: 18 } }, m.espeScore, "-", m.advScore)),
+            h("td", null, h("span", { className: "badge " + (m.win ? "badge-win" : "badge-loss") }, m.win ? "V" : "D")),
+            h("td", null,
+              hasStats ? h("span", { className: "tag tag-synced" }, "\u2705 ", m.espeStats.length, " joueurs") : h("span", { className: "tag tag-manual" }, "\u26A0 Pas de stats")),
+            h("td", null,
+              h("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+                h("button", { className: "btn btn-ghost", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { setEditMatch(m); } }, "\u270F\uFE0F \u00C9diter"),
+                h("button", { className: "btn btn-ghost", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { setEditStats(m); } }, "\uD83D\uDCCA Stats"),
+                h("button", { className: "btn btn-danger", style: { padding: "4px 8px", fontSize: 11 }, onClick: function() { handleDelete(m.id); } }, "\uD83D\uDDD1"))));
+        })))),
+    // Upcoming
+    h("div", { className: "section-title", style: { marginTop: 32 } }, "\uD83D\uDCC5 MATCHS \u00C0 VENIR"),
+    upcoming.length === 0 ? h("div", { className: "card empty-state" }, "Aucun match \u00E0 venir") :
+    h("div", { className: "card", style: { overflowX: "auto" } },
+      h("table", { className: "data-table" },
+        h("thead", null, h("tr", null, h("th", null, "J."), h("th", null, "Date"), h("th", null, "Heure"), h("th", null, "Adversaire"), h("th", null, "Lieu"), h("th", null, "Dom/Ext"))),
+        h("tbody", null, upcoming.map(function(u) {
+          return h("tr", { key: u.id },
+            h("td", null, u.journee), h("td", null, u.date), h("td", null, u.heure),
+            h("td", { style: { fontWeight: 600 } }, u.adversaire), h("td", null, u.lieu || u.gymnase || "-"),
+            h("td", null, h("span", { className: "badge badge-" + u.dom_ext }, u.dom_ext === "dom" ? "DOM" : "EXT")));
+        })))),
+    // Edit Match Modal
+    editMatch && h(EditMatchModal, { match: editMatch, onClose: function() { setEditMatch(null); }, onSave: function() { setEditMatch(null); loadAll(); showToast("Match mis \u00E0 jour"); } }),
+    editStats && h(EditStatsModal, { match: editStats, onClose: function() { setEditStats(null); }, onSave: function() { setEditStats(null); loadAll(); showToast("Stats mises \u00E0 jour"); } }));
+}
+
+// ═══════════════════════════════════════════
+// EDIT MATCH MODAL
+// ═══════════════════════════════════════════
+function EditMatchModal({ match, onClose, onSave }) {
+  var m = match;
+  const [form, setForm] = useState({
+    journee: m.journee, date: m.date, heure: m.heure, lieu: m.lieu || "",
+    dom_ext: m.domExt || "dom",
+    equipe_a_score: m.equipeA ? m.equipeA.score : m.espeScore,
+    equipe_b_score: m.equipeB ? m.equipeB.score : m.advScore,
+    qt1_a: m.scores ? m.scores.qt1.a : 0, qt1_b: m.scores ? m.scores.qt1.b : 0,
+    qt2_a: m.scores ? m.scores.qt2.a : 0, qt2_b: m.scores ? m.scores.qt2.b : 0,
+    qt3_a: m.scores ? m.scores.qt3.a : 0, qt3_b: m.scores ? m.scores.qt3.b : 0,
+    qt4_a: m.scores ? m.scores.qt4.a : 0, qt4_b: m.scores ? m.scores.qt4.b : 0,
+  });
+  const [saving, setSaving] = useState(false);
+
+  var update = function(k, v) { setForm(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
+
+  var handleSave = function() {
+    setSaving(true);
+    var payload = Object.assign({ match_id: m.id, action: "admin_update_match" }, form);
+    fetch(API + "?action=admin_update_match", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setSaving(false); if (d.success) onSave(); })
+      .catch(function() { setSaving(false); });
+  };
+
+  var eqALabel = m.equipeA ? m.equipeA.nom : "Equipe A";
+  var eqBLabel = m.equipeB ? m.equipeB.nom : "Equipe B";
+
+  return h("div", { className: "modal-overlay", onClick: onClose },
+    h("div", { className: "modal", onClick: function(e) { e.stopPropagation(); } },
+      h("h2", null, "\u270F\uFE0F \u00C9diter Match #", m.id, " \u2014 J", m.journee),
+      h("div", { className: "form-row" },
+        h("div", { className: "form-group" }, h("label", null, "Journ\u00E9e"), h("input", { className: "form-input", type: "number", value: form.journee, onChange: function(e) { update("journee", e.target.value); } })),
+        h("div", { className: "form-group" }, h("label", null, "Date"), h("input", { className: "form-input", value: form.date, onChange: function(e) { update("date", e.target.value); } })),
+        h("div", { className: "form-group" }, h("label", null, "Heure"), h("input", { className: "form-input", value: form.heure, onChange: function(e) { update("heure", e.target.value); } })),
+        h("div", { className: "form-group" }, h("label", null, "Lieu"), h("input", { className: "form-input", value: form.lieu, onChange: function(e) { update("lieu", e.target.value); } }))),
+      h("div", { className: "form-group" }, h("label", null, "Dom / Ext"),
+        h("select", { className: "form-input", value: form.dom_ext, onChange: function(e) { update("dom_ext", e.target.value); } },
+          h("option", { value: "dom" }, "Domicile"), h("option", { value: "ext" }, "Ext\u00E9rieur"))),
+      h("h3", { style: { fontSize: 15, fontWeight: 700, margin: "16px 0 8px", color: "var(--gold)" } }, "\uD83C\uDFC6 Scores"),
+      h("div", { className: "form-row" },
+        h("div", { className: "form-group" }, h("label", null, eqALabel), h("input", { className: "form-input", type: "number", value: form.equipe_a_score, onChange: function(e) { update("equipe_a_score", parseInt(e.target.value) || 0); } })),
+        h("div", { className: "form-group" }, h("label", null, eqBLabel), h("input", { className: "form-input", type: "number", value: form.equipe_b_score, onChange: function(e) { update("equipe_b_score", parseInt(e.target.value) || 0); } }))),
+      h("h3", { style: { fontSize: 15, fontWeight: 700, margin: "16px 0 8px", color: "var(--text-dim)" } }, "Scores par quart-temps"),
+      ["qt1","qt2","qt3","qt4"].map(function(qt, i) {
+        return h("div", { key: qt, className: "form-row", style: { marginBottom: 6 } },
+          h("div", { className: "form-group" }, h("label", null, "QT", i+1, " ", eqALabel.substring(0,10)), h("input", { className: "form-input", type: "number", value: form[qt+"_a"], onChange: function(e) { update(qt+"_a", parseInt(e.target.value)||0); } })),
+          h("div", { className: "form-group" }, h("label", null, "QT", i+1, " ", eqBLabel.substring(0,10)), h("input", { className: "form-input", type: "number", value: form[qt+"_b"], onChange: function(e) { update(qt+"_b", parseInt(e.target.value)||0); } })));
+      }),
+      h("div", { className: "modal-actions" },
+        h("button", { className: "btn btn-ghost", onClick: onClose }, "Annuler"),
+        h("button", { className: "btn btn-primary", onClick: handleSave, disabled: saving }, saving ? "Sauvegarde..." : "\u2705 Enregistrer"))));
+}
+
+// ═══════════════════════════════════════════
+// EDIT STATS MODAL
+// ═══════════════════════════════════════════
+function EditStatsModal({ match, onClose, onSave }) {
+  const [espeStats, setEspeStats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(function() {
+    fetch(API + "?action=admin_get_match_stats&match_id=" + match.id, { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setLoading(false);
+        if (d.success && d.espeStats && d.espeStats.length > 0) {
+          setEspeStats(d.espeStats.map(function(s) {
+            return { num: parseInt(s.num), nom: s.nom, min: s.minutes || "00:00", pts: parseInt(s.pts)||0, tirs: parseInt(s.tirs)||0, t3: parseInt(s.t3)||0, t2i: parseInt(s.t2i)||0, t2e: parseInt(s.t2e)||0, lf: parseInt(s.lf)||0, fautes: parseInt(s.fautes)||0 };
+          }));
+        } else {
+          setEspeStats(PLAYERS.map(function(p) {
+            return { num: p.num, nom: p.lastName + " " + p.firstName, min: "00:00", pts: 0, tirs: 0, t3: 0, t2i: 0, t2e: 0, lf: 0, fautes: 0 };
+          }));
+        }
+      }).catch(function() { setLoading(false); });
+  }, [match.id]);
+
+  var updateStat = function(idx, field, val) {
+    setEspeStats(function(prev) {
+      var next = prev.slice();
+      next[idx] = Object.assign({}, next[idx]);
+      next[idx][field] = field === "nom" || field === "min" ? val : (parseInt(val) || 0);
+      return next;
+    });
+  };
+
+  var handleSave = function() {
+    setSaving(true);
+    fetch(API + "?action=admin_update_player_stats", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "admin_update_player_stats", match_id: match.id, team_type: "espe", stats: espeStats }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setSaving(false); if (d.success) onSave(); })
+      .catch(function() { setSaving(false); });
+  };
+
+  var advName = match.equipeA && match.equipeA.short === "ESPE" ? (match.equipeB ? match.equipeB.nom : "") : (match.equipeA ? match.equipeA.nom : "");
+
+  return h("div", { className: "modal-overlay", onClick: onClose },
+    h("div", { className: "modal", style: { maxWidth: 900 }, onClick: function(e) { e.stopPropagation(); } },
+      h("h2", null, "\uD83D\uDCCA Stats ESPE \u2014 J", match.journee, " vs ", advName),
+      loading ? h("div", { style: { textAlign: "center", padding: 20 } }, h("div", { className: "loader" })) :
+      h("div", { style: { overflowX: "auto" } },
+        h("table", { className: "data-table" },
+          h("thead", null, h("tr", null,
+            h("th", null, "#"), h("th", null, "Joueur"), h("th", null, "Min"), h("th", null, "Pts"), h("th", null, "Tirs"), h("th", null, "3pts"), h("th", null, "2pI"), h("th", null, "2pE"), h("th", null, "LF"), h("th", null, "Fautes"))),
+          h("tbody", null, espeStats.map(function(s, i) {
+            return h("tr", { key: i },
+              h("td", null, h("input", { className: "inline-input", type: "number", value: s.num, onChange: function(e) { updateStat(i, "num", e.target.value); } })),
+              h("td", null, h("input", { className: "inline-input inline-input-wide", value: s.nom, onChange: function(e) { updateStat(i, "nom", e.target.value); } })),
+              h("td", null, h("input", { className: "inline-input", value: s.min, onChange: function(e) { updateStat(i, "min", e.target.value); }, style: { width: 55 } })),
+              ["pts","tirs","t3","t2i","t2e","lf","fautes"].map(function(f) {
+                return h("td", { key: f }, h("input", { className: "inline-input", type: "number", value: s[f], onChange: function(e) { updateStat(i, f, e.target.value); } }));
+              }));
+          })))),
+      h("div", { className: "modal-actions" },
+        h("button", { className: "btn btn-ghost", onClick: onClose }, "Annuler"),
+        h("button", { className: "btn btn-primary", onClick: handleSave, disabled: saving }, saving ? "Sauvegarde..." : "\u2705 Enregistrer les stats"))));
+}
+
+// ═══════════════════════════════════════════
+// PLAYERS TAB
+// ═══════════════════════════════════════════
+function PlayersTab({ showToast }) {
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(function() {
+    fetch(API + "?action=get_matches", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success) setMatches(d.matches || []); setLoading(false); })
+      .catch(function() { setLoading(false); });
+  }, []);
+
+  var getStats = function(pNum) {
+    var totalPts = 0, totalTirs = 0, totalFautes = 0, totalLf = 0, totalT2i = 0, totalT2e = 0, totalT3 = 0, games = 0;
+    matches.forEach(function(m) {
+      var s = (m.espeStats || []).find(function(x) { return x.num === pNum; });
+      if (s) { games++; totalPts += s.pts||0; totalTirs += s.tirs||0; totalFautes += s.fautes||0; totalLf += s.lf||0; totalT2i += s.t2i||0; totalT2e += s.t2e||0; totalT3 += s.t3||0; }
+    });
+    return { games: games, totalPts: totalPts, totalTirs: totalTirs, totalFautes: totalFautes, totalLf: totalLf, totalT2i: totalT2i, totalT2e: totalT2e, totalT3: totalT3, avgPts: games > 0 ? (totalPts/games).toFixed(1) : "0" };
+  };
+
+  if (loading) return h("div", { style: { textAlign: "center", padding: 40 } }, h("div", { className: "loader" }));
+
+  return h("div", null,
+    h("div", { className: "section-title" }, "\uD83D\uDC65 STATISTIQUES JOUEURS"),
+    h("div", { className: "card", style: { overflowX: "auto" } },
+      h("table", { className: "data-table" },
+        h("thead", null, h("tr", null,
+          h("th", null, "#"), h("th", null, "Joueur"), h("th", null, "Matchs"), h("th", null, "Pts"), h("th", null, "Moy/match"), h("th", null, "Tirs"), h("th", null, "3pts"), h("th", null, "2pI"), h("th", null, "2pE"), h("th", null, "LF"), h("th", null, "Fautes"))),
+        h("tbody", null, PLAYERS.map(function(p) {
+          var s = getStats(p.num);
+          return h("tr", { key: p.id },
+            h("td", { style: { fontWeight: 700, color: "var(--gold)" } }, p.num),
+            h("td", { style: { fontWeight: 600 } }, p.firstName, " ", p.lastName),
+            h("td", null, s.games),
+            h("td", { style: { fontWeight: 700, color: "var(--green-400)" } }, s.totalPts),
+            h("td", null, s.avgPts),
+            h("td", null, s.totalTirs),
+            h("td", null, s.totalT3),
+            h("td", null, s.totalT2i),
+            h("td", null, s.totalT2e),
+            h("td", null, s.totalLf),
+            h("td", null, s.totalFautes));
+        })))));
+}
+
+// ═══════════════════════════════════════════
+// FFBB TAB
+// ═══════════════════════════════════════════
+function FFBBTab({ showToast }) {
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [lastSync, setLastSync] = useState("");
+
+  useEffect(function() {
+    fetch(API + "?action=ffbb_get_url", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success && d.ffbb_url) setUrl(d.ffbb_url); setLoading(false); })
+      .catch(function() { setLoading(false); });
+    fetch(API + "?action=ffbb_standings", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success && d.last_sync) setLastSync(d.last_sync); })
+      .catch(function() {});
+  }, []);
+
+  var handleSaveUrl = function() {
+    setSaving(true);
+    fetch(API + "?action=ffbb_set_url", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ffbb_set_url", ffbb_url: url }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setSaving(false); if (d.success) showToast("URL FFBB enregistr\u00E9e"); else showToast(d.error, "error"); })
+      .catch(function() { setSaving(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+
+  var handleSync = function() {
+    setSyncing(true); setSyncResult(null);
+    fetch(API + "?action=ffbb_sync", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setSyncing(false);
+        if (d.success) {
+          setSyncResult(d);
+          setLastSync(new Date().toLocaleString("fr-FR"));
+          showToast(d.matches_synced + " match(s) synchronis\u00E9(s)");
+        } else { showToast(d.error || "Erreur", "error"); }
+      }).catch(function() { setSyncing(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+
+  if (loading) return h("div", { style: { textAlign: "center", padding: 40 } }, h("div", { className: "loader" }));
+
+  return h("div", null,
+    h("div", { className: "section-title" }, "\uD83D\uDD04 SYNCHRONISATION FFBB"),
+    h("div", { className: "card" },
+      h("h3", { style: { fontSize: 16, fontWeight: 700, marginBottom: 12 } }, "\uD83C\uDF10 URL du championnat FFBB"),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "Collez ici le lien de votre \u00E9quipe sur competitions.ffbb.com. Les matchs, scores et classement seront import\u00E9s automatiquement."),
+      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
+        h("input", { className: "form-input", style: { flex: 1, minWidth: 250 }, value: url, onChange: function(e) { setUrl(e.target.value); }, placeholder: "https://competitions.ffbb.com/ligues/..." }),
+        h("button", { className: "btn btn-primary", onClick: handleSaveUrl, disabled: saving }, saving ? "..." : "\uD83D\uDCBE Enregistrer")),
+      lastSync && h("div", { style: { marginTop: 10, fontSize: 12, color: "var(--text-dim)" } }, "\u23F0 Derni\u00E8re synchronisation : ", lastSync)),
+    h("div", { className: "card", style: { marginTop: 16 } },
+      h("h3", { style: { fontSize: 16, fontWeight: 700, marginBottom: 12 } }, "\u26A1 Synchroniser maintenant"),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 16 } }, "R\u00E9cup\u00E8re les derniers r\u00E9sultats, scores et classement depuis la FFBB. Les stats joueurs (import feuille de match) ne sont pas touch\u00E9es."),
+      h("button", { className: "btn btn-blue", style: { padding: "12px 24px", fontSize: 15 }, onClick: handleSync, disabled: syncing },
+        syncing ? h("span", null, h("span", { className: "loader", style: { width: 16, height: 16, marginRight: 8 } }), "Synchronisation en cours...") : "\uD83D\uDD04 Lancer la synchronisation"),
+      syncResult && h("div", { style: { marginTop: 16, padding: 16, background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12 } },
+        h("div", { style: { fontWeight: 700, marginBottom: 8, color: "var(--green-400)" } }, "\u2705 Synchronisation r\u00E9ussie"),
+        h("div", { style: { fontSize: 13, color: "var(--text-dim)" } }, syncResult.matches_total, " matchs trouv\u00E9s, ", syncResult.matches_synced, " synchronis\u00E9(s)"),
+        syncResult.standings && syncResult.standings.length > 0 && h("div", { style: { marginTop: 12 } },
+          h("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFC6 Classement import\u00E9 :"),
+          syncResult.standings.map(function(s, i) {
+            return h("div", { key: i, style: { fontSize: 13, padding: "2px 0" } }, s.rank, ". ", s.team, " \u2014 ", s.points, " pts");
+          })))));
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(h(App));
+</script>
+</body>
+</html>

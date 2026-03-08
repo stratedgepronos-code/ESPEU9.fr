@@ -1284,6 +1284,18 @@ PROMPT;
     }
     $matchData['win'] = $matchData['espeScore'] > $matchData['advScore'];
 
+    // Si un match_id est fourni, on met à jour ce match au lieu d'en créer un nouveau
+    $targetMatchId = isset($_POST['match_id']) ? (int)$_POST['match_id'] : 0;
+    if ($targetMatchId > 0) {
+        try {
+            $db = getDB();
+            $check = $db->prepare("SELECT id FROM match_results WHERE id = :id"); $check->execute([':id' => $targetMatchId]);
+            if ($check->fetch()) {
+                $matchData['existing_match_id'] = $targetMatchId;
+            }
+        } catch(Exception $e) {}
+    }
+
     echo json_encode(['success' => true, 'matchData' => $matchData]);
     break;
 
@@ -2951,6 +2963,387 @@ case 'cron_match_reminder':
         }
         echo json_encode(['success' => true, 'tomorrow' => $tomorrow, 'matches_found' => count($matchesToRemind), 'reminders_sent' => $sent]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
+// ═══ FFBB SYNC — Import automatique depuis competitions.ffbb.com ═══
+
+case 'ffbb_set_url':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = is_array($parsedPostBody) ? $parsedPostBody : json_decode(file_get_contents('php://input'), true);
+    $ffbbUrl = trim($in['ffbb_url'] ?? '');
+    if (!$ffbbUrl || strpos($ffbbUrl, 'competitions.ffbb.com') === false) { http_response_code(400); echo json_encode(['error' => 'URL FFBB invalide']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $st = $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_url', :v) ON DUPLICATE KEY UPDATE config_value = :v2");
+        $st->execute([':v' => $ffbbUrl, ':v2' => $ffbbUrl]);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'ffbb_get_url':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT config_value FROM site_config WHERE config_key = 'ffbb_url'");
+        $st->execute();
+        $r = $st->fetch();
+        echo json_encode(['success' => true, 'ffbb_url' => $r ? $r['config_value'] : '']);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'ffbb_sync':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT config_value FROM site_config WHERE config_key = 'ffbb_url'");
+        $st->execute();
+        $r = $st->fetch();
+        $ffbbUrl = $r ? $r['config_value'] : '';
+        if (!$ffbbUrl) { http_response_code(400); echo json_encode(['error' => 'URL FFBB non configurée']); break; }
+
+        $ch = curl_init($ffbbUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $html = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr || $httpCode !== 200) {
+            http_response_code(502);
+            echo json_encode(['error' => 'Impossible de contacter la FFBB: ' . ($curlErr ?: "HTTP $httpCode")]);
+            break;
+        }
+
+        $matches = [];
+        $standings = [];
+
+        // Parse match rows from the calendar section
+        // Pattern: #NUMBER \n JDAY \n DATE TIME \n Domicile|Extérieur \n OPPONENT \n SCORE
+        if (preg_match_all('/#(\d+)\s*\n\s*\n\s*(J\d+)\s*\n\s*\n\s*(\d{1,2}\s+\w+\.?\s+\d{1,2}h\d{2})\s*\n\s*\n\s*(Domicile|Extérieur)\s*\n\s*\n\s*\[([^\]]+)\]/s', $html, $m, PREG_SET_ORDER)) {
+            foreach ($m as $row) {
+                $matchNum = (int)$row[1];
+                $journee = $row[2];
+                $dateTimeRaw = trim($row[3]);
+                $domExt = $row[4] === 'Domicile' ? 'dom' : 'ext';
+                $adversaire = trim($row[5]);
+
+                // Parse date: "6 déc. 11h30" -> "06/12/2025"
+                $dtParts = preg_split('/\s+/', $dateTimeRaw);
+                $day = str_pad($dtParts[0] ?? '1', 2, '0', STR_PAD_LEFT);
+                $monthStr = strtolower(str_replace('.', '', $dtParts[1] ?? ''));
+                $monthMap = ['janv'=>'01','jan'=>'01','févr'=>'02','fev'=>'02','fév'=>'02','mars'=>'03','mar'=>'03','avr'=>'04','avril'=>'04','mai'=>'05','juin'=>'06','juil'=>'07','juill'=>'07','août'=>'08','aout'=>'08','sept'=>'09','sep'=>'09','oct'=>'10','nov'=>'11','déc'=>'12','dec'=>'12'];
+                $month = $monthMap[$monthStr] ?? '01';
+                $timeRaw = $dtParts[2] ?? '00h00';
+                $heure = str_replace('h', ':', $timeRaw);
+                if (strlen($heure) === 4) $heure = '0' . $heure;
+
+                // Determine year based on month
+                $year = ((int)$month >= 8) ? '2025' : '2026';
+                $dateFormatted = "$day/$month/$year";
+
+                $journeeNum = (int)str_replace('J', '', $journee);
+
+                $matches[] = [
+                    'ffbb_id' => $matchNum,
+                    'journee' => $journeeNum,
+                    'date' => $dateFormatted,
+                    'heure' => $heure,
+                    'domExt' => $domExt,
+                    'adversaire' => $adversaire,
+                    'score_raw' => null
+                ];
+            }
+        }
+
+        // Parse scores: they appear as links like [1433](matchUrl) or [00](matchUrl)
+        if (preg_match_all('/\[(\d{2,6})\]\(https:\/\/competitions\.ffbb\.com\/[^)]*\/match\/\d+\)/', $html, $scoreMatches, PREG_SET_ORDER)) {
+            foreach ($scoreMatches as $idx => $sm) {
+                if (isset($matches[$idx])) {
+                    $matches[$idx]['score_raw'] = $sm[1];
+                }
+            }
+        }
+
+        // Parse scores into home/away
+        foreach ($matches as &$match) {
+            $raw = $match['score_raw'];
+            if (!$raw || $raw === '00') {
+                $match['played'] = false;
+                $match['score_home'] = 0;
+                $match['score_away'] = 0;
+            } else {
+                $match['played'] = true;
+                $len = strlen($raw);
+                // Split score: try middle split first, adjusting for uneven scores
+                // Scores are concatenated: home_score + away_score
+                // We need to figure out the split point
+                $bestSplit = intdiv($len, 2);
+                // For U9, scores rarely exceed 99, usually 2 digits each
+                if ($len <= 2) {
+                    $match['score_home'] = (int)$raw[0];
+                    $match['score_away'] = (int)substr($raw, 1);
+                } elseif ($len === 3) {
+                    // Could be X-YY or XX-Y, try both
+                    $s1h = (int)substr($raw, 0, 1); $s1a = (int)substr($raw, 1);
+                    $s2h = (int)substr($raw, 0, 2); $s2a = (int)substr($raw, 2);
+                    // The sum of QT scores should be reasonable; pick the one with smaller difference
+                    if (abs($s1h - $s1a) < abs($s2h - $s2a)) {
+                        $match['score_home'] = $s1h; $match['score_away'] = $s1a;
+                    } else {
+                        $match['score_home'] = $s2h; $match['score_away'] = $s2a;
+                    }
+                } else {
+                    // 4+ digits: split in half
+                    $half = intdiv($len, 2);
+                    $match['score_home'] = (int)substr($raw, 0, $half);
+                    $match['score_away'] = (int)substr($raw, $half);
+                }
+            }
+            // Determine ESPE score vs opponent
+            if ($match['domExt'] === 'dom') {
+                $match['espe_score'] = $match['score_home'];
+                $match['adv_score'] = $match['score_away'];
+            } else {
+                $match['espe_score'] = $match['score_away'];
+                $match['adv_score'] = $match['score_home'];
+            }
+            $match['win'] = $match['espe_score'] > $match['adv_score'] ? 1 : 0;
+        }
+        unset($match);
+
+        // Parse standings
+        if (preg_match_all('/\[(\d+)([A-Z][A-Z\s\-\'\.]+?)(\d+)\]\(https:\/\/competitions\.ffbb\.com\/[^)]*\/equipes\/\d+\)/', $html, $standM, PREG_SET_ORDER)) {
+            foreach ($standM as $s) {
+                $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+            }
+        }
+
+        // Store/update matches in DB
+        $synced = 0;
+        $db->exec("CREATE TABLE IF NOT EXISTS upcoming_matches (
+            id INT AUTO_INCREMENT PRIMARY KEY, journee VARCHAR(20) NOT NULL DEFAULT '',
+            date VARCHAR(20) NOT NULL, heure VARCHAR(10) DEFAULT '', heure_rdv VARCHAR(10) DEFAULT '',
+            lieu VARCHAR(100) DEFAULT '', gymnase VARCHAR(150) DEFAULT '',
+            dom_ext ENUM('dom','ext') DEFAULT 'dom',
+            adversaire VARCHAR(100) NOT NULL, logo_url VARCHAR(500) DEFAULT '',
+            ffbb_id INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+        try { $db->exec("ALTER TABLE upcoming_matches ADD COLUMN ffbb_id INT DEFAULT 0"); } catch(Exception $e) {}
+
+        foreach ($matches as $m) {
+            if ($m['played']) {
+                // Check if match exists in match_results by ffbb_id or journee+adversaire
+                $check = $db->prepare("SELECT id FROM match_results WHERE id = :fid");
+                $check->execute([':fid' => $m['ffbb_id']]);
+                $existing = $check->fetch();
+
+                $equipeANom = $m['domExt'] === 'dom' ? 'ESPE Basket Châlons' : $m['adversaire'];
+                $equipeAShort = $m['domExt'] === 'dom' ? 'ESPE' : strtoupper(explode(' ', $m['adversaire'])[0]);
+                $equipeBNom = $m['domExt'] === 'dom' ? $m['adversaire'] : 'ESPE Basket Châlons';
+                $equipeBShort = $m['domExt'] === 'dom' ? strtoupper(explode(' ', $m['adversaire'])[0]) : 'ESPE';
+
+                if ($existing) {
+                    // Update scores only, preserve stats
+                    $st = $db->prepare("UPDATE match_results SET date=:d, heure=:h, dom_ext=:de, equipe_a_nom=:ean, equipe_a_short=:eas, equipe_a_score=:easc, equipe_b_nom=:ebn, equipe_b_short=:ebs, equipe_b_score=:ebsc, espe_score=:es, adv_score=:adv, win=:w WHERE id=:id");
+                    $st->execute([':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win'],':id'=>$m['ffbb_id']]);
+                } else {
+                    $st = $db->prepare("INSERT INTO match_results (id, journee, date, heure, lieu, dom_ext, equipe_a_nom, equipe_a_short, equipe_a_score, equipe_b_nom, equipe_b_short, equipe_b_score, espe_score, adv_score, win) VALUES (:id,:j,:d,:h,:l,:de,:ean,:eas,:easc,:ebn,:ebs,:ebsc,:es,:adv,:w)");
+                    $lieu = $m['domExt'] === 'dom' ? 'Châlons-en-Champagne' : '';
+                    $st->execute([':id'=>$m['ffbb_id'],':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':l'=>$lieu,':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win']]);
+                }
+                // Remove from upcoming if it was there
+                $db->prepare("DELETE FROM upcoming_matches WHERE ffbb_id = :fid")->execute([':fid' => $m['ffbb_id']]);
+                $synced++;
+            } else {
+                // Future match: upsert in upcoming_matches
+                $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
+                $check->execute([':fid' => $m['ffbb_id']]);
+                if ($check->fetch()) {
+                    $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv WHERE ffbb_id=:fid");
+                    $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
+                } else {
+                    $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:fid)");
+                    $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
+                }
+                $synced++;
+            }
+        }
+
+        // Store standings
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("DELETE FROM ffbb_standings");
+        $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points) VALUES (:r,:t,:p)");
+        foreach ($standings as $s) {
+            $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$s['points']]);
+        }
+
+        // Log sync
+        $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_last_sync', :v) ON DUPLICATE KEY UPDATE config_value = :v2")
+           ->execute([':v' => date('Y-m-d H:i:s'), ':v2' => date('Y-m-d H:i:s')]);
+
+        echo json_encode([
+            'success' => true,
+            'matches_synced' => $synced,
+            'matches_total' => count($matches),
+            'standings' => $standings,
+            'matches' => $matches
+        ]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
+case 'ffbb_standings':
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $st = $db->query("SELECT rank_pos, team_name, points FROM ffbb_standings ORDER BY rank_pos ASC");
+        $standings = $st->fetchAll(PDO::FETCH_ASSOC);
+        $lastSync = '';
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+            $s2 = $db->prepare("SELECT config_value FROM site_config WHERE config_key='ffbb_last_sync'"); $s2->execute();
+            $r = $s2->fetch(); if ($r) $lastSync = $r['config_value'];
+        } catch(Exception $e) {}
+        echo json_encode(['success' => true, 'standings' => $standings, 'last_sync' => $lastSync]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+// ═══ ADMIN — Édition manuelle des stats joueurs ═══
+
+case 'admin_update_player_stats':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = is_array($parsedPostBody) ? $parsedPostBody : json_decode(file_get_contents('php://input'), true);
+    $matchId = (int)($in['match_id'] ?? 0);
+    $playerStats = $in['stats'] ?? [];
+    $teamType = $in['team_type'] ?? 'espe';
+    if (!$matchId || !is_array($playerStats)) { http_response_code(400); echo json_encode(['error' => 'Données invalides']); break; }
+    if (!in_array($teamType, ['espe', 'adv'])) $teamType = 'espe';
+    try {
+        $db = getDB();
+        $db->prepare("DELETE FROM match_player_stats WHERE match_id = :mid AND team_type = :tt")->execute([':mid' => $matchId, ':tt' => $teamType]);
+        $stIns = $db->prepare("INSERT INTO match_player_stats (match_id, team_type, num, nom, minutes, pts, tirs, t3, t2i, t2e, lf, fautes) VALUES (:mid, :tt, :n, :nom, :min, :pts, :tirs, :t3, :t2i, :t2e, :lf, :f)");
+        foreach ($playerStats as $s) {
+            $stIns->execute([
+                ':mid' => $matchId, ':tt' => $teamType,
+                ':n' => (int)($s['num'] ?? 0), ':nom' => $s['nom'] ?? '',
+                ':min' => $s['min'] ?? '00:00', ':pts' => (int)($s['pts'] ?? 0),
+                ':tirs' => (int)($s['tirs'] ?? 0), ':t3' => (int)($s['t3'] ?? 0),
+                ':t2i' => (int)($s['t2i'] ?? 0), ':t2e' => (int)($s['t2e'] ?? 0),
+                ':lf' => (int)($s['lf'] ?? 0), ':f' => (int)($s['fautes'] ?? 0)
+            ]);
+        }
+        echo json_encode(['success' => true, 'stats_count' => count($playerStats)]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'admin_update_match':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = is_array($parsedPostBody) ? $parsedPostBody : json_decode(file_get_contents('php://input'), true);
+    $matchId = (int)($in['match_id'] ?? 0);
+    if (!$matchId) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
+    try {
+        $db = getDB();
+        $fields = [];
+        $params = [':id' => $matchId];
+        $allowed = ['journee','date','heure','lieu','dom_ext','equipe_a_nom','equipe_a_short','equipe_a_score','equipe_b_nom','equipe_b_short','equipe_b_score','espe_score','adv_score','win','qt1_a','qt1_b','qt2_a','qt2_b','qt3_a','qt3_b','qt4_a','qt4_b'];
+        foreach ($allowed as $f) {
+            if (isset($in[$f])) {
+                $fields[] = "$f = :$f";
+                $params[":$f"] = $in[$f];
+            }
+        }
+        if (empty($fields)) { echo json_encode(['success' => true, 'message' => 'Rien à modifier']); break; }
+        // Auto-compute espe_score/adv_score/win if scores changed
+        if (isset($in['equipe_a_score']) || isset($in['equipe_b_score'])) {
+            $st = $db->prepare("SELECT * FROM match_results WHERE id = :id"); $st->execute([':id' => $matchId]); $cur = $st->fetch(PDO::FETCH_ASSOC);
+            if ($cur) {
+                $aScore = (int)($in['equipe_a_score'] ?? $cur['equipe_a_score']);
+                $bScore = (int)($in['equipe_b_score'] ?? $cur['equipe_b_score']);
+                $aShort = $in['equipe_a_short'] ?? $cur['equipe_a_short'];
+                $isEspeA = strtoupper($aShort) === 'ESPE';
+                $espe = $isEspeA ? $aScore : $bScore;
+                $adv = $isEspeA ? $bScore : $aScore;
+                $params[':espe_score'] = $espe; $params[':adv_score'] = $adv; $params[':win'] = $espe > $adv ? 1 : 0;
+                if (!in_array('espe_score = :espe_score', $fields)) $fields[] = 'espe_score = :espe_score';
+                if (!in_array('adv_score = :adv_score', $fields)) $fields[] = 'adv_score = :adv_score';
+                if (!in_array('win = :win', $fields)) $fields[] = 'win = :win';
+            }
+        }
+        $sql = "UPDATE match_results SET " . implode(', ', $fields) . " WHERE id = :id";
+        $db->prepare($sql)->execute($params);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'admin_get_match_stats':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $matchId = (int)($_GET['match_id'] ?? 0);
+    if (!$matchId) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
+    try {
+        $db = getDB();
+        $st = $db->prepare("SELECT * FROM match_results WHERE id = :id"); $st->execute([':id' => $matchId]);
+        $match = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$match) { http_response_code(404); echo json_encode(['error' => 'Match introuvable']); break; }
+        $st2 = $db->prepare("SELECT * FROM match_player_stats WHERE match_id = :mid AND team_type = 'espe' ORDER BY num ASC");
+        $st2->execute([':mid' => $matchId]);
+        $espeStats = $st2->fetchAll(PDO::FETCH_ASSOC);
+        $st3 = $db->prepare("SELECT * FROM match_player_stats WHERE match_id = :mid AND team_type = 'adv' ORDER BY num ASC");
+        $st3->execute([':mid' => $matchId]);
+        $advStats = $st3->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'match' => $match, 'espeStats' => $espeStats, 'advStats' => $advStats]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'admin_dashboard':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    try {
+        $db = getDB();
+        $stats = ['wins' => 0, 'losses' => 0, 'total_scored' => 0, 'total_conceded' => 0, 'matches_played' => 0];
+        try {
+            $st = $db->query("SELECT COUNT(*) as total, SUM(win) as wins, SUM(espe_score) as scored, SUM(adv_score) as conceded FROM match_results");
+            $r = $st->fetch(PDO::FETCH_ASSOC);
+            $stats['matches_played'] = (int)($r['total'] ?? 0);
+            $stats['wins'] = (int)($r['wins'] ?? 0);
+            $stats['losses'] = $stats['matches_played'] - $stats['wins'];
+            $stats['total_scored'] = (int)($r['scored'] ?? 0);
+            $stats['total_conceded'] = (int)($r['conceded'] ?? 0);
+        } catch(Exception $e) {}
+        $upcoming = [];
+        try {
+            $st = $db->query("SELECT * FROM upcoming_matches ORDER BY STR_TO_DATE(date, '%d/%m/%Y') ASC LIMIT 5");
+            $upcoming = $st->fetchAll(PDO::FETCH_ASSOC);
+        } catch(Exception $e) {}
+        $recentMatches = [];
+        try {
+            $st = $db->query("SELECT * FROM match_results ORDER BY id DESC LIMIT 5");
+            $recentMatches = $st->fetchAll(PDO::FETCH_ASSOC);
+        } catch(Exception $e) {}
+        $standings = [];
+        try {
+            $st = $db->query("SELECT rank_pos, team_name, points FROM ffbb_standings ORDER BY rank_pos ASC");
+            $standings = $st->fetchAll(PDO::FETCH_ASSOC);
+        } catch(Exception $e) {}
+        $lastSync = '';
+        try {
+            $s2 = $db->prepare("SELECT config_value FROM site_config WHERE config_key='ffbb_last_sync'"); $s2->execute();
+            $r = $s2->fetch(); if ($r) $lastSync = $r['config_value'];
+        } catch(Exception $e) {}
+        $usersCount = 0;
+        try { $r = $db->query("SELECT COUNT(*) as c FROM users")->fetch(); $usersCount = (int)$r['c']; } catch(Exception $e) {}
+        echo json_encode(['success' => true, 'stats' => $stats, 'upcoming' => $upcoming, 'recent' => $recentMatches, 'standings' => $standings, 'last_sync' => $lastSync, 'users_count' => $usersCount]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;

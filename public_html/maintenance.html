@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance — ESPE Basket U9</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: #e2e8f0;
+            padding: 20px;
+        }
+        .box {
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 24px;
+            padding: 48px 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.05); }
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #f8fafc;
+            margin-bottom: 12px;
+        }
+        p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #94a3b8;
+        }
+        .brand {
+            margin-top: 28px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="icon">🔧</div>
+        <h1>Maintenance en cours</h1>
+        <p>Le site est temporairement indisponible pour une mise à jour. Reviens dans quelques instants.</p>
+        <p class="brand">ESPE Basket U9</p>
+        <p style="margin-top:20px;font-size:12px;color:#64748b"><a href="maintenance-control.html" style="color:#94a3b8;text-decoration:underline">Coach : gérer la maintenance</a></p>
+    </div>
+</body>
+</html>

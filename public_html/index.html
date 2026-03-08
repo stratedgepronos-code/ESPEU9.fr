@@ -4985,6 +4985,7 @@ function App() {
                         React.createElement("a", { href: "tchat.html", className: "nav-btn", style: { textDecoration: "none" } }, "\uD83D\uDCAC Tchat"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
                         user && user.role === "coach" && React.createElement("button", { className: `nav-btn ${tab === "coffre" ? "active" : ""}`, onClick: () => switchTab("coffre") }, "\uD83D\uDD10 Coffre"),
+                        user && user.role === "coach" && React.createElement("a", { href: "admin.html", className: "nav-btn", style: { textDecoration: "none", color: "var(--gold)" } }, "\u2699\uFE0F Admin"),
                         user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
                             user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
                                 React.createElement("img", { src: PLAYER_PHOTOS[PLAYERS.find(p => p.id === user.player_id).photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-light)" } }) :
@@ -5066,6 +5067,8 @@ function App() {
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCF7"), "M\u00E9dias"),
                                 user.role === "coach" && React.createElement("button", { className: "mob-btn" + (tab === "coffre" ? " active" : ""), onClick: () => switchTab("coffre") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDD10"), "Coffre-fort"),
+                                user.role === "coach" && React.createElement("a", { href: "admin.html", className: "mob-btn", style: { textDecoration: "none", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", fontFamily: "inherit", fontSize: 15, color: "var(--gold)", cursor: "pointer", textAlign: "left" }, onClick: () => setMobileMenuOpen(false) },
+                                    React.createElement("span", { className: "mob-icon" }, "\u2699\uFE0F"), "Espace Admin"),
                                 React.createElement("hr", { className: "mob-divider" }),
                                 React.createElement("button", { className: "mob-btn", onClick: () => { handleLogout(); setMobileMenuOpen(false); }, style: { color: "var(--red)" } },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDEAA"), "D\u00E9connexion"))
@@ -6199,7 +6202,9 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
         advLogo && React.createElement("img", { src: advLogo, alt: advShort, className: "match-team-logo" }),
         React.createElement("div", { className: "match-detail-team-name" }, advShort));
     return (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour aux matchs"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
+            React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour aux matchs"),
+            coachUnlocked && React.createElement("a", { href: "admin.html#matches", style: { padding: "6px 14px", background: "linear-gradient(135deg, #92700c, var(--gold))", color: "#1a1a00", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 } }, "\u2699\uFE0F \u00C9diter dans Admin")),
         React.createElement("div", { className: "match-detail-score" },
             isHome ? espeTeam : advTeam,
             React.createElement("div", null,

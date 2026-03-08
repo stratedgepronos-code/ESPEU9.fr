@@ -1,0 +1,10 @@
+MODE MAINTENANCE
+================
+
+Activer (bloquer l'accès au site) :
+  Créer un fichier vide nommé "maintenance.on" à la racine du site (même dossier que index.html).
+
+Désactiver (rouvrir le site) :
+  Supprimer le fichier "maintenance.on".
+
+Le fichier maintenance.on ne doit contenir rien et ne pas être committé dans Git (à créer directement sur le serveur via FTP ou gestionnaire de fichiers).

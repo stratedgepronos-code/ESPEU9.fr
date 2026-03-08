@@ -16,3 +16,6 @@ Thumbs.db
 
 # Uploads utilisateur (optionnel : décommenter si non versionnés)
 # public_html/uploads/
+
+# Mode maintenance (créé dans uploads/ par l'API)
+public_html/uploads/maintenance.on
