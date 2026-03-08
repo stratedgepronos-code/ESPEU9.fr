@@ -2934,49 +2934,30 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
             }
         }).catch(e=>{ setUploading(false); setUploadError("Erreur réseau: " + e.message); });
     };
-    // Combined: select file → upload → scan IA → create match (one click)
     const handleUploadAndScan = () => {
-        const file = scanRef.current.files[0]; if(!file) return;
-        if(file.size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; }
+        const files = Array.from(scanRef.current.files);
+        if(!files.length) return;
+        for (var fi = 0; fi < files.length; fi++) { if(files[fi].size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; } }
         setScanning(true); setScanStatus("upload"); setUploadError("");
-        // Step 1: Upload the sheet
-        const form = new FormData(); form.append("sheet",file); form.append("match_id",String(matchId));
-        fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:form})
+        var uploadForm = new FormData(); uploadForm.append("sheet", files[0]); uploadForm.append("match_id", String(matchId));
+        fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:uploadForm})
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d=>{
-            if(!d.success) throw new Error(d.error || "Upload échoué");
-            setSheet({ id: d.sheet_id || 0, url: d.url });
+            if(d.success && d.url) setSheet({ id: d.sheet_id || 0, url: d.url });
             setScanStatus("scan");
-            // Step 2: Fetch the uploaded image and send to AI
-            return fetch(d.url).then(r=>{ if(!r.ok) throw new Error("Impossible de charger l'image"); return r.blob(); }).then(blob => {
-                const scanForm = new FormData();
-                const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-                scanForm.append(onMatchCreated ? "pdf" : "sheet", blob, "feuille." + ext);
-                if (!onMatchCreated) scanForm.append("match_id", String(matchId));
-                const action = onMatchCreated ? "analyze_match_sheet" : "extract_match_stats";
-                return fetch(API_URL + "action=" + action, { method: "POST", credentials: "same-origin", body: scanForm });
-            });
+            var scanForm = new FormData();
+            scanForm.append("match_id", String(matchId));
+            files.forEach(function(f, i) { scanForm.append(i === 0 ? "sheet" : "sheet2", f); });
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
         })
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d => {
-            if (onMatchCreated && d.success && d.matchData) {
-                setScanStatus("save");
-                fetch(API_URL + "action=save_match", {
-                    method: "POST", credentials: "same-origin",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(d.matchData)
-                })
-                .then(r=>r.json())
-                .then(d2 => {
-                    setScanning(false);
-                    if(d2.success) { setScanStatus("ok"); onMatchCreated(); }
-                    else { setScanStatus("error:Erreur sauvegarde: " + (d2.error||"")); }
-                }).catch(() => { setScanning(false); setScanStatus("error:Erreur réseau sauvegarde"); });
-            } else if (d.success && onStatsExtracted) {
-                setScanning(false); setScanStatus("ok");
-                onStatsExtracted(d.espeStats || [], d.advStats || []);
+            setScanning(false);
+            if (d.success) {
+                setScanStatus("ok");
+                if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
+                if (onMatchCreated && (d.match_created || d.moved_from_upcoming)) onMatchCreated(d);
             } else {
-                setScanning(false);
                 setScanStatus("error:" + (d.error || "Erreur analyse IA"));
             }
         })
@@ -2993,37 +2974,19 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
         fetch(sheet.url).then(r=>r.blob()).then(blob => {
             const form = new FormData();
             const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-            form.append(onMatchCreated ? "pdf" : "sheet", blob, "feuille." + ext);
-            if (!onMatchCreated) form.append("match_id", String(matchId));
-            const action = onMatchCreated ? "analyze_match_sheet" : "extract_match_stats";
-            return fetch(API_URL + "action=" + action, { method: "POST", credentials: "same-origin", body: form });
+            form.append("sheet", blob, "feuille." + ext);
+            form.append("match_id", String(matchId));
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: form });
         })
         .then(r=>r.json())
         .then(d => {
-            if (onMatchCreated && d.success && d.matchData) {
-                // Match à venir : sauvegarder le match complet
-                fetch(API_URL + "action=save_match", {
-                    method: "POST", credentials: "same-origin",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(d.matchData)
-                })
-                .then(r=>r.json())
-                .then(d2 => {
-                    setScanning(false);
-                    if(d2.success) {
-                        setScanStatus("ok");
-                        onMatchCreated();
-                        setTimeout(() => setScanStatus(""), 5000);
-                    } else { setScanStatus("error:" + (d2.error || "Erreur sauvegarde")); setTimeout(() => setScanStatus(""), 8000); }
-                }).catch(() => { setScanning(false); setScanStatus("error:Erreur réseau"); });
-            } else if (d.success && onStatsExtracted) {
-                // Match passé : mettre à jour les stats
-                setScanning(false);
+            setScanning(false);
+            if (d.success) {
                 setScanStatus("ok");
-                onStatsExtracted(d.espeStats || [], d.advStats || []);
+                if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
+                if (onMatchCreated && (d.match_created || d.moved_from_upcoming)) onMatchCreated(d);
                 setTimeout(() => setScanStatus(""), 5000);
             } else {
-                setScanning(false);
                 setScanStatus("error:" + (d.error || "Erreur inconnue"));
                 setTimeout(() => setScanStatus(""), 8000);
             }
@@ -3076,11 +3039,11 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
                     React.createElement("div", null,
                         // Combined upload + AI scan button
                         (onStatsExtracted || onMatchCreated) && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
-                            React.createElement("input", { type: "file", ref: scanRef, accept: "image/*,application/pdf", style: { display: "none" }, onChange: handleUploadAndScan }),
+                            React.createElement("input", { type: "file", ref: scanRef, accept: "image/*,application/pdf", multiple: true, style: { display: "none" }, onChange: handleUploadAndScan }),
                             React.createElement("button", { onClick: ()=>scanRef.current.click(), disabled: uploading || scanning, style: { padding: "10px 20px", background: scanning ? "#86efac" : "linear-gradient(135deg, #1a6b2e, #22c55e)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: (uploading||scanning) ? "wait" : "pointer", fontSize: 13, opacity: (uploading||scanning) ? 0.7 : 1 } },
-                                scanning ? (scanStatus === "upload" ? "\u23F3 1/3 Upload de la feuille..." : scanStatus === "scan" ? "\uD83E\uDD16 2/3 Analyse IA en cours..." : scanStatus === "save" ? "\uD83D\uDCBE 3/3 Sauvegarde du match..." : "\u23F3 Traitement...") :
-                                onMatchCreated ? "\uD83E\uDD16 Ajouter + Scanner la feuille (IA)" : "\uD83E\uDD16 Ajouter + Scanner (IA)"),
-                            !scanning && React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, "JPG, PNG ou PDF \u2022 Max 10 Mo"),
+                                scanning ? (scanStatus === "upload" ? "\u23F3 1/2 Upload..." : scanStatus === "scan" ? "\uD83E\uDD16 2/2 Analyse IA en cours (30-60s)..." : "\u23F3 Traitement...") :
+                                "\uD83E\uDD16 Importer feuille(s) + Scanner (IA)"),
+                            !scanning && React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, "S\u00E9lectionner feuille de match + r\u00E9sum\u00E9 (PDF)"),
                             scanStatus === "ok" && React.createElement("span", { style: { color: "#16a34a", fontWeight: 700, fontSize: 13 } }, onMatchCreated ? "\u2705 Match cr\u00E9\u00E9 avec les stats !" : "\u2705 Stats extraites !"),
                             scanStatus.startsWith("error:") && React.createElement("span", { style: { color: "#dc2626", fontWeight: 600, fontSize: 12, maxWidth: 300 } }, "\u274C " + scanStatus.replace("error:",""))),
                         // Error display
@@ -3498,7 +3461,7 @@ function MatchChatPanel({ matchId, user }) {
     const [sending, setSending] = useState(false);
     const [expanded, setExpanded] = useState(true);
     const chatEndRef = useRef(null);
-    const prevCountRef = useRef(0);
+    const prevCountRef = useRef(-1);
     const isCoach = user && user.role === "coach";
 
     const load = () => {
@@ -3507,7 +3470,7 @@ function MatchChatPanel({ matchId, user }) {
     };
     useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, [matchId]);
     useEffect(() => {
-        // Only scroll if a NEW message was added (not on every reload)
+        if (prevCountRef.current === -1) { prevCountRef.current = messages.length; return; }
         if (expanded && messages.length > prevCountRef.current && chatEndRef.current) {
             chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
@@ -3984,6 +3947,12 @@ function QuickConvocationResponse({ matchId, user }) {
 }
 
 function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
+    useEffect(function() {
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        window.scrollTo(0, 0);
+        var ids = [100, 300, 600, 1000].map(function(d) { return setTimeout(function() { window.scrollTo(0, 0); }, d); });
+        return function() { ids.forEach(clearTimeout); };
+    }, []);
     const u = upcoming;
     const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
     const isCoach = !!(user && user.role === "coach");
@@ -5582,9 +5551,73 @@ function MatchPhotos({ matchId, coachUnlocked }) {
                 renderSlot("left", leftRef),
                 renderSlot("right", rightRef))));
 }
+// ── Convocations figées (match disputé – lecture seule) ──
+function FrozenConvocationPanel({ matchId }) {
+    const [convocations, setConvocations] = useState({});
+    const [gouterPlayer, setGouterPlayer] = useState("");
+    const [lavagePlayer, setLavagePlayer] = useState("");
+    const [responses, setResponses] = useState({});
+    const [loaded, setLoaded] = useState(false);
+    useEffect(function() {
+        Promise.all([
+            fetch(API_URL + "?action=get_convocations&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); }),
+            fetch(API_URL + "?action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); })
+        ]).then(function(results) {
+            var d1 = results[0], d2 = results[1];
+            if (d1.success && d1.convocations) {
+                setConvocations(d1.convocations);
+                if (d1.gouter_special) setGouterPlayer(d1.gouter_special);
+                else Object.entries(d1.convocations).forEach(function(e) { if (e[1].gouter) setGouterPlayer(e[0]); });
+                Object.entries(d1.convocations).forEach(function(e) { if (e[1].lavage) setLavagePlayer(e[0]); });
+            }
+            if (d2.success) setResponses(d2.responses || {});
+            setLoaded(true);
+        }).catch(function() { setLoaded(true); });
+    }, [matchId]);
+    if (!loaded) return null;
+    var convokedPlayers = PLAYERS.filter(function(p) { return convocations[p.id] && convocations[p.id].convoked; });
+    if (convokedPlayers.length === 0) return null;
+    var gouterLabel = gouterPlayer === "coach" ? "Coach Alex" : gouterPlayer === "ext" ? "Extérieur – pas de goûter" : null;
+    var gouterP = !gouterLabel && gouterPlayer ? PLAYERS.find(function(p) { return String(p.id) === gouterPlayer; }) : null;
+    var lavageP = lavagePlayer ? PLAYERS.find(function(p) { return String(p.id) === lavagePlayer; }) : null;
+    var presentsIds = convokedPlayers.filter(function(p) { return responses[p.id] && responses[p.id].response === "present"; });
+    var absentsIds = convokedPlayers.filter(function(p) { return responses[p.id] && responses[p.id].response === "absent"; });
+    var badgeStyle = function(bg, color) { return { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20, border: "none", background: bg, color: color, marginBottom: 8 }; };
+    var renderPlayer = function(p) {
+        var pResp = responses[p.id] ? responses[p.id].response : null;
+        return React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 0" } },
+            React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey], alt: "", style: { width: 30, height: 30, borderRadius: "50%", objectFit: "cover" } }),
+            React.createElement("span", { style: { fontWeight: 600, fontSize: 13, flex: 1 } }, "#", p.num, " ", p.firstName, " ", p.lastName),
+            pResp === "present" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#16a34a", background: "rgba(22,163,74,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u2705 Présent"),
+            pResp === "absent" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#dc2626", background: "rgba(220,38,38,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u274C Absent"),
+            pResp === "attente" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#d97706", background: "rgba(234,179,8,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u23F3 En attente"),
+            !pResp && React.createElement("span", { style: { fontSize: 11, color: "#a1a1aa" } }, "\u2014"));
+    };
+    return React.createElement("div", { style: { marginBottom: 24 } },
+        React.createElement("div", { className: "section-title" }, "\uD83D\uDCCB Convocations (figées)"),
+        React.createElement("div", { className: "card", style: { padding: 20, opacity: 0.92 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14 } },
+                React.createElement("span", { style: { fontSize: 13, color: "var(--text-dim)", fontStyle: "italic" } }, "\uD83D\uDD12 Ce match est terminé — les convocations sont figées.")),
+            presentsIds.length > 0 && React.createElement("div", { style: { marginBottom: 10 } },
+                React.createElement("div", { style: badgeStyle("rgba(22,163,74,0.12)", "#16a34a") }, "\u2705 Présents (", presentsIds.length, ")"),
+                presentsIds.map(renderPlayer)),
+            absentsIds.length > 0 && React.createElement("div", { style: { marginBottom: 10 } },
+                React.createElement("div", { style: badgeStyle("rgba(220,38,38,0.12)", "#dc2626") }, "\u274C Absents (", absentsIds.length, ")"),
+                absentsIds.map(renderPlayer)),
+            gouterLabel && React.createElement("div", { style: { marginTop: 12, padding: "8px 12px", background: "rgba(255,152,0,0.08)", borderRadius: 8, fontSize: 14 } }, "\uD83C\uDF6A Goûter : ", React.createElement("strong", null, gouterLabel)),
+            gouterP && React.createElement("div", { style: { marginTop: 12, padding: "8px 12px", background: "rgba(255,152,0,0.08)", borderRadius: 8, fontSize: 14 } }, "\uD83C\uDF6A Goûter : ", React.createElement("strong", null, gouterP.firstName, " ", gouterP.lastName)),
+            lavageP && React.createElement("div", { style: { marginTop: 8, padding: "8px 12px", background: "rgba(33,150,243,0.08)", borderRadius: 8, fontSize: 14 } }, "\uD83D\uDC55 Lavage maillots : ", React.createElement("strong", null, lavageP.firstName, " ", lavageP.lastName))));
+}
+
 // MATCH DETAIL
 // ── Scan Stats Button (IA extraction from match sheet) ──
 function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, user, onDelete }) {
+    useEffect(function() {
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        window.scrollTo(0, 0);
+        var ids = [100, 300, 600, 1000].map(function(d) { return setTimeout(function() { window.scrollTo(0, 0); }, d); });
+        return function() { ids.forEach(clearTimeout); };
+    }, []);
     const m = match;
     const advName = m.equipeA.short === "ESPE" ? m.equipeB.nom : m.equipeA.nom;
     const advShort = m.equipeA.short === "ESPE" ? m.equipeB.short : m.equipeA.short;
@@ -5594,7 +5627,6 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [localEspeStats, setLocalEspeStats] = useState(m.espeStats || []);
     const [localAdvStats, setLocalAdvStats] = useState(m.advStats || []);
-    useEffect(function() { requestAnimationFrame(function() { window.scrollTo(0, 0); }); }, [m.id]);
     const espeTeam = React.createElement("div", { className: "match-detail-team" },
         React.createElement("img", { src: TEAM_LOGOS.ESPE, alt: "ESPE", className: "match-team-logo" }),
         React.createElement("div", { className: "match-detail-team-name" }, "ESPE"));
@@ -5618,14 +5650,9 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
                     " \u2022 ",
                     m.lieu)),
             isHome ? advTeam : espeTeam),
-        React.createElement(MatchExtrasPanel, { matchId: m.id, isCoach: coachUnlocked, onExtrasLoaded: () => {}, onStatsExtracted: (espe, adv) => { setLocalEspeStats(espe); setLocalAdvStats(adv); m.espeStats = espe; m.advStats = adv; setMSaved("stats_ok"); setTimeout(() => setMSaved(""), 3000); } }),
         React.createElement(MatchPhotos, { matchId: m.id, coachUnlocked: coachUnlocked }),
-        React.createElement("div", { className: "section-title" }, "Quart-temps"),
-        React.createElement("div", { className: "quarters" }, ["qt1", "qt2", "qt3", "qt4"].map((q, i) => (React.createElement("div", { className: "quarter-box", key: q },
-            React.createElement("div", { className: "quarter-label" }, "QT", i + 1),
-            React.createElement("div", { className: "quarter-score" }, m.scores[q].a, " - ", m.scores[q].b))))),
-        React.createElement(StatTable, { title: "ESPE Basket Ch\u00E2lons", stats: localEspeStats, type: "espe", userNum: user && user.player_id ? (PLAYERS.find(p => p.id === user.player_id) || {}).num : null }),
-        React.createElement(StatTable, { title: advName, stats: localAdvStats, type: "adv" }),
+        React.createElement(FrozenConvocationPanel, { matchId: m.id }),
+        React.createElement(MatchExtrasPanel, { matchId: m.id, isCoach: coachUnlocked, onExtrasLoaded: () => {}, onStatsExtracted: (espe, adv) => { setLocalEspeStats(espe); setLocalAdvStats(adv); m.espeStats = espe; m.advStats = adv; setMSaved("stats_ok"); setTimeout(() => setMSaved(""), 3000); } }),
         React.createElement(MatchChatPanel, { matchId: m.id, user: user }),
         coachUnlocked && React.createElement("div", { className: "coach-notes", style: { marginBottom: 24 } },
             React.createElement("div", { className: "coach-notes-title" }, "\uD83D\uDCCB Note du coach \u2014 Match"),
@@ -5649,6 +5676,17 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
                     mSaved === "saved" && React.createElement("span", { className: "coach-save-ok" }, "\u2705 Note sauvegard\u00E9e !"),
                     mSaved === "saving" && React.createElement("span", { className: "coach-save-ok", style: {color: "var(--text-dim)"} }, "\u23F3 Enregistrement..."),
                     mSaved === "error" && React.createElement("span", { className: "coach-save-ok", style: {color: "var(--red)"} }, "\u274C Erreur de sauvegarde")))),
+        React.createElement("div", { className: "section-title" }, "Quart-temps"),
+        React.createElement("div", { className: "quarters" }, ["qt1", "qt2", "qt3", "qt4"].map((q, i) => (React.createElement("div", { className: "quarter-box", key: q },
+            React.createElement("div", { className: "quarter-label" },
+                "QT",
+                i + 1),
+            React.createElement("div", { className: "quarter-score" },
+                m.scores[q].a,
+                " - ",
+                m.scores[q].b))))),
+        React.createElement(StatTable, { title: "ESPE Basket Ch\u00E2lons", stats: localEspeStats, type: "espe", userNum: user && user.player_id ? (PLAYERS.find(p => p.id === user.player_id) || {}).num : null }),
+        React.createElement(StatTable, { title: advName, stats: localAdvStats, type: "adv" }),
         coachUnlocked && React.createElement("div", { style: { marginTop: 40, padding: 20, background: "var(--surface2)", borderRadius: 12, border: "2px solid var(--red)" } },
             React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "var(--red)", marginBottom: 10 } }, "\u26A0\uFE0F Zone dangereuse"),
             !confirmDelete ? React.createElement("button", { onClick: () => setConfirmDelete(true), style: { padding: "10px 20px", background: "var(--red)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 } }, "\uD83D\uDDD1\uFE0F Supprimer ce match et ses stats") :
