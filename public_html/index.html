@@ -6161,6 +6161,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
 // MATCH DETAIL
 // ── Scan Stats Button (IA extraction from match sheet) ──
 function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, user, onDelete }) {
+    useEffect(function() { window.scrollTo(0, 0); }, []);
     const m = match;
     const advName = m.equipeA.short === "ESPE" ? m.equipeB.nom : m.equipeA.nom;
     const advShort = m.equipeA.short === "ESPE" ? m.equipeB.short : m.equipeA.short;
