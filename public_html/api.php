@@ -1165,25 +1165,41 @@ case 'analyze_match_sheet':
     ];
 
     $prompt = <<<'PROMPT'
-Analyse cette feuille de match de basketball (catégorie U9/U11 en France — FFBB).
+Tu reçois une FEUILLE DE MATCH OFFICIELLE FFBB (e-marque V2) de basketball, catégorie U9/U11 en France.
+Ce document PDF contient 2 pages. Tu DOIS analyser LES DEUX PAGES.
 
-Extrais TOUTES les informations et renvoie UNIQUEMENT un objet JSON valide (sans markdown, sans backticks, sans texte avant/après).
+=== STRUCTURE DU DOCUMENT ===
 
-Voici le format JSON exact attendu :
+PAGE 1 — Informations générales :
+- En-tête : numéro de rencontre, journée, date, heure, lieu/salle
+- Noms des 2 équipes (équipe A = domicile, équipe B = visiteur)
+- Liste des joueurs de chaque équipe : n° licence, nom, prénom, n° maillot
+- Score progression (score cumulé courant, colonne A et colonne B)
+- Lignes séparant les quart-temps dans la progression du score
+- Fautes individuelles et fautes d'équipe par quart-temps
+
+PAGE 2 — Statistiques individuelles détaillées :
+- Un tableau pour CHAQUE équipe avec les colonnes :
+  N° maillot | Nom | Pts | 2pts Int (R/T) | 2pts Ext (R/T) | 3pts (R/T) | LF (R/T) | Fautes | Temps de jeu
+  Où R = Réussis, T = Tentés
+- Score final et scores cumulés à la fin de chaque quart-temps
+
+Renvoie UNIQUEMENT un objet JSON valide (pas de markdown, pas de backticks, pas de texte autour) :
+
 {
   "journee": 1,
   "date": "06/12/2025",
   "heure": "10:30",
-  "lieu": "Nom de la ville",
+  "lieu": "Nom de la salle ou ville",
   "domExt": "dom",
   "equipeA": {
-    "nom": "Nom complet équipe domicile",
-    "short": "NOM COURT",
+    "nom": "Nom complet équipe domicile tel qu'écrit",
+    "short": "ABBREVIATION",
     "score": 40
   },
   "equipeB": {
-    "nom": "Nom complet équipe extérieur",
-    "short": "NOM COURT",
+    "nom": "Nom complet équipe visiteur tel qu'écrit",
+    "short": "ABBREVIATION",
     "score": 20
   },
   "scores": {
@@ -1193,34 +1209,28 @@ Voici le format JSON exact attendu :
     "qt4": {"a": 10, "b": 5}
   },
   "espeStats": [
-    {"num": 6, "nom": "NOM Prénom", "min": "15:06", "pts": 2, "tirs": 1, "t3": 0, "t2i": 1, "t2e": 0, "lf": 0, "fautes": 0}
+    {"num": 6, "nom": "NOM Prénom", "min": "15:06", "pts": 8, "tirs": 4, "t3": 0, "t2i": 3, "t2e": 1, "lf": 0, "fautes": 1}
   ],
   "advStats": [
-    {"num": 4, "nom": "NOM Prénom", "min": "09:20", "pts": 0, "tirs": 0, "t3": 0, "t2i": 0, "t2e": 0, "lf": 0, "fautes": 0}
+    {"num": 4, "nom": "NOM Prénom", "min": "09:20", "pts": 4, "tirs": 2, "t3": 0, "t2i": 2, "t2e": 0, "lf": 0, "fautes": 2}
   ]
 }
 
-RÈGLES IMPORTANTES :
-- L'équipe ESPE (ou "ESPE Basket Châlons", "EBCCA", "Châlons") : mets son short à "ESPE"
-- domExt : "dom" si ESPE joue à domicile (Châlons-en-Champagne), "ext" si à l'extérieur
-- equipeA = équipe qui reçoit (domicile), equipeB = équipe visiteur (extérieur)
-- scores.qt1.a = score equipeA au QT1, scores.qt1.b = score equipeB au QT1
-- "tirs" = nombre total de tirs réussis (paniers marqués)
-- "t2i" = tirs à 2 points réussis dans la raquette
-- "t2e" = tirs à 2 points réussis hors raquette
-- "t3" = tirs à 3 points réussis
-- "lf" = lancers francs réussis
-- "fautes" = nombre de fautes personnelles
-- "min" = temps de jeu au format "MM:SS"
-- Si une donnée est illisible ou absente, mets 0 ou "00:00"
-- Les noms doivent être en format "NOM Prénom" (majuscules pour le nom de famille)
-- Renvoie UNIQUEMENT le JSON, rien d'autre
+RÈGLES :
+- L'équipe "ESPE", "EBCCA" ou "Châlons" → short = "ESPE", stats dans espeStats
+- equipeA = domicile, equipeB = visiteur
+- SCORES QT : la feuille montre des scores CUMULÉS. Calcule les scores PAR quart-temps en soustrayant.
+  Exemple : cumulé QT1=8-6, QT2=20-14 → qt1={a:8,b:6}, qt2={a:12,b:8}
+- STATS JOUEURS (page 2) : num = n° maillot, pts = points totaux, t2i/t2e/t3/lf = tirs RÉUSSIS (valeur R), fautes = total fautes
+- tirs = t2i + t2e + t3
+- pts devrait = (t2i+t2e)×2 + t3×3 + lf
+- Inclus TOUS les joueurs même avec 0 pts. Format nom : "NOM Prénom"
+- Si illisible → 0 ou "00:00". Renvoie UNIQUEMENT le JSON.
 PROMPT;
 
-    // Appel API Claude
     $payload = json_encode([
         'model' => 'claude-sonnet-4-20250514',
-        'max_tokens' => 4000,
+        'max_tokens' => 6000,
         'messages' => [
             [
                 'role' => 'user',
@@ -1698,32 +1708,44 @@ case 'extract_match_stats':
     ];
 
     $statsPrompt = <<<'PROMPT'
-Analyse cette feuille de match officielle FFBB de basketball (catégorie U9/U11 en France).
+Tu reçois une FEUILLE DE MATCH OFFICIELLE FFBB (e-marque V2) de basketball, catégorie U9/U11 en France.
+Ce document PDF contient 2 pages. Tu DOIS analyser LES DEUX PAGES.
 
-Tu reçois la FEUILLE DE MATCH OFFICIELLE (pas le résumé). Elle contient :
-- Les informations du match (journée, date, heure, lieu, équipes)
-- Les compositions des équipes avec numéros de maillot et noms
-- Les statistiques individuelles détaillées de chaque joueur (temps de jeu, paniers marqués par zone, lancers francs, fautes)
-- Les scores par quart-temps (QT1, QT2, QT3, QT4)
-- Le score final
+=== STRUCTURE DU DOCUMENT ===
 
-Extrais TOUTES les informations et renvoie UNIQUEMENT un objet JSON valide (sans markdown, sans backticks, sans texte avant/après).
+PAGE 1 — Informations générales :
+- En-tête : numéro de rencontre, journée, date, heure, lieu/salle
+- Noms des 2 équipes (équipe A = domicile, équipe B = visiteur)
+- Liste des joueurs de chaque équipe : n° licence, nom, prénom, n° maillot
+- Score progression (score cumulé courant, colonne A et colonne B)
+- Lignes horizontales séparant les quart-temps dans la progression du score
+- Fautes individuelles (P, T, U, D) et fautes d'équipe par quart-temps
 
-Format JSON exact attendu :
+PAGE 2 — Statistiques individuelles détaillées :
+- Un tableau pour CHAQUE équipe avec les colonnes :
+  N° maillot | Nom | Pts | 2pts Int (R/T) | 2pts Ext (R/T) | 3pts (R/T) | LF (R/T) | Fautes | Temps de jeu
+  Où R = Réussis, T = Tentés
+- Score final et scores cumulés à la fin de chaque quart-temps
+- Vérification : Pts = (2pts Int R × 2) + (2pts Ext R × 2) + (3pts R × 3) + (LF R × 1)
+
+=== CE QUE TU DOIS EXTRAIRE ===
+
+Renvoie UNIQUEMENT un objet JSON valide (pas de markdown, pas de backticks, pas de texte autour).
+
 {
   "journee": 1,
   "date": "06/12/2025",
   "heure": "10:30",
-  "lieu": "Nom de la ville",
+  "lieu": "Nom de la salle ou ville",
   "domExt": "dom",
   "equipeA": {
-    "nom": "Nom complet équipe domicile",
-    "short": "NOM COURT",
+    "nom": "Nom complet équipe domicile tel qu'écrit sur la feuille",
+    "short": "ABBREVIATION",
     "score": 40
   },
   "equipeB": {
-    "nom": "Nom complet équipe visiteur",
-    "short": "NOM COURT",
+    "nom": "Nom complet équipe visiteur tel qu'écrit sur la feuille",
+    "short": "ABBREVIATION",
     "score": 20
   },
   "scores": {
@@ -1740,30 +1762,42 @@ Format JSON exact attendu :
   ]
 }
 
-RÈGLES IMPORTANTES :
-- L'équipe ESPE (ou "ESPE Basket Châlons", "EBCCA", "Châlons-en-Champagne") → short = "ESPE", stats dans espeStats
+=== RÈGLES CRITIQUES ===
+
+IDENTIFICATION DES ÉQUIPES :
+- L'équipe contenant "ESPE", "EBCCA", "Châlons" ou "ESPE Basket Châlons" → short = "ESPE", ses joueurs vont dans espeStats
 - L'autre équipe → advStats
-- domExt : "dom" si ESPE joue à domicile (Châlons-en-Champagne), "ext" si à l'extérieur
-- equipeA = équipe qui reçoit (domicile), equipeB = équipe visiteur (extérieur)
-- scores.qt1.a = score cumulé equipeA au QT1, scores.qt2.a = score cumulé equipeA au QT2, etc.
-  ATTENTION : sur la feuille FFBB les scores par quart-temps sont CUMULÉS. Tu dois calculer le score PAR quart-temps :
-  qt1 = score à la fin du QT1
-  qt2 = score à la fin du QT2 - score à la fin du QT1
-  qt3 = score à la fin du QT3 - score à la fin du QT2
-  qt4 = score final - score à la fin du QT3
-- Pour chaque joueur, sur la feuille de match FFBB officielle :
-  - "pts" = points totaux marqués par le joueur
-  - "tirs" = nombre total de paniers (tirs réussis) = t2i + t2e + t3
-  - "t2i" = tirs à 2 points réussis DANS la raquette (zone intérieure)
-  - "t2e" = tirs à 2 points réussis HORS raquette (zone extérieure)
-  - "t3" = tirs à 3 points réussis
-  - "lf" = lancers francs réussis (nombre réussi, pas tentés)
-  - "fautes" = nombre de fautes personnelles (comptées en croix/X sur la feuille)
-  - "min" = temps de jeu au format "MM:SS" (temps total passé sur le terrain)
-  - pts devrait être = (t2i + t2e) * 2 + t3 * 3 + lf * 1
-- Si une donnée est illisible ou absente, mets 0 ou "00:00"
-- Les noms doivent être en format "NOM Prénom" (majuscules pour le nom de famille)
-- Renvoie UNIQUEMENT le JSON, rien d'autre
+- equipeA = équipe DOMICILE (celle qui reçoit), equipeB = VISITEUR
+- domExt = "dom" si ESPE est domicile, "ext" sinon
+
+SCORES PAR QUART-TEMPS :
+- ATTENTION : la feuille FFBB affiche les scores CUMULÉS à la fin de chaque QT
+- Exemple : si le score cumulé est QT1=8-6, QT2=20-14, QT3=28-22, QT4=38-30
+  Alors les scores PAR quart-temps (ce que je veux) sont :
+  qt1 = {a: 8, b: 6}
+  qt2 = {a: 12, b: 8}   (20-8=12, 14-6=8)
+  qt3 = {a: 8, b: 8}    (28-20=8, 22-14=8)
+  qt4 = {a: 10, b: 8}   (38-28=10, 30-22=8)
+- Le score total de equipeA = dernière valeur cumulée colonne A, equipeB = colonne B
+
+STATISTIQUES JOUEURS (depuis le tableau PAGE 2) :
+- "num" = numéro de maillot du joueur (pas le numéro de licence !)
+- "nom" = "NOM Prénom" en majuscules pour le nom de famille
+- "pts" = points totaux (colonne Pts du tableau)
+- "t2i" = tirs à 2 points réussis INTÉRIEUR (la valeur R dans "2pts Int R/T")
+- "t2e" = tirs à 2 points réussis EXTÉRIEUR (la valeur R dans "2pts Ext R/T")
+- "t3" = tirs à 3 points réussis (la valeur R dans "3pts R/T")
+- "lf" = lancers francs réussis (la valeur R dans "LF R/T")
+- "tirs" = t2i + t2e + t3 (nombre total de paniers réussis hors LF)
+- "fautes" = nombre de fautes personnelles du joueur
+- "min" = temps de jeu au format "MM:SS"
+- Vérification : pts devrait = (t2i + t2e) × 2 + t3 × 3 + lf × 1
+
+IMPORTANT :
+- Inclus TOUS les joueurs listés dans le tableau de stats, même ceux avec 0 points
+- Si un joueur n'a pas joué (temps = 00:00), inclus-le quand même avec des 0
+- Si une donnée est illisible, mets 0 ou "00:00"
+- Renvoie UNIQUEMENT le JSON, absolument rien d'autre
 PROMPT;
 
     $payload = json_encode([
