@@ -4529,7 +4529,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
                     "J", u.journee, " \u2022 ", displayDate, displayHeure ? [" \u2022 ", displayHeure] : null, (displayGymnase || u.lieu) ? [" \u2022 ", displayGymnase || u.lieu] : null),
                 (displayGymnase || displayRdv || u.lieu) && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)", marginTop: 6, lineHeight: 1.6 } },
                     displayGymnase && React.createElement("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(displayGymnase + (u.lieu ? " " + u.lieu : "")), target: "_blank", rel: "noopener noreferrer", style: { color: "var(--green-700)", textDecoration: "none", cursor: "pointer" }, title: "Voir sur Google Maps" }, "\uD83C\uDFDF\uFE0F ", displayGymnase, " \uD83D\uDCCD"),
-                    !displayGymnase && u.lieu && React.createElement("span", { style: { color: "var(--text-dim)" } }, "\uD83D\uDCCD ", u.lieu),
+                    !displayGymnase && u.lieu && React.createElement("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("gymnase " + u.lieu), target: "_blank", rel: "noopener noreferrer", style: { color: "var(--green-700)", textDecoration: "none", cursor: "pointer" }, title: "Voir sur Google Maps" }, "\uD83D\uDCCD ", u.lieu, " \u2197\uFE0F"),
                     displayRdv && React.createElement("div", null, "\u23F0 RDV : ", displayRdv))),
             isHome ? advTeam : espeTeam),
         React.createElement("div", { style: { textAlign: "center", margin: "16px 0 24px", display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", alignItems: "center" } },
