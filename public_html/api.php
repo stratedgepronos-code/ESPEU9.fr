@@ -3192,45 +3192,46 @@ case 'ffbb_sync':
         )");
         try { $db->exec("ALTER TABLE upcoming_matches ADD COLUMN ffbb_id INT DEFAULT 0"); } catch(Exception $e) {}
 
-        foreach ($matches as $m) {
-            if ($m['played']) {
-                // Check if match exists in match_results by ffbb_id or journee+adversaire
-                $check = $db->prepare("SELECT id FROM match_results WHERE id = :fid");
-                $check->execute([':fid' => $m['ffbb_id']]);
-                $existing = $check->fetch();
+        $syncErrors = [];
+        foreach ($matches as $mi => $m) {
+            try {
+                if ($m['played']) {
+                    $check = $db->prepare("SELECT id FROM match_results WHERE id = :fid");
+                    $check->execute([':fid' => $m['ffbb_id']]);
+                    $existing = $check->fetch();
 
-                $equipeANom = $m['domExt'] === 'dom' ? 'ESPE Basket Châlons' : $m['adversaire'];
-                $advShort = $m['adversaire'];
-                $shortMap = ['REIMS CHAMPAGNE BASKET'=>'REIMS','AVENIR SPORTIF COURTISOLS'=>'COURTISOLS','ASSOCIATION CORMONTREUIL'=>'CORMONTREUIL','GAULOISE DE VITRY'=>'VITRY'];
-                foreach ($shortMap as $k => $v) { if (stripos($m['adversaire'], $k) !== false) { $advShort = $v; break; } }
-                $equipeAShort = $m['domExt'] === 'dom' ? 'ESPE' : $advShort;
-                $equipeBNom = $m['domExt'] === 'dom' ? $m['adversaire'] : 'ESPE Basket Châlons';
-                $equipeBShort = $m['domExt'] === 'dom' ? $advShort : 'ESPE';
+                    $equipeANom = $m['domExt'] === 'dom' ? 'ESPE Basket Châlons' : $m['adversaire'];
+                    $advShort = $m['adversaire'];
+                    $shortMap = ['REIMS CHAMPAGNE BASKET'=>'REIMS','AVENIR SPORTIF COURTISOLS'=>'COURTISOLS','ASSOCIATION CORMONTREUIL'=>'CORMONTREUIL','GAULOISE DE VITRY'=>'VITRY'];
+                    foreach ($shortMap as $k => $v) { if (stripos($m['adversaire'], $k) !== false) { $advShort = $v; break; } }
+                    $equipeAShort = $m['domExt'] === 'dom' ? 'ESPE' : $advShort;
+                    $equipeBNom = $m['domExt'] === 'dom' ? $m['adversaire'] : 'ESPE Basket Châlons';
+                    $equipeBShort = $m['domExt'] === 'dom' ? $advShort : 'ESPE';
 
-                if ($existing) {
-                    // Update scores only, preserve stats
-                    $st = $db->prepare("UPDATE match_results SET date=:d, heure=:h, dom_ext=:de, equipe_a_nom=:ean, equipe_a_short=:eas, equipe_a_score=:easc, equipe_b_nom=:ebn, equipe_b_short=:ebs, equipe_b_score=:ebsc, espe_score=:es, adv_score=:adv, win=:w WHERE id=:id");
-                    $st->execute([':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win'],':id'=>$m['ffbb_id']]);
+                    if ($existing) {
+                        $st = $db->prepare("UPDATE match_results SET date=:d, heure=:h, dom_ext=:de, equipe_a_nom=:ean, equipe_a_short=:eas, equipe_a_score=:easc, equipe_b_nom=:ebn, equipe_b_short=:ebs, equipe_b_score=:ebsc, espe_score=:es, adv_score=:adv, win=:w WHERE id=:id");
+                        $st->execute([':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win'],':id'=>$m['ffbb_id']]);
+                    } else {
+                        $st = $db->prepare("INSERT INTO match_results (id, journee, date, heure, lieu, dom_ext, equipe_a_nom, equipe_a_short, equipe_a_score, equipe_b_nom, equipe_b_short, equipe_b_score, espe_score, adv_score, win) VALUES (:id,:j,:d,:h,:l,:de,:ean,:eas,:easc,:ebn,:ebs,:ebsc,:es,:adv,:w)");
+                        $lieu = $m['domExt'] === 'dom' ? 'Châlons-en-Champagne' : '';
+                        $st->execute([':id'=>$m['ffbb_id'],':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':l'=>$lieu,':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win']]);
+                    }
+                    try { $db->prepare("DELETE FROM upcoming_matches WHERE ffbb_id = :fid")->execute([':fid' => $m['ffbb_id']]); } catch(Exception $e) {}
+                    $synced++;
                 } else {
-                    $st = $db->prepare("INSERT INTO match_results (id, journee, date, heure, lieu, dom_ext, equipe_a_nom, equipe_a_short, equipe_a_score, equipe_b_nom, equipe_b_short, equipe_b_score, espe_score, adv_score, win) VALUES (:id,:j,:d,:h,:l,:de,:ean,:eas,:easc,:ebn,:ebs,:ebsc,:es,:adv,:w)");
-                    $lieu = $m['domExt'] === 'dom' ? 'Châlons-en-Champagne' : '';
-                    $st->execute([':id'=>$m['ffbb_id'],':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':l'=>$lieu,':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win']]);
+                    $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
+                    $check->execute([':fid' => $m['ffbb_id']]);
+                    if ($check->fetch()) {
+                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv WHERE ffbb_id=:fid");
+                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
+                    } else {
+                        $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:fid)");
+                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
+                    }
+                    $synced++;
                 }
-                // Remove from upcoming if it was there
-                $db->prepare("DELETE FROM upcoming_matches WHERE ffbb_id = :fid")->execute([':fid' => $m['ffbb_id']]);
-                $synced++;
-            } else {
-                // Future match: upsert in upcoming_matches
-                $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
-                $check->execute([':fid' => $m['ffbb_id']]);
-                if ($check->fetch()) {
-                    $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv WHERE ffbb_id=:fid");
-                    $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
-                } else {
-                    $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:fid)");
-                    $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':fid'=>$m['ffbb_id']]);
-                }
-                $synced++;
+            } catch (Exception $e) {
+                $syncErrors[] = "Match #" . $m['ffbb_id'] . " (J" . $m['journee'] . "): " . $e->getMessage();
             }
         }
 
@@ -3246,10 +3247,18 @@ case 'ffbb_sync':
         $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_last_sync', :v) ON DUPLICATE KEY UPDATE config_value = :v2")
            ->execute([':v' => date('Y-m-d H:i:s'), ':v2' => date('Y-m-d H:i:s')]);
 
+        $upcomingCount = 0;
+        try { $r = $db->query("SELECT COUNT(*) as c FROM upcoming_matches")->fetch(); $upcomingCount = (int)$r['c']; } catch(Exception $e) {}
+        $playedCount = 0;
+        foreach ($matches as $mc) { if ($mc['played']) $playedCount++; }
+
         echo json_encode([
             'success' => true,
             'matches_synced' => $synced,
             'matches_total' => count($matches),
+            'played_count' => $playedCount,
+            'upcoming_count' => $upcomingCount,
+            'sync_errors' => $syncErrors,
             'standings' => $standings,
             'matches' => $matches
         ]);

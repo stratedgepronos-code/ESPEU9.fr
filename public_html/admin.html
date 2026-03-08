@@ -472,7 +472,11 @@ function DashboardTab({ showToast }) {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setSyncing(false);
-        if (d.success) { showToast(d.matches_synced + " match(s) synchronis\u00E9(s) depuis la FFBB"); load(); }
+        if (d.success) {
+          var msg = d.matches_synced + " match(s) sync (" + (d.played_count||0) + " jou\u00E9s, " + (d.upcoming_count||0) + " \u00E0 venir)";
+          if (d.sync_errors && d.sync_errors.length > 0) msg += " | Erreurs: " + d.sync_errors.join(", ");
+          showToast(msg); load();
+        }
         else showToast(d.error || "Erreur sync", "error");
       }).catch(function() { setSyncing(false); showToast("Erreur r\u00E9seau", "error"); });
   };
