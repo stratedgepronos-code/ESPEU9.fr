@@ -1681,35 +1681,41 @@ case 'extract_match_stats':
     }
     recordAttempt($clientIp, 'ai_scan');
     if (!defined('CLAUDE_API_KEY') || !CLAUDE_API_KEY) { http_response_code(500); echo json_encode(['error' => 'Clé API Claude non configurée']); break; }
-    $fileKey = isset($_FILES['sheet']) ? 'sheet' : (isset($_FILES['pdf']) ? 'pdf' : null);
-    if (!$fileKey || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) { http_response_code(400); echo json_encode(['error' => 'Fichier image/PDF requis']); break; }
     $rawMatchId = $_POST['match_id'] ?? '';
     $matchId = (int)(str_replace('custom_', '', (string)$rawMatchId));
     if (!$matchId) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
 
-    $file = $_FILES[$fileKey];
-    if ($file['size'] > 15 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Max 15 Mo']); break; }
+    $fileKeys = [];
+    foreach (['sheet', 'pdf', 'sheet2'] as $k) {
+        if (isset($_FILES[$k]) && $_FILES[$k]['error'] === UPLOAD_ERR_OK) $fileKeys[] = $k;
+    }
+    if (empty($fileKeys)) { http_response_code(400); echo json_encode(['error' => 'Fichier image/PDF requis']); break; }
 
-    $pdfData = file_get_contents($file['tmp_name']);
-    $base64 = base64_encode($pdfData);
+    $docContents = [];
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime = finfo_file($finfo, $file['tmp_name']);
+    foreach ($fileKeys as $fk) {
+        $file = $_FILES[$fk];
+        if ($file['size'] > 15 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Fichier trop lourd (max 15 Mo)']); finfo_close($finfo); break 2; }
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        $isImage = in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+        $isPdf = ($mime === 'application/pdf');
+        if (!$isImage && !$isPdf) continue;
+        $b64 = base64_encode(file_get_contents($file['tmp_name']));
+        $docContents[] = $isImage ? [
+            'type' => 'image',
+            'source' => ['type' => 'base64', 'media_type' => $mime, 'data' => $b64]
+        ] : [
+            'type' => 'document',
+            'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => $b64]
+        ];
+    }
     finfo_close($finfo);
-    $isImage = in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-    $isPdf = ($mime === 'application/pdf');
-    if (!$isImage && !$isPdf) { http_response_code(400); echo json_encode(['error' => 'Format non supporté. Envoie un PDF ou une image (JPG, PNG).']); break; }
-
-    $docContent = $isImage ? [
-        'type' => 'image',
-        'source' => ['type' => 'base64', 'media_type' => $mime, 'data' => $base64]
-    ] : [
-        'type' => 'document',
-        'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => $base64]
-    ];
+    if (empty($docContents)) { http_response_code(400); echo json_encode(['error' => 'Aucun fichier valide (PDF ou image requis)']); break; }
 
     $statsPrompt = <<<'PROMPT'
-Tu reçois une FEUILLE DE MATCH OFFICIELLE FFBB (e-marque V2) de basketball, catégorie U9/U11 en France.
-Ce document PDF contient 2 pages. Tu DOIS analyser LES DEUX PAGES.
+Tu reçois un ou plusieurs documents officiels FFBB (e-marque V2) d'un match de basketball, catégorie U9/U11 en France.
+Tu peux recevoir : la FEUILLE DE MATCH (avec composition, fautes, progression du score) ET/OU le RÉSUMÉ (avec les stats individuelles détaillées des joueurs, scores par QT).
+Tu DOIS analyser TOUS les documents et TOUTES les pages fournis pour extraire un maximum de données.
 
 === STRUCTURE DU DOCUMENT ===
 
@@ -1804,7 +1810,7 @@ PROMPT;
         'model' => 'claude-sonnet-4-20250514',
         'max_tokens' => 6000,
         'messages' => [
-            ['role' => 'user', 'content' => [$docContent, ['type' => 'text', 'text' => $statsPrompt]]]
+            ['role' => 'user', 'content' => array_merge($docContents, [['type' => 'text', 'text' => $statsPrompt]])]
         ]
     ]);
 

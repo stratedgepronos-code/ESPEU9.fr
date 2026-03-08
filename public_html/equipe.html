@@ -2935,23 +2935,20 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
         }).catch(e=>{ setUploading(false); setUploadError("Erreur réseau: " + e.message); });
     };
     const handleUploadAndScan = () => {
-        const file = scanRef.current.files[0]; if(!file) return;
-        if(file.size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; }
+        const files = Array.from(scanRef.current.files);
+        if(!files.length) return;
+        for (var fi = 0; fi < files.length; fi++) { if(files[fi].size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; } }
         setScanning(true); setScanStatus("upload"); setUploadError("");
-        const form = new FormData(); form.append("sheet",file); form.append("match_id",String(matchId));
-        fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:form})
+        var uploadForm = new FormData(); uploadForm.append("sheet", files[0]); uploadForm.append("match_id", String(matchId));
+        fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:uploadForm})
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d=>{
-            if(!d.success) throw new Error(d.error || "Upload échoué");
-            setSheet({ id: d.sheet_id || 0, url: d.url });
+            if(d.success && d.url) setSheet({ id: d.sheet_id || 0, url: d.url });
             setScanStatus("scan");
-            return fetch(d.url).then(r=>{ if(!r.ok) throw new Error("Impossible de charger l'image"); return r.blob(); }).then(blob => {
-                const scanForm = new FormData();
-                const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
-                scanForm.append("sheet", blob, "feuille." + ext);
-                scanForm.append("match_id", String(matchId));
-                return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
-            });
+            var scanForm = new FormData();
+            scanForm.append("match_id", String(matchId));
+            files.forEach(function(f, i) { scanForm.append(i === 0 ? "sheet" : "sheet2", f); });
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
         })
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d => {
@@ -3042,11 +3039,11 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
                     React.createElement("div", null,
                         // Combined upload + AI scan button
                         (onStatsExtracted || onMatchCreated) && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
-                            React.createElement("input", { type: "file", ref: scanRef, accept: "image/*,application/pdf", style: { display: "none" }, onChange: handleUploadAndScan }),
+                            React.createElement("input", { type: "file", ref: scanRef, accept: "image/*,application/pdf", multiple: true, style: { display: "none" }, onChange: handleUploadAndScan }),
                             React.createElement("button", { onClick: ()=>scanRef.current.click(), disabled: uploading || scanning, style: { padding: "10px 20px", background: scanning ? "#86efac" : "linear-gradient(135deg, #1a6b2e, #22c55e)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: (uploading||scanning) ? "wait" : "pointer", fontSize: 13, opacity: (uploading||scanning) ? 0.7 : 1 } },
-                                scanning ? (scanStatus === "upload" ? "\u23F3 1/3 Upload de la feuille..." : scanStatus === "scan" ? "\uD83E\uDD16 2/3 Analyse IA en cours..." : scanStatus === "save" ? "\uD83D\uDCBE 3/3 Sauvegarde du match..." : "\u23F3 Traitement...") :
-                                onMatchCreated ? "\uD83E\uDD16 Ajouter + Scanner la feuille (IA)" : "\uD83E\uDD16 Ajouter + Scanner (IA)"),
-                            !scanning && React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, "JPG, PNG ou PDF \u2022 Max 10 Mo"),
+                                scanning ? (scanStatus === "upload" ? "\u23F3 1/2 Upload..." : scanStatus === "scan" ? "\uD83E\uDD16 2/2 Analyse IA en cours (30-60s)..." : "\u23F3 Traitement...") :
+                                "\uD83E\uDD16 Importer feuille(s) + Scanner (IA)"),
+                            !scanning && React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)" } }, "S\u00E9lectionner feuille de match + r\u00E9sum\u00E9 (PDF)"),
                             scanStatus === "ok" && React.createElement("span", { style: { color: "#16a34a", fontWeight: 700, fontSize: 13 } }, onMatchCreated ? "\u2705 Match cr\u00E9\u00E9 avec les stats !" : "\u2705 Stats extraites !"),
                             scanStatus.startsWith("error:") && React.createElement("span", { style: { color: "#dc2626", fontWeight: 600, fontSize: 12, maxWidth: 300 } }, "\u274C " + scanStatus.replace("error:",""))),
                         // Error display
