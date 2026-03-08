@@ -3574,6 +3574,13 @@ case 'add_lost_object':
         $st = $db->prepare("INSERT INTO lost_objects (photo_url, description) VALUES (:p, :d)");
         $st->execute([':p' => $photoUrl, ':d' => $desc]);
         $newId = (int)$db->lastInsertId();
+
+        // Notifier les membres : email + push
+        $descShort = $desc ? mb_substr($desc, 0, 80) : 'Objet déposé';
+        $emailBody = '<p>🧤 Un nouvel <strong>objet trouvé</strong> a été déposé.</p><p>' . htmlspecialchars($descShort, ENT_QUOTES, 'UTF-8') . '</p><p>Connecte-toi sur le site pour voir la photo et le réclamer si c’est à toi.</p>';
+        notifyAllParents('Nouvel objet trouvé', $emailBody);
+        sendPushToAll('🧤 Objet trouvé', 'Un objet a été déposé. Connecte-toi pour voir.', '#accueil');
+
         echo json_encode(['success' => true, 'object' => ['id' => $newId, 'photo_url' => $photoUrl, 'description' => $desc, 'claimed_by' => null, 'claimed_name' => null, 'claimed_at' => null, 'created_at' => date('Y-m-d H:i:s')]]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
     break;
