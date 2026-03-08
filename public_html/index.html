@@ -2975,7 +2975,7 @@ function AttendancePanel() {
                     const trainColor = ts.sessions === 0 ? "var(--text-dim)" : trainPct >= 80 ? "#16a34a" : trainPct >= 50 ? "#f59e0b" : "#dc2626";
                     return React.createElement("tr", { key: p.id },
                         React.createElement("td", { style: { ...tdStyle, textAlign: "left", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 } },
-                            React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
+                            React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: "", style: { width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
                             React.createElement("span", null, "#" + p.num + " " + p.firstName)),
                         React.createElement("td", { style: tdStyle }, conv),
                         React.createElement("td", { style: { ...tdStyle, color: "#16a34a", fontWeight: 700 } }, s.present),
@@ -3058,7 +3058,7 @@ function TrainingAttendancePanel() {
                         style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 8, background: present ? "rgba(26,107,46,0.08)" : "rgba(220,38,38,0.06)" }
                     },
                         React.createElement("input", { type: "checkbox", checked: present, onChange: function() { togglePlayer(p.id); } }),
-                        React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
+                        React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
                         React.createElement("span", { style: { fontWeight: 600 } }, "#" + p.num + " " + p.firstName + " " + p.lastName));
                 })),
                 React.createElement("div", { style: { marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" } },
@@ -3100,7 +3100,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                         React.createElement("div", { style: { color: "var(--text-dim)", fontSize: 14 } }, "Coach \u2022 ", user.username)))),
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA L'\u00E9quipe"),
             React.createElement("div", { className: "player-grid" }, PLAYERS.map(p => React.createElement("div", { className: "player-card card-clickable", key: p.id, onClick: () => onPlayerClick(p) },
-                React.createElement("img", { className: "player-photo", src: PLAYER_PHOTOS[p.photoKey], alt: p.lastName }),
+                React.createElement("img", { className: "player-photo", src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: p.lastName }),
                 React.createElement("div", { className: "player-num" }, "#", p.num),
                 React.createElement("div", { className: "player-name" }, p.lastName),
                 React.createElement("div", { className: "player-first" }, p.firstName),
@@ -3785,7 +3785,7 @@ function ConvocationPanel({ upcoming, user }) {
             const isEditing = isCoach && coachEditing === p.id;
             const pResp = responses[p.id] ? responses[p.id].response : null;
             return React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: isEditing ? "var(--surface2)" : "transparent", transition: "all 0.2s" } },
-                React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey], alt: "", style: { width: 26, height: 26, borderRadius: "50%", objectFit: "cover", opacity: dimmed ? 0.5 : 1 } }),
+                React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: "", style: { width: 26, height: 26, borderRadius: "50%", objectFit: "cover", opacity: dimmed ? 0.5 : 1 } }),
                 React.createElement("span", { style: { fontSize: 13, fontWeight: 600, flex: 1, color: dimmed ? "#a1a1aa" : "var(--text)", cursor: isCoach ? "pointer" : "default" },
                     onClick: () => isCoach && setCoachEditing(isEditing ? null : p.id) },
                     "#", p.num, " ", p.firstName,
@@ -3832,7 +3832,7 @@ function ConvocationPanel({ upcoming, user }) {
                 convokedPlayers.map(p => {
                     const pResp = responses[p.id] ? responses[p.id].response : null;
                     return React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 0" } },
-                        React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" } }),
+                        React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" } }),
                         React.createElement("span", { style: { fontWeight: 600, fontSize: 14, flex: 1 } }, "#", p.num, " ", p.firstName, " ", p.lastName),
                         p.cap && React.createElement("span", { style: { fontSize: 11, background: "var(--gold-light)", padding: "1px 6px", borderRadius: 4 } }, "\u2605 C"),
                         pResp === "present" && React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#16a34a", background: "rgba(22,163,74,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u2705 Pr\u00E9sent"),
@@ -3871,7 +3871,7 @@ function ConvocationPanel({ upcoming, user }) {
                 React.createElement("div", { style: { fontWeight: 600, marginBottom: 10, fontSize: 14 } }, "S\u00E9lectionne les joueurs convoqu\u00E9s :"),
                 PLAYERS.map(p => React.createElement("label", { key: p.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", marginBottom: 4, borderRadius: 8, background: isConvoked(p.id) ? "rgba(22,163,74,0.08)" : "transparent", cursor: "pointer", transition: "all 0.2s" } },
                     React.createElement("input", { type: "checkbox", checked: isConvoked(p.id), onChange: ()=>toggleConvoke(p.id), style: cbStyle }),
-                    React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" } }),
+                    React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" } }),
                     React.createElement("span", { style: { fontWeight: 600, fontSize: 14, flex: 1 } }, "#", p.num, " ", p.firstName, " ", p.lastName),
                     p.cap && React.createElement("span", { style: { fontSize: 11, background: "var(--gold-light)", padding: "1px 6px", borderRadius: 4 } }, "\u2605 C"),
                     isConvoked(p.id) && responses[p.id] && responses[p.id].response === "present" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#16a34a", background: "rgba(22,163,74,0.1)", padding: "2px 8px", borderRadius: 20 } }, "\u2705"),
@@ -5562,7 +5562,7 @@ function BirthdaySection({ onPlayerClick }) {
                     style: { minWidth: 120, background: p.isToday ? "linear-gradient(135deg, var(--green-800), var(--green-700))" : "var(--card-bg)", border: p.isToday ? "2px solid var(--green-500)" : "1px solid var(--border)", borderRadius: 14, padding: "14px 12px", textAlign: "center", cursor: "pointer", position: "relative", overflow: "hidden" } },
                     p.isToday && React.createElement("div", { style: { position: "absolute", top: -4, right: -4, fontSize: 28, transform: "rotate(15deg)" } }, "\uD83C\uDF89"),
                     React.createElement("div", { style: { width: 44, height: 44, borderRadius: "50%", overflow: "hidden", margin: "0 auto 8px", border: p.isToday ? "2px solid var(--green-400)" : "2px solid var(--border)" } },
-                        React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: p.firstName, style: { width: "100%", height: "100%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } })),
+                        React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: p.firstName, style: { width: "100%", height: "100%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } })),
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 13, color: "var(--text-light)" } }, p.firstName),
                     React.createElement("div", { style: { fontSize: 11, color: "var(--text-dim)", marginTop: 2 } }, p.isToday ? "\uD83C\uDF82 " + p.age + " ans aujourd'hui !" : parseInt(parts[0]) + " " + MONTHS_SHORT[parseInt(parts[1])] + " • " + p.age + " ans"),
                     !p.isToday && React.createElement("div", { style: { fontSize: 10, color: "var(--green-500)", marginTop: 4, fontWeight: 600 } }, "dans " + p.diff + " jour" + (p.diff > 1 ? "s" : "")));
@@ -5717,7 +5717,7 @@ function PlayersPage({ onSelect }) {
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "section-title" }, "L'Effectif"),
         React.createElement("div", { className: "player-grid" }, PLAYERS.map((p) => (React.createElement("div", { className: "player-card card-clickable", key: p.id, onClick: () => onSelect(p) },
-            React.createElement("img", { className: "player-photo", src: PLAYER_PHOTOS[p.photoKey], alt: p.lastName }),
+            React.createElement("img", { className: "player-photo", src: PLAYER_PHOTOS[p.photoKey] || ("https://espeu9.fr/images/player-" + (p.photoKey || "") + ".jpg"), alt: p.lastName }),
             React.createElement("div", { className: "player-num" },
                 "#",
                 p.num),

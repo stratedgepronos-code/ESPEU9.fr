@@ -10,7 +10,7 @@
     RewriteCond %{REQUEST_URI} !^/api\.php [NC]
     RewriteCond %{REQUEST_URI} !^/maintenance-control\.html [NC]
     RewriteCond %{REQUEST_URI} !^/gate\.html [NC]
-    RewriteCond %{DOCUMENT_ROOT}/maintenance.on -f
+    RewriteCond %{DOCUMENT_ROOT}/uploads/maintenance.on -f
     RewriteRule ^(.*)$ /maintenance.html [L,R=302]
 </IfModule>
 

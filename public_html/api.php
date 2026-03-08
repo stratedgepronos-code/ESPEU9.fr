@@ -3000,7 +3000,7 @@ case 'get_maintenance_status':
     if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coach') {
         http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break;
     }
-    $flagFile = __DIR__ . '/maintenance.on';
+    $flagFile = __DIR__ . '/uploads/maintenance.on';
     $active = file_exists($flagFile);
     echo json_encode(['success' => true, 'maintenance' => $active]);
     break;
@@ -3012,10 +3012,12 @@ case 'set_maintenance':
     }
     $in = json_decode(file_get_contents('php://input'), true);
     $on = !empty($in['on']);
-    $flagFile = __DIR__ . '/maintenance.on';
+    $uploadDir = __DIR__ . '/uploads';
+    if (!is_dir($uploadDir)) @mkdir($uploadDir, 0755, true);
+    $flagFile = $uploadDir . '/maintenance.on';
     if ($on) {
-        if (!file_put_contents($flagFile, '')) {
-            http_response_code(500); echo json_encode(['error' => 'Impossible d\'activer la maintenance']); break;
+        if (@file_put_contents($flagFile, '') === false) {
+            http_response_code(500); echo json_encode(['error' => 'Impossible d\'activer la maintenance (droits d\'écriture)']); break;
         }
     } else {
         if (file_exists($flagFile) && !@unlink($flagFile)) {
