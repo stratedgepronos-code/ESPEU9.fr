@@ -1855,6 +1855,10 @@ PROMPT;
         $movedFromUpcoming = false;
         if ($isUpcomingMatch && $upcomingDbId > 0) {
             try {
+                $oldKey = 'custom_' . $upcomingDbId;
+                $newKey = (string)$matchId;
+                $db->prepare("UPDATE convocations SET match_id = :nk WHERE match_id = :ok")->execute([':nk' => $newKey, ':ok' => $oldKey]);
+                $db->prepare("UPDATE convocation_responses SET match_id = :nk WHERE match_id = :ok")->execute([':nk' => $newKey, ':ok' => $oldKey]);
                 $db->prepare("DELETE FROM upcoming_matches WHERE id = :id")->execute([':id' => $upcomingDbId]);
                 $movedFromUpcoming = true;
             } catch(Exception $e) {}
@@ -3228,6 +3232,14 @@ case 'ffbb_sync':
                         $st->execute([':id'=>$m['ffbb_id'],':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':l'=>$lieu,':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win']]);
                     }
                     try {
+                        $newMatchId = (string)$m['ffbb_id'];
+                        $stUpDel = $db->prepare("SELECT id FROM upcoming_matches WHERE (ffbb_id = :fid AND ffbb_id > 0) OR (date = :d AND adversaire = :a)");
+                        $stUpDel->execute([':fid' => $m['ffbb_id'], ':d' => $m['date'], ':a' => $m['adversaire']]);
+                        while ($uRow = $stUpDel->fetch(PDO::FETCH_ASSOC)) {
+                            $oldKey = 'custom_' . $uRow['id'];
+                            $db->prepare("UPDATE convocations SET match_id = :nk WHERE match_id = :ok")->execute([':nk' => $newMatchId, ':ok' => $oldKey]);
+                            $db->prepare("UPDATE convocation_responses SET match_id = :nk WHERE match_id = :ok")->execute([':nk' => $newMatchId, ':ok' => $oldKey]);
+                        }
                         $db->prepare("DELETE FROM upcoming_matches WHERE ffbb_id = :fid AND ffbb_id > 0")->execute([':fid' => $m['ffbb_id']]);
                         $db->prepare("DELETE FROM upcoming_matches WHERE date = :d AND adversaire = :a")->execute([':d' => $m['date'], ':a' => $m['adversaire']]);
                     } catch(Exception $e) {}
@@ -3249,8 +3261,15 @@ case 'ffbb_sync':
             }
         }
 
-        // Cleanup: remove any upcoming match that also exists in match_results (dedup)
+        // Cleanup: migrate convocations then remove any upcoming match that also exists in match_results
         try {
+            $stClean = $db->query("SELECT u.id AS uid, r.id AS rid FROM upcoming_matches u INNER JOIN match_results r ON u.date = r.date AND (u.adversaire = r.equipe_a_nom OR u.adversaire = r.equipe_b_nom)");
+            while ($cr = $stClean->fetch(PDO::FETCH_ASSOC)) {
+                $oldK = 'custom_' . $cr['uid'];
+                $newK = (string)$cr['rid'];
+                $db->prepare("UPDATE convocations SET match_id = :nk WHERE match_id = :ok")->execute([':nk' => $newK, ':ok' => $oldK]);
+                $db->prepare("UPDATE convocation_responses SET match_id = :nk WHERE match_id = :ok")->execute([':nk' => $newK, ':ok' => $oldK]);
+            }
             $db->exec("DELETE u FROM upcoming_matches u INNER JOIN match_results r ON u.date = r.date AND (u.adversaire = r.equipe_a_nom OR u.adversaire = r.equipe_b_nom)");
         } catch(Exception $e) {}
 

@@ -5551,6 +5551,64 @@ function MatchPhotos({ matchId, coachUnlocked }) {
                 renderSlot("left", leftRef),
                 renderSlot("right", rightRef))));
 }
+// ── Convocations figées (match disputé – lecture seule) ──
+function FrozenConvocationPanel({ matchId }) {
+    const [convocations, setConvocations] = useState({});
+    const [gouterPlayer, setGouterPlayer] = useState("");
+    const [lavagePlayer, setLavagePlayer] = useState("");
+    const [responses, setResponses] = useState({});
+    const [loaded, setLoaded] = useState(false);
+    useEffect(function() {
+        Promise.all([
+            fetch(API_URL + "?action=get_convocations&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); }),
+            fetch(API_URL + "?action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); })
+        ]).then(function(results) {
+            var d1 = results[0], d2 = results[1];
+            if (d1.success && d1.convocations) {
+                setConvocations(d1.convocations);
+                if (d1.gouter_special) setGouterPlayer(d1.gouter_special);
+                else Object.entries(d1.convocations).forEach(function(e) { if (e[1].gouter) setGouterPlayer(e[0]); });
+                Object.entries(d1.convocations).forEach(function(e) { if (e[1].lavage) setLavagePlayer(e[0]); });
+            }
+            if (d2.success) setResponses(d2.responses || {});
+            setLoaded(true);
+        }).catch(function() { setLoaded(true); });
+    }, [matchId]);
+    if (!loaded) return null;
+    var convokedPlayers = PLAYERS.filter(function(p) { return convocations[p.id] && convocations[p.id].convoked; });
+    if (convokedPlayers.length === 0) return null;
+    var gouterLabel = gouterPlayer === "coach" ? "Coach Alex" : gouterPlayer === "ext" ? "Extérieur – pas de goûter" : null;
+    var gouterP = !gouterLabel && gouterPlayer ? PLAYERS.find(function(p) { return String(p.id) === gouterPlayer; }) : null;
+    var lavageP = lavagePlayer ? PLAYERS.find(function(p) { return String(p.id) === lavagePlayer; }) : null;
+    var presentsIds = convokedPlayers.filter(function(p) { return responses[p.id] && responses[p.id].response === "present"; });
+    var absentsIds = convokedPlayers.filter(function(p) { return responses[p.id] && responses[p.id].response === "absent"; });
+    var badgeStyle = function(bg, color) { return { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20, border: "none", background: bg, color: color, marginBottom: 8 }; };
+    var renderPlayer = function(p) {
+        var pResp = responses[p.id] ? responses[p.id].response : null;
+        return React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 0" } },
+            React.createElement("img", { src: PLAYER_PHOTOS[p.photoKey], alt: "", style: { width: 30, height: 30, borderRadius: "50%", objectFit: "cover" } }),
+            React.createElement("span", { style: { fontWeight: 600, fontSize: 13, flex: 1 } }, "#", p.num, " ", p.firstName, " ", p.lastName),
+            pResp === "present" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#16a34a", background: "rgba(22,163,74,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u2705 Présent"),
+            pResp === "absent" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#dc2626", background: "rgba(220,38,38,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u274C Absent"),
+            pResp === "attente" && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#d97706", background: "rgba(234,179,8,0.1)", padding: "2px 10px", borderRadius: 20 } }, "\u23F3 En attente"),
+            !pResp && React.createElement("span", { style: { fontSize: 11, color: "#a1a1aa" } }, "\u2014"));
+    };
+    return React.createElement("div", { style: { marginBottom: 24 } },
+        React.createElement("div", { className: "section-title" }, "\uD83D\uDCCB Convocations (figées)"),
+        React.createElement("div", { className: "card", style: { padding: 20, opacity: 0.92 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14 } },
+                React.createElement("span", { style: { fontSize: 13, color: "var(--text-dim)", fontStyle: "italic" } }, "\uD83D\uDD12 Ce match est terminé — les convocations sont figées.")),
+            presentsIds.length > 0 && React.createElement("div", { style: { marginBottom: 10 } },
+                React.createElement("div", { style: badgeStyle("rgba(22,163,74,0.12)", "#16a34a") }, "\u2705 Présents (", presentsIds.length, ")"),
+                presentsIds.map(renderPlayer)),
+            absentsIds.length > 0 && React.createElement("div", { style: { marginBottom: 10 } },
+                React.createElement("div", { style: badgeStyle("rgba(220,38,38,0.12)", "#dc2626") }, "\u274C Absents (", absentsIds.length, ")"),
+                absentsIds.map(renderPlayer)),
+            gouterLabel && React.createElement("div", { style: { marginTop: 12, padding: "8px 12px", background: "rgba(255,152,0,0.08)", borderRadius: 8, fontSize: 14 } }, "\uD83C\uDF6A Goûter : ", React.createElement("strong", null, gouterLabel)),
+            gouterP && React.createElement("div", { style: { marginTop: 12, padding: "8px 12px", background: "rgba(255,152,0,0.08)", borderRadius: 8, fontSize: 14 } }, "\uD83C\uDF6A Goûter : ", React.createElement("strong", null, gouterP.firstName, " ", gouterP.lastName)),
+            lavageP && React.createElement("div", { style: { marginTop: 8, padding: "8px 12px", background: "rgba(33,150,243,0.08)", borderRadius: 8, fontSize: 14 } }, "\uD83D\uDC55 Lavage maillots : ", React.createElement("strong", null, lavageP.firstName, " ", lavageP.lastName))));
+}
+
 // MATCH DETAIL
 // ── Scan Stats Button (IA extraction from match sheet) ──
 function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, user, onDelete }) {
@@ -5593,6 +5651,7 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
                     m.lieu)),
             isHome ? advTeam : espeTeam),
         React.createElement(MatchPhotos, { matchId: m.id, coachUnlocked: coachUnlocked }),
+        React.createElement(FrozenConvocationPanel, { matchId: m.id }),
         React.createElement(MatchExtrasPanel, { matchId: m.id, isCoach: coachUnlocked, onExtrasLoaded: () => {}, onStatsExtracted: (espe, adv) => { setLocalEspeStats(espe); setLocalAdvStats(adv); m.espeStats = espe; m.advStats = adv; setMSaved("stats_ok"); setTimeout(() => setMSaved(""), 3000); } }),
         React.createElement(MatchChatPanel, { matchId: m.id, user: user }),
         coachUnlocked && React.createElement("div", { className: "coach-notes", style: { marginBottom: 24 } },
