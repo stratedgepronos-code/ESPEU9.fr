@@ -3194,6 +3194,44 @@ case 'ffbb_sync':
             }
         }
 
+        // Extract match detail URLs to fetch gymnase info
+        $matchDetailPaths = [];
+        if (preg_match_all('/href="(\/ligues\/[^"]*\/match\/\d+)"/u', $html, $matchUrlM, PREG_SET_ORDER)) {
+            foreach ($matchUrlM as $mu) {
+                $matchDetailPaths[] = $mu[1];
+            }
+        }
+
+        // For upcoming matches, fetch detail page to get gymnase name & address
+        foreach ($matches as $mi => &$mRef) {
+            $mRef['gymnase'] = '';
+            $mRef['adresse'] = '';
+            if (!$mRef['played'] && isset($matchDetailPaths[$mi])) {
+                try {
+                    $detailUrl = 'https://competitions.ffbb.com' . $matchDetailPaths[$mi];
+                    $chD = curl_init($detailUrl);
+                    curl_setopt_array($chD, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_TIMEOUT => 10,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        CURLOPT_SSL_VERIFYPEER => true,
+                    ]);
+                    $detailHtml = curl_exec($chD);
+                    curl_close($chD);
+                    if ($detailHtml) {
+                        if (preg_match('/>Nom<\/span>.*?<span[^>]*>([^<]+)<\/span>/su', $detailHtml, $gymName)) {
+                            $mRef['gymnase'] = trim($gymName[1]);
+                        }
+                        if (preg_match('/>Adresse<\/span>.*?<span[^>]*>([^<]+)<\/span>/su', $detailHtml, $addrM)) {
+                            $mRef['adresse'] = trim($addrM[1]);
+                        }
+                    }
+                } catch (Exception $e) {}
+            }
+        }
+        unset($mRef);
+
         // Store/update matches in DB
         $synced = 0;
         $db->exec("CREATE TABLE IF NOT EXISTS upcoming_matches (
@@ -3247,7 +3285,10 @@ case 'ffbb_sync':
                 } else {
                     $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
                     $check->execute([':fid' => $m['ffbb_id']]);
-                    if ($m['domExt'] === 'dom') {
+                    $gymnase = $m['gymnase'] ?? '';
+                    if (!empty($m['adresse'])) {
+                        $lieu = $m['adresse'];
+                    } elseif ($m['domExt'] === 'dom') {
                         $lieu = 'Châlons-en-Champagne';
                     } else {
                         $cityMap = [
@@ -3263,11 +3304,11 @@ case 'ffbb_sync':
                         }
                     }
                     if ($check->fetch()) {
-                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv, lieu=:l WHERE ffbb_id=:fid");
-                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':fid'=>$m['ffbb_id']]);
+                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv, lieu=:l, gymnase=:g WHERE ffbb_id=:fid");
+                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
                     } else {
-                        $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, lieu, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:l,:fid)");
-                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':fid'=>$m['ffbb_id']]);
+                        $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, lieu, gymnase, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:l,:g,:fid)");
+                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
                     }
                     $synced++;
                 }

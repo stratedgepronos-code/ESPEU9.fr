@@ -3976,12 +3976,14 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
                     "J", u.journee, " \u2022 ", u.date, u.heure ? [" \u2022 ", u.heure] : null),
                 (displayGymnase || u.lieu) && React.createElement("div", { style: { textAlign: "center", marginTop: 8 } },
                     React.createElement("a", {
-                        href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent((displayGymnase || "gymnase") + " " + (u.lieu || "")),
+                        href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent((displayGymnase ? displayGymnase + " " : "") + (u.lieu || "")),
                         target: "_blank", rel: "noopener noreferrer",
-                        style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12, color: "var(--green-700)", textDecoration: "none", cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "all 0.2s" },
+                        style: { display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "8px 18px", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12, color: "var(--green-700)", textDecoration: "none", cursor: "pointer", transition: "all 0.2s" },
                         title: "Ouvrir dans Google Maps"
-                    }, "\uD83D\uDCCD ", displayGymnase || u.lieu, " \u2197\uFE0F")),
-                displayRdv && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)", marginTop: 6 } }, "\u23F0 RDV : ", displayRdv),
+                    },
+                        React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600 } }, "\uD83D\uDCCD ", displayGymnase || u.lieu, " \u2197\uFE0F"),
+                        displayGymnase && u.lieu && React.createElement("span", { style: { fontSize: 11, opacity: 0.7 } }, u.lieu))),
+                displayRdv && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)", marginTop: 6 } }, "\u23F0 RDV : ", displayRdv)),
             isHome ? advTeam : espeTeam),
         React.createElement("div", { style: { textAlign: "center", margin: "16px 0 24px", display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", alignItems: "center" } },
             React.createElement("span", { className: "upcoming-badge " + u.domExt, style: { fontSize: 14, padding: "6px 16px" } }, u.domExt === "dom" ? "\uD83C\uDFE0 Domicile" : "\uD83D\uDE8C Ext\u00E9rieur"),
