@@ -2956,7 +2956,7 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
             if (d.success) {
                 setScanStatus("ok");
                 if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
-                if (onMatchCreated && d.match_created) onMatchCreated();
+                if (onMatchCreated && (d.match_created || d.moved_from_upcoming)) onMatchCreated(d);
             } else {
                 setScanStatus("error:" + (d.error || "Erreur analyse IA"));
             }
@@ -2984,7 +2984,7 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
             if (d.success) {
                 setScanStatus("ok");
                 if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
-                if (onMatchCreated && d.match_created) onMatchCreated();
+                if (onMatchCreated && (d.match_created || d.moved_from_upcoming)) onMatchCreated(d);
                 setTimeout(() => setScanStatus(""), 5000);
             } else {
                 setScanStatus("error:" + (d.error || "Erreur inconnue"));

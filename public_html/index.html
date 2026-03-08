@@ -3520,7 +3520,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
             if (d.success) {
                 setScanStatus("ok");
                 if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
-                if (onMatchCreated && d.match_created) onMatchCreated();
+                if (onMatchCreated && (d.match_created || d.moved_from_upcoming)) onMatchCreated(d);
             } else {
                 setScanStatus("error:" + (d.error || "Erreur analyse IA"));
             }
@@ -3548,7 +3548,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
             if (d.success) {
                 setScanStatus("ok");
                 if (onStatsExtracted) onStatsExtracted(d.espeStats || [], d.advStats || [], d);
-                if (onMatchCreated && d.match_created) onMatchCreated();
+                if (onMatchCreated && (d.match_created || d.moved_from_upcoming)) onMatchCreated(d);
                 setTimeout(() => setScanStatus(""), 5000);
             } else {
                 setScanStatus("error:" + (d.error || "Erreur inconnue"));
@@ -5066,7 +5066,18 @@ function App() {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
                 tab === "matchs" && selectedMatch && React.createElement(MatchDetail, { match: selectedMatch, onBack: goBack, coachUnlocked: coachUnlocked, matchNotes: matchNotes, setMatchNotes: setMatchNotes, user: user, onDelete: handleDeleteMatch }),
-                tab === "matchs" && selectedUpcoming && React.createElement(UpcomingDetail, { upcoming: selectedUpcoming, onBack: goBack, user: user, onMatchCreated: () => { fetch(API_URL + "?action=get_matches", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success && data.matches) { setMatches(data.matches); matchesRef.current = data.matches; } }).catch(() => {}); } }),
+                tab === "matchs" && selectedUpcoming && React.createElement(UpcomingDetail, { upcoming: selectedUpcoming, onBack: goBack, user: user, onMatchCreated: (d) => {
+                    fetch(API_URL + "?action=get_matches", { credentials: "same-origin" }).then(r => r.json()).then(data => {
+                        if (data.success && data.matches) {
+                            setMatches(data.matches); matchesRef.current = data.matches;
+                            if (d && d.moved_from_upcoming && d.match_id) {
+                                var newMatch = data.matches.find(function(m) { return m.id === d.match_id; });
+                                if (newMatch) { setSelectedUpcoming(null); goMatch(newMatch); }
+                            }
+                        }
+                    }).catch(() => {});
+                    fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success) { setCustomUpcoming(data.matches || []); customUpcomingRef.current = data.matches || []; } }).catch(() => {});
+                } }),
                 tab === "medias" && React.createElement(MediaPage, { user: user, matches: matches }),
                 tab === "coffre" && user && user.role === "coach" && React.createElement(VaultPage, { user: user }),
                 tab === "messagerie" && user && React.createElement(MessagingPage, { user: user }),

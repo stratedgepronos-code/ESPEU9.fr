@@ -1625,6 +1625,8 @@ case 'extract_match_stats':
     recordAttempt($clientIp, 'ai_scan');
     if (!defined('CLAUDE_API_KEY') || !CLAUDE_API_KEY) { http_response_code(500); echo json_encode(['error' => 'Clé API Claude non configurée']); break; }
     $rawMatchId = $_POST['match_id'] ?? '';
+    $isUpcomingMatch = (strpos((string)$rawMatchId, 'custom_') === 0);
+    $upcomingDbId = $isUpcomingMatch ? (int)str_replace('custom_', '', (string)$rawMatchId) : 0;
     $matchId = (int)(str_replace('custom_', '', (string)$rawMatchId));
     if (!$matchId) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
 
@@ -1850,17 +1852,26 @@ PROMPT;
             $stIns->execute([':mid' => $matchId, ':tt' => 'adv', ':n' => (int)($s['num'] ?? 0), ':nom' => $s['nom'] ?? '', ':min' => $s['min'] ?? '00:00', ':pts' => (int)($s['pts'] ?? 0), ':tirs' => (int)($s['tirs'] ?? 0), ':t3' => (int)($s['t3'] ?? 0), ':t2i' => (int)($s['t2i'] ?? 0), ':t2e' => (int)($s['t2e'] ?? 0), ':lf' => (int)($s['lf'] ?? 0), ':f' => (int)($s['fautes'] ?? 0)]);
         }
 
+        $movedFromUpcoming = false;
+        if ($isUpcomingMatch && $upcomingDbId > 0) {
+            try {
+                $db->prepare("DELETE FROM upcoming_matches WHERE id = :id")->execute([':id' => $upcomingDbId]);
+                $movedFromUpcoming = true;
+            } catch(Exception $e) {}
+        }
+
         echo json_encode([
             'success' => true,
             'match_id' => $matchId,
             'match_created' => !$matchExists,
+            'moved_from_upcoming' => $movedFromUpcoming,
             'scores_updated' => true,
             'espeStats' => $statsData['espeStats'] ?? [],
             'advStats' => $statsData['advStats'] ?? [],
             'scores' => $statsData['scores'] ?? null,
             'espeScore' => $espeScore,
             'advScore' => $advScore,
-            'message' => $matchExists ? 'Match mis à jour avec scores et stats' : 'Match créé avec scores et stats'
+            'message' => $movedFromUpcoming ? 'Match déplacé vers matchs disputés avec scores et stats' : ($matchExists ? 'Match mis à jour avec scores et stats' : 'Match créé avec scores et stats')
         ]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur: ' . $e->getMessage()]); }
     break;
@@ -3216,7 +3227,10 @@ case 'ffbb_sync':
                         $lieu = $m['domExt'] === 'dom' ? 'Châlons-en-Champagne' : '';
                         $st->execute([':id'=>$m['ffbb_id'],':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':l'=>$lieu,':de'=>$m['domExt'],':ean'=>$equipeANom,':eas'=>$equipeAShort,':easc'=>$m['score_home'],':ebn'=>$equipeBNom,':ebs'=>$equipeBShort,':ebsc'=>$m['score_away'],':es'=>$m['espe_score'],':adv'=>$m['adv_score'],':w'=>$m['win']]);
                     }
-                    try { $db->prepare("DELETE FROM upcoming_matches WHERE ffbb_id = :fid")->execute([':fid' => $m['ffbb_id']]); } catch(Exception $e) {}
+                    try {
+                        $db->prepare("DELETE FROM upcoming_matches WHERE ffbb_id = :fid AND ffbb_id > 0")->execute([':fid' => $m['ffbb_id']]);
+                        $db->prepare("DELETE FROM upcoming_matches WHERE date = :d AND adversaire = :a")->execute([':d' => $m['date'], ':a' => $m['adversaire']]);
+                    } catch(Exception $e) {}
                     $synced++;
                 } else {
                     $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
@@ -3234,6 +3248,11 @@ case 'ffbb_sync':
                 $syncErrors[] = "Match #" . $m['ffbb_id'] . " (J" . $m['journee'] . "): " . $e->getMessage();
             }
         }
+
+        // Cleanup: remove any upcoming match that also exists in match_results (dedup)
+        try {
+            $db->exec("DELETE u FROM upcoming_matches u INNER JOIN match_results r ON u.date = r.date AND (u.adversaire = r.equipe_a_nom OR u.adversaire = r.equipe_b_nom)");
+        } catch(Exception $e) {}
 
         // Store standings
         $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
