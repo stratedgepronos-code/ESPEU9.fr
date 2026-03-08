@@ -5594,6 +5594,7 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [localEspeStats, setLocalEspeStats] = useState(m.espeStats || []);
     const [localAdvStats, setLocalAdvStats] = useState(m.advStats || []);
+    useEffect(function() { requestAnimationFrame(function() { window.scrollTo(0, 0); }); }, [m.id]);
     const espeTeam = React.createElement("div", { className: "match-detail-team" },
         React.createElement("img", { src: TEAM_LOGOS.ESPE, alt: "ESPE", className: "match-team-logo" }),
         React.createElement("div", { className: "match-detail-team-name" }, "ESPE"));

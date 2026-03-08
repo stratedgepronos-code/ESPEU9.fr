@@ -6274,6 +6274,7 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [localEspeStats, setLocalEspeStats] = useState(function() { return normalizeStatsRows(m.espeStats); });
     const [localAdvStats, setLocalAdvStats] = useState(function() { return normalizeStatsRows(m.advStats); });
+    useEffect(function() { requestAnimationFrame(function() { window.scrollTo(0, 0); }); }, [m.id]);
     useEffect(function() {
         setLocalEspeStats(normalizeStatsRows(m.espeStats));
         setLocalAdvStats(normalizeStatsRows(m.advStats));
