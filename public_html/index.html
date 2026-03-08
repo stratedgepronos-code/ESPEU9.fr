@@ -2616,7 +2616,7 @@ function MaintenancePanel() {
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } },
             React.createElement("span", { style: { fontSize: 14, fontWeight: 600, color: active ? "#d97706" : "var(--green-600)" } }, active ? "\u26A0\uFE0F Maintenance activ\u00E9e" : "\u2705 Site en ligne"),
             React.createElement("button", { type: "button", onClick: () => setMaintenance(true), disabled: loading || active, style: { padding: "10px 18px", background: active ? "#666" : "#f59e0b", color: "white", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: active ? "default" : "pointer", opacity: loading ? 0.6 : 1 } }, "Activer"),
-            React.createElement("button", { type: "button", onClick: () => setMaintenance(false), disabled: loading || !active, style: { padding: "10px 18px", background: !active ? "#666" : "#16a34a", color: "white", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: !active ? "default" : "pointer", opacity: loading ? 0.6 : 1 } }, "D\u00E9sactiver"))),
+            React.createElement("button", { type: "button", onClick: () => setMaintenance(false), disabled: loading || !active, style: { padding: "10px 18px", background: !active ? "#666" : "#16a34a", color: "white", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: !active ? "default" : "pointer", opacity: loading ? 0.6 : 1 } }, "D\u00E9sactiver")),
         msg && React.createElement("div", { style: { marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--green-600)" } }, msg));
 }
 // ── Coach Password Reset Panel ──
