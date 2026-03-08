@@ -3527,5 +3527,108 @@ case 'set_maintenance':
     }
     break;
 
+// ═══ OBJETS PERDUS ═══
+case 'get_lost_objects':
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS lost_objects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            photo_url VARCHAR(500) NOT NULL,
+            description VARCHAR(255) DEFAULT '',
+            claimed_by INT DEFAULT NULL,
+            claimed_name VARCHAR(100) DEFAULT NULL,
+            claimed_at DATETIME DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+        $st = $db->query("SELECT id, photo_url, description, claimed_by, claimed_name, claimed_at, created_at FROM lost_objects ORDER BY created_at DESC");
+        $objects = $st->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'objects' => $objects]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'add_lost_object':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== 0) { http_response_code(400); echo json_encode(['error' => 'Photo requise']); break; }
+    $file = $_FILES['photo'];
+    $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!in_array($file['type'], $allowed)) { http_response_code(400); echo json_encode(['error' => 'Format non supporté']); break; }
+    if ($file['size'] > 5 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Fichier trop lourd (max 5 Mo)']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS lost_objects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            photo_url VARCHAR(500) NOT NULL,
+            description VARCHAR(255) DEFAULT '',
+            claimed_by INT DEFAULT NULL,
+            claimed_name VARCHAR(100) DEFAULT NULL,
+            claimed_at DATETIME DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+        $uploadDir = __DIR__ . '/uploads/lost_objects/';
+        @mkdir($uploadDir, 0755, true);
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = 'lost_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        move_uploaded_file($file['tmp_name'], $uploadDir . $filename);
+        $photoUrl = 'uploads/lost_objects/' . $filename;
+        $desc = isset($_POST['description']) ? trim($_POST['description']) : '';
+        $st = $db->prepare("INSERT INTO lost_objects (photo_url, description) VALUES (:p, :d)");
+        $st->execute([':p' => $photoUrl, ':d' => $desc]);
+        $newId = (int)$db->lastInsertId();
+        echo json_encode(['success' => true, 'object' => ['id' => $newId, 'photo_url' => $photoUrl, 'description' => $desc, 'claimed_by' => null, 'claimed_name' => null, 'claimed_at' => null, 'created_at' => date('Y-m-d H:i:s')]]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
+case 'delete_lost_object':
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $data = json_decode(file_get_contents('php://input'), true);
+    $objId = (int)($data['id'] ?? 0);
+    if (!$objId) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
+    try {
+        $db = getDB();
+        $st = $db->prepare("SELECT photo_url FROM lost_objects WHERE id = :id");
+        $st->execute([':id' => $objId]);
+        $obj = $st->fetch(PDO::FETCH_ASSOC);
+        if ($obj) {
+            $filePath = __DIR__ . '/' . $obj['photo_url'];
+            if (file_exists($filePath)) @unlink($filePath);
+            $db->prepare("DELETE FROM lost_objects WHERE id = :id")->execute([':id' => $objId]);
+        }
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'claim_lost_object':
+    if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    $data = json_decode(file_get_contents('php://input'), true);
+    $objId = (int)($data['id'] ?? 0);
+    if (!$objId) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
+    try {
+        $db = getDB();
+        $st = $db->prepare("SELECT * FROM lost_objects WHERE id = :id");
+        $st->execute([':id' => $objId]);
+        $obj = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$obj) { http_response_code(404); echo json_encode(['error' => 'Objet non trouvé']); break; }
+        if ($obj['claimed_by']) { echo json_encode(['success' => false, 'error' => 'Cet objet a déjà été réclamé']); break; }
+
+        $userName = $_SESSION['display_name'] ?? $_SESSION['username'] ?? 'Inconnu';
+        $userId = (int)$_SESSION['user_id'];
+        $db->prepare("UPDATE lost_objects SET claimed_by = :uid, claimed_name = :name, claimed_at = NOW() WHERE id = :id")
+           ->execute([':uid' => $userId, ':name' => $userName, ':id' => $objId]);
+
+        $descLabel = $obj['description'] ? $obj['description'] : 'Objet #' . $objId;
+
+        // Send push to all coaches
+        $coaches = $db->query("SELECT id, email FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($coaches as $coach) {
+            sendPushToUser($coach['id'], "🧤 Objet réclamé !", "$userName a réclamé : $descLabel", '#accueil');
+            if (!empty($coach['email'])) {
+                sendEmailNotif($coach['email'], "Objet perdu réclamé", "<p><strong>$userName</strong> a réclamé l'objet : <strong>" . htmlspecialchars($descLabel, ENT_QUOTES, 'UTF-8') . "</strong></p><p>Connectez-vous pour voir les détails.</p>");
+            }
+        }
+
+        echo json_encode(['success' => true, 'claimed_name' => $userName]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 default: http_response_code(400); echo json_encode(['error'=>'Action inconnue']); break;
 }

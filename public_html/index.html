@@ -1482,6 +1482,70 @@ body {
 .fb-card-btn:hover { background: #166FE5; }
 .fb-card-btn svg { width: 18px; height: 18px; fill: white; }
 
+/* ═══ OBJETS PERDUS ═══ */
+.lost-section { margin-top: 40px; }
+.lost-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+}
+.lost-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;
+}
+.lost-card {
+  background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
+  overflow: hidden; box-shadow: var(--shadow); transition: transform 0.25s, box-shadow 0.25s;
+  position: relative;
+}
+.lost-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.13); }
+.lost-card-img {
+  width: 100%; height: 200px; object-fit: cover; display: block; cursor: pointer;
+  transition: transform 0.3s;
+}
+.lost-card:hover .lost-card-img { transform: scale(1.03); }
+.lost-card-body { padding: 14px 16px; }
+.lost-card-desc {
+  font-size: 13px; color: var(--text-dim); margin-bottom: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lost-claim-btn {
+  width: 100%; padding: 10px; border: none; border-radius: 10px; cursor: pointer;
+  font-weight: 700; font-size: 14px; transition: all 0.2s;
+  background: linear-gradient(135deg, #f59e0b, #f97316); color: white;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.lost-claim-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(249,115,22,0.35); }
+.lost-claim-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.lost-claimed {
+  padding: 10px; border-radius: 10px; text-align: center; font-size: 13px; font-weight: 600;
+  background: rgba(22,163,74,0.1); color: var(--green-700); border: 1px solid rgba(22,163,74,0.2);
+}
+.lost-delete-btn {
+  position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
+  border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(0,0,0,0.55); color: white; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s; backdrop-filter: blur(4px);
+}
+.lost-delete-btn:hover { background: rgba(220,38,38,0.85); }
+.lost-upload-btn {
+  padding: 8px 18px; border: 2px dashed var(--green-700); border-radius: 10px;
+  background: rgba(22,163,74,0.06); color: var(--green-700);
+  font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.lost-upload-btn:hover { background: rgba(22,163,74,0.12); border-style: solid; }
+.lost-empty {
+  text-align: center; padding: 48px 24px; color: var(--text-dim);
+  background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
+}
+.lost-empty-icon { font-size: 48px; margin-bottom: 12px; }
+.lost-lightbox {
+  position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out; backdrop-filter: blur(8px); animation: fadeIn 0.2s;
+}
+.lost-lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 0 60px rgba(0,0,0,0.5); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .player-grid { grid-template-columns: repeat(2, 1fr); }
@@ -5565,6 +5629,114 @@ function UpcomingList({ onUpcomingClick, customUpcoming }) {
     }));
 }
 
+function LostObjectsPanel({ user }) {
+    const [objects, setObjects] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [lightbox, setLightbox] = useState(null);
+    const [desc, setDesc] = useState("");
+    const [showForm, setShowForm] = useState(false);
+    const fileRef = useRef(null);
+    const isCoach = user && user.role === "coach";
+
+    useEffect(() => {
+        fetch(API_URL + "action=get_lost_objects", { credentials: "same-origin" })
+            .then(r => r.json()).then(d => { if (d.success) setObjects(d.objects || []); })
+            .catch(() => {}).finally(() => setLoading(false));
+    }, []);
+
+    const uploadObject = async (file) => {
+        if (!file) return;
+        setUploading(true);
+        const fd = new FormData();
+        fd.append("photo", file);
+        fd.append("description", desc);
+        try {
+            const r = await fetch(API_URL + "action=add_lost_object", { method: "POST", credentials: "same-origin", body: fd });
+            const d = await r.json();
+            if (d.success && d.object) { setObjects(prev => [d.object, ...prev]); setDesc(""); setShowForm(false); }
+            else alert(d.error || "Erreur");
+        } catch(e) { alert("Erreur r\u00E9seau"); }
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
+    };
+
+    const deleteObject = async (id) => {
+        if (!confirm("Supprimer cet objet ?")) return;
+        try {
+            const r = await fetch(API_URL + "action=delete_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+            const d = await r.json();
+            if (d.success) setObjects(prev => prev.filter(o => o.id !== id));
+        } catch(e) { alert("Erreur"); }
+    };
+
+    const claimObject = async (id) => {
+        if (!confirm("Confirmer que cet objet vous appartient ?")) return;
+        try {
+            const r = await fetch(API_URL + "action=claim_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+            const d = await r.json();
+            if (d.success) {
+                setObjects(prev => prev.map(o => o.id === id ? { ...o, claimed_by: user.id, claimed_name: d.claimed_name, claimed_at: new Date().toISOString() } : o));
+            } else alert(d.error || "Erreur");
+        } catch(e) { alert("Erreur"); }
+    };
+
+    if (loading) return null;
+    if (objects.length === 0 && !isCoach) return null;
+
+    return React.createElement("div", { className: "lost-section" },
+        React.createElement("div", { className: "lost-header" },
+            React.createElement("div", { className: "section-title", style: { margin: 0 } }, "\uD83E\uDDE4 Objets perdus"),
+            isCoach && React.createElement("button", {
+                className: "lost-upload-btn",
+                onClick: () => setShowForm(!showForm)
+            }, showForm ? "\u2715 Annuler" : "\u2795 Ajouter un objet")),
+
+        isCoach && showForm && React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 20 } },
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+                React.createElement("input", {
+                    type: "text", placeholder: "Description courte (ex: Gourde bleue, Sweat noir...)",
+                    value: desc, onChange: e => setDesc(e.target.value),
+                    style: { padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, background: "var(--surface)" }
+                }),
+                React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" } },
+                    React.createElement("input", { ref: fileRef, type: "file", accept: "image/*", style: { fontSize: 13 } }),
+                    React.createElement("button", {
+                        className: "lost-claim-btn", style: { width: "auto", padding: "10px 24px" },
+                        disabled: uploading,
+                        onClick: () => { if (fileRef.current && fileRef.current.files[0]) uploadObject(fileRef.current.files[0]); else alert("S\u00E9lectionnez une photo"); }
+                    }, uploading ? "\u23F3 Envoi..." : "\uD83D\uDCF7 Publier")))),
+
+        objects.length === 0
+            ? React.createElement("div", { className: "lost-empty" },
+                React.createElement("div", { className: "lost-empty-icon" }, "\uD83E\uDDF3"),
+                React.createElement("p", null, "Aucun objet perdu pour le moment"),
+                React.createElement("p", { style: { fontSize: 13 } }, "Bonne nouvelle !"))
+            : React.createElement("div", { className: "lost-grid" },
+                objects.map(obj => React.createElement("div", { className: "lost-card", key: obj.id },
+                    isCoach && React.createElement("button", {
+                        className: "lost-delete-btn", title: "Supprimer",
+                        onClick: () => deleteObject(obj.id)
+                    }, "\u2715"),
+                    React.createElement("img", {
+                        className: "lost-card-img", src: obj.photo_url, alt: obj.description || "Objet perdu",
+                        onClick: () => setLightbox(obj.photo_url), loading: "lazy"
+                    }),
+                    React.createElement("div", { className: "lost-card-body" },
+                        obj.description && React.createElement("div", { className: "lost-card-desc", title: obj.description }, obj.description),
+                        obj.claimed_by
+                            ? React.createElement("div", { className: "lost-claimed" }, "\u2705 R\u00E9clam\u00E9 par ", obj.claimed_name || "un membre")
+                            : React.createElement("button", {
+                                className: "lost-claim-btn",
+                                onClick: () => claimObject(obj.id)
+                            }, "\u270B C'est \u00E0 moi !"))))),
+
+        lightbox && React.createElement("div", {
+            className: "lost-lightbox",
+            onClick: () => setLightbox(null)
+        }, React.createElement("img", { src: lightbox, alt: "Zoom" })));
+}
+
 function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user, customUpcoming }) {
     const totalPts = matches.reduce((a, m) => a + m.espeScore, 0);
     const totalOpp = matches.reduce((a, m) => a + m.advScore, 0);
@@ -5654,6 +5826,7 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                     m.lieu)),
             React.createElement("span", { className: `result-badge ${m.win ? "win" : "loss"}` }, m.win ? "VICTOIRE" : "DÉFAITE"));
         }),
+        React.createElement(LostObjectsPanel, { user: user }),
         React.createElement("div", { className: "fb-section" },
             React.createElement("div", { className: "section-title" }, "Suivez-nous sur Facebook"),
             React.createElement("div", { className: "fb-cards-row" },
