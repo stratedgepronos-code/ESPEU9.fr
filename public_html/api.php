@@ -3247,7 +3247,21 @@ case 'ffbb_sync':
                 } else {
                     $check = $db->prepare("SELECT id FROM upcoming_matches WHERE ffbb_id = :fid");
                     $check->execute([':fid' => $m['ffbb_id']]);
-                    $lieu = $m['domExt'] === 'dom' ? 'Châlons-en-Champagne' : '';
+                    if ($m['domExt'] === 'dom') {
+                        $lieu = 'Châlons-en-Champagne';
+                    } else {
+                        $cityMap = [
+                            'REIMS' => 'Reims', 'COURTISOLS' => 'Courtisols', 'CORMONTREUIL' => 'Cormontreuil',
+                            'VITRY' => 'Vitry-le-François', 'EPERNAY' => 'Épernay', 'SÉZANNE' => 'Sézanne',
+                            'TINQUEUX' => 'Tinqueux', 'MOURMELON' => 'Mourmelon', 'FISMES' => 'Fismes',
+                            'SUIPPES' => 'Suippes', 'SAINTE-MENEHOULD' => 'Sainte-Ménehould',
+                        ];
+                        $lieu = '';
+                        $advUp = mb_strtoupper($m['adversaire']);
+                        foreach ($cityMap as $k => $v) {
+                            if (mb_strpos($advUp, $k) !== false) { $lieu = $v; break; }
+                        }
+                    }
                     if ($check->fetch()) {
                         $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv, lieu=:l WHERE ffbb_id=:fid");
                         $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':fid'=>$m['ffbb_id']]);
