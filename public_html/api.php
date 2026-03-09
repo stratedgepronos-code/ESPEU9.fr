@@ -3357,11 +3357,17 @@ case 'ffbb_sync':
         } catch(Exception $e) {}
 
         // Store standings
-        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch(Exception $e) {}
         $db->exec("DELETE FROM ffbb_standings");
-        $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points) VALUES (:r,:t,:p)");
+        $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points, played, wins, losses) VALUES (:r,:t,:p,:j,:w,:l)");
         foreach ($standings as $s) {
-            $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$s['points']]);
+            $pts = (int)$s['points'];
+            $j = (int)($s['played'] ?? 0);
+            $w = (int)($s['wins'] ?? 0);
+            $l = (int)($s['losses'] ?? 0);
+            if (!$j && $pts > 0) { $j = $pts; $w = $pts - $j; $l = $j - $w; }
+            $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$pts,':j'=>$j,':w'=>$w,':l'=>$l]);
         }
 
         // Log sync
@@ -3389,8 +3395,9 @@ case 'ffbb_sync':
 case 'ffbb_standings':
     try {
         $db = getDB();
-        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
-        $st = $db->query("SELECT rank_pos, team_name, points FROM ffbb_standings ORDER BY rank_pos ASC");
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch(Exception $e) {}
+        $st = $db->query("SELECT rank_pos, team_name, points, played, wins, losses FROM ffbb_standings ORDER BY rank_pos ASC");
         $standings = $st->fetchAll(PDO::FETCH_ASSOC);
         $lastSync = '';
         try {
@@ -3621,11 +3628,19 @@ case 'cron_ffbb_sync':
             }
         }
 
-        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch(Exception $e) {}
         if (!empty($standings)) {
             $db->exec("DELETE FROM ffbb_standings");
-            $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points) VALUES (:r,:t,:p)");
-            foreach ($standings as $s) { $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$s['points']]); }
+            $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points, played, wins, losses) VALUES (:r,:t,:p,:j,:w,:l)");
+            foreach ($standings as $s) {
+                $pts = (int)$s['points'];
+                $j = (int)($s['played'] ?? 0);
+                $w = (int)($s['wins'] ?? 0);
+                $l = (int)($s['losses'] ?? 0);
+                if (!$j && $pts > 0) { $j = $pts; $w = $pts - $j; $l = $j - $w; }
+                $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$pts,':j'=>$j,':w'=>$w,':l'=>$l]);
+            }
         }
         $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_last_sync', :v) ON DUPLICATE KEY UPDATE config_value = :v2")
            ->execute([':v' => date('Y-m-d H:i:s'), ':v2' => date('Y-m-d H:i:s')]);
