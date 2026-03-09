@@ -5704,7 +5704,7 @@ function LostObjectsPanel({ user }) {
         try {
             const r = await fetch(API_URL + "action=delete_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
             const d = await r.json();
-            if (d.success) setObjects(prev => prev.filter(o => o.id !== id));
+            if (d.success) setObjects(prev => prev.filter(o => String(o.id) !== String(id)));
         } catch(e) { alert("Erreur"); }
     };
 
@@ -5713,8 +5713,10 @@ function LostObjectsPanel({ user }) {
         try {
             const r = await fetch(API_URL + "action=claim_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
             const d = await r.json();
-            if (d.success) {
-                setObjects(prev => prev.map(o => o.id === id ? { ...o, claimed_by: user.id, claimed_name: d.claimed_name, claimed_at: new Date().toISOString() } : o));
+            if (d.success && d.object) {
+                setObjects(prev => prev.map(o => String(o.id) === String(id) ? d.object : o));
+            } else if (d.success) {
+                setObjects(prev => prev.map(o => String(o.id) === String(id) ? { ...o, claimed_by: 1, claimed_name: "Réclamé", claimed_at: new Date().toISOString() } : o));
             } else alert(d.error || "Erreur");
         } catch(e) { alert("Erreur"); }
     };

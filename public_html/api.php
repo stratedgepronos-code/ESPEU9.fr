@@ -3743,18 +3743,26 @@ case 'claim_lost_object':
         $db->prepare("UPDATE lost_objects SET claimed_by = :uid, claimed_name = :name, claimed_at = NOW() WHERE id = :id")
            ->execute([':uid' => $userId, ':name' => $userName, ':id' => $objId]);
 
+        $stUpdated = $db->prepare("SELECT id, photo_url, description, claimed_by, claimed_name, claimed_at, created_at FROM lost_objects WHERE id = :id");
+        $stUpdated->execute([':id' => $objId]);
+        $updatedObj = $stUpdated->fetch(PDO::FETCH_ASSOC);
+
         $descLabel = $obj['description'] ? $obj['description'] : 'Objet #' . $objId;
 
-        // Send push to all coaches
+        // Send push + email to all coaches
         $coaches = $db->query("SELECT id, email FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_ASSOC);
+        $emailBody = "<p><strong>" . htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') . "</strong> a réclamé l'objet : <strong>" . htmlspecialchars($descLabel, ENT_QUOTES, 'UTF-8') . "</strong></p>"
+                   . (!empty($obj['photo_url']) ? "<p><img src='https://espeu9.fr/" . htmlspecialchars($obj['photo_url'], ENT_QUOTES, 'UTF-8') . "' style='max-width:300px;border-radius:8px' alt='Objet'></p>" : "")
+                   . "<p>Connectez-vous pour voir les détails.</p>";
         foreach ($coaches as $coach) {
             sendPushToUser($coach['id'], "🧤 Objet réclamé !", "$userName a réclamé : $descLabel", '#accueil');
-            if (!empty($coach['email'])) {
-                sendEmailNotif($coach['email'], "Objet perdu réclamé", "<p><strong>$userName</strong> a réclamé l'objet : <strong>" . htmlspecialchars($descLabel, ENT_QUOTES, 'UTF-8') . "</strong></p><p>Connectez-vous pour voir les détails.</p>");
+            $coachEmail = !empty($coach['email']) ? $coach['email'] : (SMTP_USER ?: '');
+            if ($coachEmail) {
+                sendEmailNotif($coachEmail, "Objet perdu réclamé", $emailBody);
             }
         }
 
-        echo json_encode(['success' => true, 'claimed_name' => $userName]);
+        echo json_encode(['success' => true, 'object' => $updatedObj]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
