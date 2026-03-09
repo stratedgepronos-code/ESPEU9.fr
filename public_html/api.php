@@ -3186,11 +3186,38 @@ case 'ffbb_sync':
         }
         unset($match);
 
-        // Parse standings from the classement section
-        // HTML format: rank + team name + points concatenated in link text
-        if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d+)<\/(?:div|a)>/u', $html, $standM, PREG_SET_ORDER)) {
+        // Parse standings — Méthode 1 : liens avec href equipes
+        if (preg_match_all('/<a[^>]*href="[^"]*equipes\/\d+"[^>]*>\s*(\d)\s*([^<]+?)\s*(\d{1,2})\s*<\/a>/u', $html, $standM, PREG_SET_ORDER)) {
             foreach ($standM as $s) {
-                $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                $team = trim($s[2]);
+                if (preg_match('/^(.+?\s-\s\d)\s*$/u', $team, $fixTeam)) $team = $fixTeam[1];
+                $standings[] = ['rank' => (int)$s[1], 'team' => $team, 'points' => (int)$s[3]];
+            }
+        }
+        // Méthode 2 : Next.js __next_f.push
+        if (empty($standings)) {
+            $chunks = '';
+            if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $html, $chunkM)) {
+                foreach ($chunkM[1] as $c) $chunks .= stripcslashes($c);
+            }
+            if (preg_match('/"classement"\s*:\s*\[(\{.+?\})\s*\]/su', $chunks, $cMatch)) {
+                $arr = json_decode('[' . $cMatch[1] . ']', true);
+                if ($arr) foreach ($arr as $i => $row) {
+                    $standings[] = ['rank' => (int)($row['rang'] ?? ($i+1)), 'team' => $row['nomEquipe'] ?? $row['equipe'] ?? '', 'points' => (int)($row['points'] ?? 0)];
+                }
+            }
+            if (empty($standings) && preg_match_all('/(\d)((?:[A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F} \-\'\.\d]{3,}?))(\d{1,2})(?=[,\]\"\<\n])/u', $chunks, $standC, PREG_SET_ORDER)) {
+                foreach ($standC as $s) {
+                    $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                }
+            }
+        }
+        // Méthode 3 : fallback regex large
+        if (empty($standings)) {
+            if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,2})<\/(?:div|a|span)>/u', $html, $standM, PREG_SET_ORDER)) {
+                foreach ($standM as $s) {
+                    $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                }
             }
         }
 
@@ -3553,15 +3580,53 @@ case 'cron_ffbb_sync':
         if ($curlErr || $httpCode !== 200) { echo json_encode(['success' => false, 'error' => 'FFBB injoignable: ' . ($curlErr ?: "HTTP $httpCode")]); break; }
 
         $standings = [];
-        if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d+)<\/(?:div|a)>/u', $html, $standM, PREG_SET_ORDER)) {
+
+        // Méthode 1 : regex HTML classique (liens classement avec href equipes)
+        if (preg_match_all('/<a[^>]*href="[^"]*equipes\/\d+"[^>]*>\s*(\d)\s*([^<]+?)\s*(\d{1,2})\s*<\/a>/u', $html, $standM, PREG_SET_ORDER)) {
             foreach ($standM as $s) {
-                $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                $team = trim($s[2]);
+                // Si le nom finit par " - X" suivi du score, on sépare mieux
+                if (preg_match('/^(.+?\s-\s\d)\s*$/u', $team, $fixTeam)) $team = $fixTeam[1];
+                $standings[] = ['rank' => (int)$s[1], 'team' => $team, 'points' => (int)$s[3]];
             }
         }
+
+        // Méthode 2 : parsing Next.js __next_f.push (site FFBB v2)
+        if (empty($standings)) {
+            $chunks = '';
+            if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $html, $chunkM)) {
+                foreach ($chunkM[1] as $c) $chunks .= stripcslashes($c);
+            }
+            // Chercher classement JSON : [{"rang":1,"nomEquipe":"...","points":10}, ...]
+            if (preg_match('/"classement"\s*:\s*\[(\{.+?\})\s*\]/su', $chunks, $cMatch)) {
+                $arr = json_decode('[' . $cMatch[1] . ']', true);
+                if ($arr) foreach ($arr as $i => $row) {
+                    $standings[] = ['rank' => (int)($row['rang'] ?? ($i+1)), 'team' => $row['nomEquipe'] ?? $row['equipe'] ?? '', 'points' => (int)($row['points'] ?? 0)];
+                }
+            }
+            // Alternative : chercher les lignes "rangEquipePoints" dans les chunks
+            if (empty($standings) && preg_match_all('/(\d)((?:[A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F} \-\'\.\d]{3,}?))(\d{1,2})(?=[,\]\"\<\n])/u', $chunks, $standC, PREG_SET_ORDER)) {
+                foreach ($standC as $s) {
+                    $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                }
+            }
+        }
+
+        // Méthode 3 : fallback regex large
+        if (empty($standings)) {
+            if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,2})<\/(?:div|a|span)>/u', $html, $standM, PREG_SET_ORDER)) {
+                foreach ($standM as $s) {
+                    $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                }
+            }
+        }
+
         $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
-        $db->exec("DELETE FROM ffbb_standings");
-        $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points) VALUES (:r,:t,:p)");
-        foreach ($standings as $s) { $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$s['points']]); }
+        if (!empty($standings)) {
+            $db->exec("DELETE FROM ffbb_standings");
+            $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points) VALUES (:r,:t,:p)");
+            foreach ($standings as $s) { $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$s['points']]); }
+        }
         $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_last_sync', :v) ON DUPLICATE KEY UPDATE config_value = :v2")
            ->execute([':v' => date('Y-m-d H:i:s'), ':v2' => date('Y-m-d H:i:s')]);
         echo json_encode(['success' => true, 'standings_count' => count($standings), 'synced_at' => date('Y-m-d H:i:s')]);
