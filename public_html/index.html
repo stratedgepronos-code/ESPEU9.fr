@@ -32,7 +32,7 @@ const CATEGORY = "U9 Mixte • Départementale • Poule A";
 const COACH = "Alexandre GARRIDO";
 // Coach PIN removed for security — authentication handled server-side
 // ── URL de l'API backend (à modifier si ton dossier est différent) ──
-const API_URL = "api.php?";
+const API_URL = "api.php";
 const VAPID_PUBLIC_KEY = "BKux74q_3ayYXtGDcNlZUN0qwZMkcPX93qxNY9hpngeH2Mpk-oLytRRfzIfyy2V8TM1cmc9CyrqNmGrtgvHtVuA";
 
 // ═══ PUSH NOTIFICATIONS ═══
@@ -84,7 +84,7 @@ async function subscribeToPush() {
             });
         }
         const subJson = sub.toJSON();
-        const res = await fetch(API_URL + "action=push_subscribe", {
+        const res = await fetch(API_URL + "?action=push_subscribe", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys })
@@ -102,7 +102,7 @@ async function unsubscribeFromPush() {
         if (sub) {
             const endpoint = sub.endpoint;
             await sub.unsubscribe();
-            await fetch(API_URL + "action=push_unsubscribe", {
+            await fetch(API_URL + "?action=push_unsubscribe", {
                 method: "POST", credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ endpoint })
@@ -247,12 +247,12 @@ const INITIAL_MATCHES = [
     },
 ];
 const UPCOMING = [];
-const STANDINGS_FALLBACK = [
-    { rank: 1, team: "Gauloise de Vitry", pts: 10, v: 5, d: 0 },
-    { rank: 2, team: "ESPE Châlons", pts: 9, v: 4, d: 1, isUs: true },
-    { rank: 3, team: "Reims Champagne B-2", pts: 7, v: 2, d: 3 },
+const STANDINGS = [
+    { rank: 1, team: "Gauloise de Vitry", pts: 8, v: 4, d: 0 },
+    { rank: 2, team: "ESPE Châlons", pts: 7, v: 3, d: 1, isUs: true },
+    { rank: 3, team: "Reims Champagne B-2", pts: 6, v: 2, d: 2 },
     { rank: 4, team: "AS Courtisols", pts: 5, v: 1, d: 3 },
-    { rank: 5, team: "Assoc. Cormontreuil", pts: 5, v: 0, d: 5 },
+    { rank: 5, team: "Assoc. Cormontreuil", pts: 4, v: 0, d: 4 },
 ];
 // PHOTOS & LOGO
 const PLAYER_PHOTOS = {
@@ -1546,24 +1546,6 @@ body {
 .lost-lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* Objets perdus — mobile: 2 colonnes + carrousel auto toutes les 3s */
-@media (max-width: 768px) {
-  .lost-carousel-wrap {
-    overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -2px;
-  }
-  .lost-carousel-wrap::-webkit-scrollbar { display: none; }
-  .lost-carousel-wrap .lost-grid {
-    display: flex; flex-wrap: nowrap; gap: 10px; padding: 2px 2px 12px;
-    min-width: min-content;
-  }
-  .lost-carousel-wrap .lost-card {
-    flex: 0 0 calc(50% - 5px); min-width: calc(50% - 5px);
-    scroll-snap-align: start; scroll-snap-stop: always;
-  }
-  .lost-carousel-wrap .lost-card-img { height: 160px; }
-}
-
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .player-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2289,7 +2271,7 @@ function LoginPage({ onLogin }) {
     const handleSubmit = () => {
         if (!username || !password) { setError("Remplis tous les champs"); return; }
         setLoading(true); setError("");
-        fetch(API_URL + "action=login", {
+        fetch(API_URL + "?action=login", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password })
@@ -2333,7 +2315,7 @@ function ForgotPasswordPage() {
     const handleSubmit = () => {
         if (!identifier.trim()) { setError("Entre ton identifiant ou ton email"); return; }
         setLoading(true); setError("");
-        fetch(API_URL + "action=forgot_password", {
+        fetch(API_URL + "?action=forgot_password", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: identifier.trim() })
@@ -2379,7 +2361,7 @@ function ResetPasswordPage({ token }) {
         if (password !== password2) { setError("Les mots de passe ne correspondent pas"); return; }
         if (password.length < 4) { setError("4 caract\u00E8res minimum"); return; }
         setLoading(true); setError("");
-        fetch(API_URL + "action=reset_password", {
+        fetch(API_URL + "?action=reset_password", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token, password })
@@ -2430,7 +2412,7 @@ function RegisterPage({ onLogin }) {
         const player = PLAYERS.find(p => String(p.id) === playerId);
         if (!player) { setError("Joueur non trouv\u00E9"); return; }
         setLoading(true); setError("");
-        fetch(API_URL + "action=register", {
+        fetch(API_URL + "?action=register", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password, email: email.trim(), player_id: player.id, parent_type: parentType, player_name: player.firstName })
@@ -2630,7 +2612,7 @@ function CoachPushPanel() {
     const [loading, setLoading] = useState(false);
     const [subCount, setSubCount] = useState(0);
     useEffect(() => {
-        fetch(API_URL + "action=push_status", { credentials: "same-origin" })
+        fetch(API_URL + "?action=push_status", { credentials: "same-origin" })
             .then(r => r.json()).then(d => setSubCount(d.total_subscribers || 0)).catch(() => {});
     }, []);
     const presets = [
@@ -2642,7 +2624,7 @@ function CoachPushPanel() {
     const handleSend = () => {
         if (!title.trim() || !body.trim()) { setMsg("Remplis le titre et le message"); return; }
         setLoading(true); setMsg("");
-        fetch(API_URL + "action=send_push", {
+        fetch(API_URL + "?action=send_push", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title: title.trim(), body: body.trim(), url })
@@ -2696,14 +2678,14 @@ function CoachPasswordPanel() {
     const [verifyPwd, setVerifyPwd] = useState("");
     const [verifyMsg, setVerifyMsg] = useState("");
     useEffect(() => {
-        fetch(API_URL + "action=get_parent_users", { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_parent_users", { credentials: "same-origin" })
             .then(r => r.json()).then(d => { if (d.success) setParents(d.users); }).catch(() => {});
     }, []);
     const handleReset = () => {
         if (!selectedUser || !newPwd) { setMsg("S\u00E9lectionne un parent et entre un mot de passe"); return; }
         if (newPwd.length < 4) { setMsg("4 caract\u00E8res minimum"); return; }
         setLoading(true); setMsg("");
-        fetch(API_URL + "action=coach_reset_password", {
+        fetch(API_URL + "?action=coach_reset_password", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: parseInt(selectedUser), password: newPwd })
@@ -2717,7 +2699,7 @@ function CoachPasswordPanel() {
     const handleVerify = () => {
         if (!verifyUser || !verifyPwd) return;
         setVerifyMsg("...");
-        fetch(API_URL + "action=verify_user_password", {
+        fetch(API_URL + "?action=verify_user_password", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: parseInt(verifyUser), password: verifyPwd })
@@ -2730,7 +2712,7 @@ function CoachPasswordPanel() {
     const handleTestEmail = () => {
         if (!testEmail) return;
         setEmailMsg("Envoi...");
-        fetch(API_URL + "action=test_email", {
+        fetch(API_URL + "?action=test_email", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: testEmail })
@@ -2910,7 +2892,7 @@ function AbsencePanel({ user }) {
     const [msg, setMsg] = useState("");
     const playerId = user.player_id;
     const loadAbsences = () => {
-        fetch(API_URL + "action=get_absences", { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_absences", { credentials: "same-origin" })
             .then(r => r.json()).then(d => { if (d.success) setAbsences(d.absences || []); });
     };
     useEffect(() => { loadAbsences(); }, []);
@@ -2931,7 +2913,7 @@ function AbsencePanel({ user }) {
     const handleSubmit = () => {
         if (!dateFrom) { setMsg("Clique sur un jour pour s\u00E9lectionner le d\u00E9but."); return; }
         setSending(true); setMsg("");
-        fetch(API_URL + "action=declare_absence", {
+        fetch(API_URL + "?action=declare_absence", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ player_id: playerId, date_from: dateFrom, date_to: dateTo || dateFrom, reason })
@@ -2942,7 +2924,7 @@ function AbsencePanel({ user }) {
         }).catch(() => { setSending(false); setMsg("Erreur r\u00E9seau."); });
     };
     const handleDelete = (id) => {
-        fetch(API_URL + "action=delete_absence", {
+        fetch(API_URL + "?action=delete_absence", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id })
@@ -2984,7 +2966,7 @@ function CoachInviteSecondParent() {
                 PLAYERS.map(function(p) { return React.createElement("option", { key: p.id, value: p.id }, "#", p.num, " ", p.firstName, " ", p.lastName); })),
             React.createElement("button", { type: "button", disabled: !selectedPlayerId, onClick: function() {
                 setInviteError("");
-                fetch(API_URL + "action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: parseInt(selectedPlayerId, 10) }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) { setInviteUrl(d.invite_url); setInviteError(""); } else if (d.error) setInviteError(d.error); });
+                fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: parseInt(selectedPlayerId, 10) }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) { setInviteUrl(d.invite_url); setInviteError(""); } else if (d.error) setInviteError(d.error); });
             }, style: { padding: "8px 16px", background: selectedPlayerId ? "var(--green-700)" : "var(--text-muted)", color: "white", border: "none", borderRadius: 8, fontSize: 13, cursor: selectedPlayerId ? "pointer" : "default" } }, "G\u00E9n\u00E9rer le lien")),
         inviteError && React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: "var(--red)", fontWeight: 600 } }, inviteError),
         inviteUrl && React.createElement("div", { style: { marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" } },
@@ -2999,9 +2981,9 @@ function AttendancePanel() {
     const [loading, setLoading] = useState(true);
     useEffect(() => {
         Promise.all([
-            fetch(API_URL + "action=get_attendance_stats", { credentials: "same-origin" }).then(r => r.json()),
-            fetch(API_URL + "action=get_training_stats", { credentials: "same-origin" }).then(r => r.json()),
-            fetch(API_URL + "action=get_absences", { credentials: "same-origin" }).then(r => r.json())
+            fetch(API_URL + "?action=get_attendance_stats", { credentials: "same-origin" }).then(r => r.json()),
+            fetch(API_URL + "?action=get_training_stats", { credentials: "same-origin" }).then(r => r.json()),
+            fetch(API_URL + "?action=get_absences", { credentials: "same-origin" }).then(r => r.json())
         ]).then(([att, train, abs]) => {
             if (att.success) { setStats(att.stats || {}); setConvoked(att.convocations || {}); }
             if (train.success) setTrainingStats(train.stats || {});
@@ -3061,7 +3043,7 @@ function TrainingAttendancePanel() {
     const [msg, setMsg] = useState("");
     const today = new Date().toISOString().slice(0, 10);
     const loadDates = function() {
-        fetch(API_URL + "action=get_training_dates", { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_training_dates", { credentials: "same-origin" })
             .then(r => r.json())
             .then(d => { if (d.success) setTrainingDates(d.dates || []); setLoading(false); })
             .catch(() => setLoading(false));
@@ -3069,7 +3051,7 @@ function TrainingAttendancePanel() {
     useEffect(function() { loadDates(); }, []);
     useEffect(function() {
         if (!selectedDate) { setAttendance({}); return; }
-        fetch(API_URL + "action=get_training_attendance&date=" + encodeURIComponent(selectedDate), { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_training_attendance&date=" + encodeURIComponent(selectedDate), { credentials: "same-origin" })
             .then(r => r.json())
             .then(function(d) {
                 var map = {};
@@ -3086,7 +3068,7 @@ function TrainingAttendancePanel() {
         if (!selectedDate) return;
         setSaving(true); setMsg("");
         var payload = { date: selectedDate, attendance: PLAYERS.map(function(p) { return { player_id: p.id, present: attendance[p.id] !== false ? 1 : 0 }; }) };
-        fetch(API_URL + "action=set_training_attendance", {
+        fetch(API_URL + "?action=set_training_attendance", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -3146,8 +3128,8 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     const [ficheUploading, setFicheUploading] = useState(false);
     useEffect(function() {
         if (!player || !player.id) return;
-        fetch(API_URL + "action=get_required_documents", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setDocStatus(d.documents || []); }).catch(function() {});
-        fetch(API_URL + "action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setPresenceAccount(d); }).catch(function() {});
+        fetch(API_URL + "?action=get_required_documents", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setDocStatus(d.documents || []); }).catch(function() {});
+        fetch(API_URL + "?action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) setPresenceAccount(d); }).catch(function() {});
     }, [player && player.id]);
     useEffect(function() { window.scrollTo(0, 0); }, []);
     // Coach account
@@ -3195,18 +3177,18 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     }
     // Parent with player
     const handleGetIcal = function() {
-        fetch(API_URL + "action=ical_token", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.url) setIcalUrl(d.url); }).catch(function() {});
+        fetch(API_URL + "?action=ical_token", { credentials: "same-origin" }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.url) setIcalUrl(d.url); }).catch(function() {});
     };
     const handleInviteSecond = function() {
         setInviteError("");
-        fetch(API_URL + "action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: player.id }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) { setInviteUrl(d.invite_url); setInviteError(""); } else if (d.error) setInviteError(d.error); }).catch(function() {});
+        fetch(API_URL + "?action=create_second_parent_invite", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player_id: player.id }) }).then(function(r) { return r.json(); }).then(function(d) { if (d.success && d.invite_url) { setInviteUrl(d.invite_url); setInviteError(""); } else if (d.error) setInviteError(d.error); }).catch(function() {});
     };
     const handleFicheUpload = function(e) {
         var f = e.target.files && e.target.files[0];
         if (!f) return;
         setFicheUploading(true);
         var fd = new FormData(); fd.append("file", f); fd.append("player_id", String(player.id)); fd.append("document_type", "fiche_sanitaire");
-        fetch(API_URL + "action=upload_required_document", { method: "POST", credentials: "same-origin", body: fd }).then(function(r) { return r.json(); }).then(function(d) {
+        fetch(API_URL + "?action=upload_required_document", { method: "POST", credentials: "same-origin", body: fd }).then(function(r) { return r.json(); }).then(function(d) {
             setFicheUploading(false);
             if (d.success) { setDocStatus([{ type: "fiche_sanitaire", uploaded_at: d.uploaded_at }]); e.target.value = ""; }
         }).catch(function() { setFicheUploading(false); });
@@ -3267,7 +3249,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                     React.createElement("span", { style: { color: "var(--text-dim)" } }, "Licence BC"),
                     React.createElement("div", { style: { fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                         player.licenceBC,
-                        React.createElement("a", { href: API_URL + "action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence")))),
+                        React.createElement("a", { href: API_URL + "?action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence")))),
         // Stats card
         stats && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Stats saison"),
@@ -3324,7 +3306,7 @@ function MessagingPage({ user }) {
         if (view !== "thread" || !thread.length || !user || !user.player_id) return;
         const convMsg = thread.find(m => m.msg_type === "convocation" && m.related_match_id);
         if (!convMsg) return;
-        fetch(API_URL+"action=get_convocation_responses&match_id="+convMsg.related_match_id,{credentials:"same-origin"})
+        fetch(API_URL+"?action=get_convocation_responses&match_id="+convMsg.related_match_id,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{
             if(d.success && d.responses && d.responses[user.player_id]){
                 setConvMsgResponse(prev=>({...prev,[convMsg.related_match_id]:d.responses[user.player_id].response}));
@@ -3334,7 +3316,7 @@ function MessagingPage({ user }) {
     const handleConvResponse = (matchId, resp) => {
         if(!user || !user.player_id) return;
         setConvMsgSending(true);
-        fetch(API_URL+"action=respond_convocation",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:matchId,player_id:user.player_id,response:resp})})
+        fetch(API_URL+"?action=respond_convocation",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:matchId,player_id:user.player_id,response:resp})})
         .then(r=>r.json()).then(d=>{
             setConvMsgSending(false);
             if(d.success) setConvMsgResponse(prev=>({...prev,[matchId]:resp}));
@@ -3343,12 +3325,12 @@ function MessagingPage({ user }) {
     const deleteThread = () => {
         if (!thread.length) return;
         const rootId = thread[0].parent_msg_id || thread[0].id;
-        fetch(API_URL+"action=delete_thread",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({thread_id:rootId})})
+        fetch(API_URL+"?action=delete_thread",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({thread_id:rootId})})
         .then(r=>r.json()).then(d=>{if(d.success){setConfirmDelete(false);setView("inbox");loadInbox();loadSent();}}).catch(()=>{});
     };
-    const loadInbox = () => { fetch(API_URL+"action=get_inbox",{credentials:"same-origin"}).then(r=>r.json()).then(d=>{if(d.success)setInbox(d.messages)}).catch(()=>{}); };
-    const loadSent = () => { fetch(API_URL+"action=get_sent",{credentials:"same-origin"}).then(r=>r.json()).then(d=>{if(d.success)setSent(d.messages)}).catch(()=>{}); };
-    const loadUsers = () => { fetch(API_URL+"action=get_users",{credentials:"same-origin"}).then(r=>r.json()).then(d=>{if(d.success)setUsers(d.users.filter(u=>u.id!==user.id))}).catch(()=>{}); };
+    const loadInbox = () => { fetch(API_URL+"?action=get_inbox",{credentials:"same-origin"}).then(r=>r.json()).then(d=>{if(d.success)setInbox(d.messages)}).catch(()=>{}); };
+    const loadSent = () => { fetch(API_URL+"?action=get_sent",{credentials:"same-origin"}).then(r=>r.json()).then(d=>{if(d.success)setSent(d.messages)}).catch(()=>{}); };
+    const loadUsers = () => { fetch(API_URL+"?action=get_users",{credentials:"same-origin"}).then(r=>r.json()).then(d=>{if(d.success)setUsers(d.users.filter(u=>u.id!==user.id))}).catch(()=>{}); };
     useEffect(()=>{loadInbox();loadSent();loadUsers();},[]);
     // ── Thread grouping for inbox ──
     const getThreadId = (m) => m.parent_msg_id || m.id;
@@ -3366,7 +3348,7 @@ function MessagingPage({ user }) {
     // ── Open thread ──
     const openThread = (msg) => {
         const tid = getThreadId(msg);
-        fetch(API_URL+"action=get_thread&thread_id="+tid,{credentials:"same-origin"})
+        fetch(API_URL+"?action=get_thread&thread_id="+tid,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{
             if(d.success){
                 setThread(d.messages);
@@ -3385,14 +3367,14 @@ function MessagingPage({ user }) {
         const rootMsg = thread[0];
         const lastOther = [...thread].reverse().find(m => m.sender_id !== user.id);
         const recipientId = lastOther ? lastOther.sender_id : rootMsg.sender_id;
-        fetch(API_URL+"action=send_message",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+        fetch(API_URL+"?action=send_message",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({ recipient_id: recipientId, subject: "Re: "+(rootMsg.subject||"Sans objet"), body: threadReply, parent_msg_id: rootMsg.id })})
         .then(r=>r.json()).then(d=>{
             setThreadSending(false);
             if(d.success){
                 setThreadReply("");
                 // Reload thread
-                fetch(API_URL+"action=get_thread&thread_id="+rootMsg.id,{credentials:"same-origin"})
+                fetch(API_URL+"?action=get_thread&thread_id="+rootMsg.id,{credentials:"same-origin"})
                 .then(r=>r.json()).then(d2=>{if(d2.success)setThread(d2.messages);}).catch(()=>{});
                 loadInbox(); loadSent();
             }
@@ -3407,7 +3389,7 @@ function MessagingPage({ user }) {
         const payload = { subject: compSubject, body: compBody };
         if (replyingTo) payload.parent_msg_id = getThreadId(replyingTo);
         if (isPlayer) { payload.player_id = idVal; } else { payload.recipient_id = idVal; }
-        fetch(API_URL+"action=send_message",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+        fetch(API_URL+"?action=send_message",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
         .then(r=>r.json()).then(d=>{setSending(false);if(d.success){setSuccess("Message envoy\u00E9 !");setCompTo("");setCompSubject("");setCompBody("");setReplyingTo(null);loadInbox();loadSent();setTimeout(()=>{setSuccess("");setView("sent")},1500);}else{setSuccess(d.error||"Erreur");}}).catch(()=>{setSending(false);setSuccess("Erreur r\u00E9seau");});
     };
     const startNewMsg = () => { setReplyingTo(null); setCompTo(""); setCompSubject(""); setCompBody(""); setSuccess(""); setView("compose"); };
@@ -3487,7 +3469,7 @@ function MessagingPage({ user }) {
             sent.length === 0 ? React.createElement("div", { className: "card", style: { padding: 24, textAlign: "center", color: "var(--text-dim)" } }, "Aucun message envoy\u00E9")
             : sent.map(m => React.createElement("div", { key: m.id, className: "card", style: { padding: "14px 18px", marginBottom: 8, cursor: "pointer" }, onClick: () => {
                 const tid = m.parent_msg_id || m.id;
-                fetch(API_URL+"action=get_thread&thread_id="+tid,{credentials:"same-origin"}).then(r=>r.json()).then(d=>{
+                fetch(API_URL+"?action=get_thread&thread_id="+tid,{credentials:"same-origin"}).then(r=>r.json()).then(d=>{
                     if(d.success && d.messages.length>0){setThread(d.messages);setThreadSubject(m.subject||"Sans objet");setThreadReply("");setView("thread");}
                 }).catch(()=>{});
             } },
@@ -3535,7 +3517,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
     const numericMatchId = (typeof matchId === "string" && matchId.indexOf("custom_") === 0) ? parseInt(matchId.replace("custom_",""), 10) : (matchId|0);
     useEffect(function(){ setDateMatch(initialDate||""); setHeureMatch(initialHeure||""); }, [initialDate, initialHeure]);
     useEffect(() => {
-        fetch(API_URL+"action=get_match_extras&match_id="+numericMatchId,{credentials:"same-origin"})
+        fetch(API_URL+"?action=get_match_extras&match_id="+numericMatchId,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{
             if(d.success){
                 setGymnase(d.gymnase||""); setHeureRdv(d.heure_rdv||"");
@@ -3551,7 +3533,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
     const handleSave = () => {
         setSaving(true); setSaved("");
         if (isCustomMatch && upcomingDbId) {
-            fetch(API_URL+"action=update_upcoming_infos",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:upcomingDbId,date:dateMatch,heure:heureMatch,heure_rdv:heureRdv,lieu:initialLieu||"",gymnase})})
+            fetch(API_URL+"?action=update_upcoming_infos",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:upcomingDbId,date:dateMatch,heure:heureMatch,heure_rdv:heureRdv,lieu:initialLieu||"",gymnase})})
             .then(r=>r.json()).then(d=>{
                 setSaving(false);
                 if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
@@ -3559,7 +3541,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
                 setTimeout(()=>setSaved(""),3000);
             }).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
         } else {
-            fetch(API_URL+"action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:numericMatchId,gymnase,heure_rdv:heureRdv,date_match:dateMatch,heure_match:heureMatch})})
+            fetch(API_URL+"?action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:numericMatchId,gymnase,heure_rdv:heureRdv,date_match:dateMatch,heure_match:heureMatch})})
             .then(r=>r.json()).then(d=>{
                 setSaving(false);
                 if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
@@ -3573,7 +3555,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
         if(file.size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; }
         setUploading(true); setUploadError(""); setScanStatus("");
         const form = new FormData(); form.append("sheet",file); form.append("match_id",String(matchId));
-        fetch(API_URL+"action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:form})
+        fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:form})
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d=>{
             setUploading(false);
@@ -3591,7 +3573,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
         for (var fi = 0; fi < files.length; fi++) { if(files[fi].size > 15 * 1024 * 1024) { setUploadError("Fichier trop lourd (max 15 Mo)"); return; } }
         setScanning(true); setScanStatus("upload"); setUploadError("");
         var uploadForm = new FormData(); uploadForm.append("sheet", files[0]); uploadForm.append("match_id", String(matchId));
-        fetch(API_URL+"action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:uploadForm})
+        fetch(API_URL+"?action=upload_match_sheet",{method:"POST",credentials:"same-origin",body:uploadForm})
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d=>{
             if(d.success && d.url) setSheet({ id: d.sheet_id || 0, url: d.url });
@@ -3599,7 +3581,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
             var scanForm = new FormData();
             scanForm.append("match_id", String(matchId));
             files.forEach(function(f, i) { scanForm.append(i === 0 ? "sheet" : "sheet2", f); });
-            return fetch(API_URL + "action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: scanForm });
         })
         .then(r=>{ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(d => {
@@ -3616,7 +3598,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
     };
     const handleDeleteSheet = () => {
         if(!sheet||!confirm("Supprimer la feuille de match ?")) return;
-        fetch(API_URL+"action=delete_match_sheet",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet_id:sheet.id})})
+        fetch(API_URL+"?action=delete_match_sheet",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet_id:sheet.id})})
         .then(r=>r.json()).then(d=>{if(d.success)setSheet(null);});
     };
     const handleScanStats = () => {
@@ -3627,7 +3609,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
             const ext = blob.type.includes("pdf") ? "pdf" : "jpg";
             form.append("sheet", blob, "feuille." + ext);
             form.append("match_id", String(matchId));
-            return fetch(API_URL + "action=extract_match_stats", { method: "POST", credentials: "same-origin", body: form });
+            return fetch(API_URL + "?action=extract_match_stats", { method: "POST", credentials: "same-origin", body: form });
         })
         .then(r=>r.json())
         .then(d => {
@@ -3721,11 +3703,11 @@ function ConvocationPanel({ upcoming, user }) {
     const [respondingStatus, setRespondingStatus] = useState("");
     const [coachEditing, setCoachEditing] = useState(null); // player_id being edited by coach
     const loadResponses = () => {
-        fetch(API_URL+"action=get_convocation_responses&match_id="+upcoming.id,{credentials:"same-origin"})
+        fetch(API_URL+"?action=get_convocation_responses&match_id="+upcoming.id,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{ if(d.success) setResponses(d.responses||{}); }).catch(()=>{});
     };
     useEffect(() => {
-        fetch(API_URL+"action=get_convocations&match_id="+upcoming.id,{credentials:"same-origin"})
+        fetch(API_URL+"?action=get_convocations&match_id="+upcoming.id,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{
             if(d.success && d.convocations){
                 setConvocations(d.convocations);
@@ -3749,20 +3731,20 @@ function ConvocationPanel({ upcoming, user }) {
             lavage: String(p.id) === lavagePlayer ? 1 : 0
         }));
         const gouterSpecial = (gouterPlayer === "coach" || gouterPlayer === "ext") ? gouterPlayer : null;
-        fetch(API_URL+"action=save_convocations",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,match_label:matchLabel,match_heure:upcoming.heure||"",match_gymnase:upcoming.gymnase||"",match_lieu:upcoming.lieu||"",players:playersData,gouter_special:gouterSpecial})})
+        fetch(API_URL+"?action=save_convocations",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,match_label:matchLabel,match_heure:upcoming.heure||"",match_gymnase:upcoming.gymnase||"",match_lieu:upcoming.lieu||"",players:playersData,gouter_special:gouterSpecial})})
         .then(r=>r.json()).then(d=>{setSaving(false);if(d.success){setSaved(d.messages_sent+" message(s) envoy\u00E9(s) aux parents !");}else{setSaved("Erreur: "+(d.error||""));}setTimeout(()=>setSaved(""),4000);}).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");setTimeout(()=>setSaved(""),3000);});
     };
     const handleRespond = (resp) => {
         if(!user || !user.player_id) return;
         setRespondingStatus("sending");
-        fetch(API_URL+"action=respond_convocation",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:user.player_id,response:resp})})
+        fetch(API_URL+"?action=respond_convocation",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:user.player_id,response:resp})})
         .then(r=>r.json()).then(d=>{
             if(d.success){ setResponses(prev=>({...prev,[user.player_id]:{response:resp,date:new Date().toISOString()}})); setRespondingStatus("done"); setTimeout(()=>setRespondingStatus(""),2000); }
             else { setRespondingStatus("error"); setTimeout(()=>setRespondingStatus(""),3000); }
         }).catch(()=>{ setRespondingStatus("error"); setTimeout(()=>setRespondingStatus(""),3000); });
     };
     const handleCoachRespond = (playerId, resp) => {
-        fetch(API_URL+"action=respond_convocation",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:playerId,response:resp})})
+        fetch(API_URL+"?action=respond_convocation",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:playerId,response:resp})})
         .then(r=>r.json()).then(d=>{
             if(d.success){ setResponses(prev=>({...prev,[playerId]:{response:resp,date:new Date().toISOString()}})); setCoachEditing(null); }
         }).catch(()=>{});
@@ -3774,7 +3756,7 @@ function ConvocationPanel({ upcoming, user }) {
         const toRemind = convokedPlayers.filter(p => !responses[p.id] || responses[p.id].response === "attente");
         if (toRemind.length === 0) { setRemindResult("Tous ont d\u00E9j\u00E0 r\u00E9pondu."); setTimeout(() => setRemindResult(""), 3000); return; }
         setRemindSending(true); setRemindResult("");
-        fetch(API_URL + "action=remind_convocation_no_response", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remind_convocation_no_response", match_id: upcoming.id, match_label: matchLabel }) })
+        fetch(API_URL + "?action=remind_convocation_no_response", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remind_convocation_no_response", match_id: upcoming.id, match_label: matchLabel }) })
             .then(r => r.json()).then(d => {
                 setRemindSending(false);
                 if (d.success) setRemindResult(d.reminders_sent ? d.reminders_sent + " rappel(s) push + email envoy\u00E9(s)." : (d.message || "Aucun rappel \u00E0 envoyer."));
@@ -3785,7 +3767,7 @@ function ConvocationPanel({ upcoming, user }) {
     const handleDeleteResponse = (playerId) => {
         if(!confirm("Supprimer la r\u00E9ponse de ce joueur ? Il pourra r\u00E9pondre \u00E0 nouveau (utile pour retester la notif push).")) return;
         setDeletingResponse(playerId);
-        fetch(API_URL+"action=delete_convocation_response",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:playerId})})
+        fetch(API_URL+"?action=delete_convocation_response",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:playerId})})
         .then(r=>r.json()).then(d=>{
             setDeletingResponse(null);
             if(d.success){ setResponses(prev=>{ const next={...prev}; delete next[playerId]; return next; }); setCoachEditing(null); }
@@ -3941,7 +3923,7 @@ function CovoituragePanel({ matchId, user }) {
     const myUid = user ? user.id : null;
 
     const load = () => {
-        fetch(API_URL + "action=get_covoiturage&match_id=" + matchId, { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_covoiturage&match_id=" + matchId, { credentials: "same-origin" })
             .then(r => r.json()).then(d => {
                 if (d.success) { setDrivers(d.drivers || []); setUnmatched(d.unmatched || []); }
                 setLoading(false);
@@ -3959,7 +3941,7 @@ function CovoituragePanel({ matchId, user }) {
     const handleSubmit = () => {
         setSubmitError("");
         setSaving(true);
-        fetch(API_URL + "action=save_covoiturage", {
+        fetch(API_URL + "?action=save_covoiturage", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId, type: formType, seats_total: seats, message: message })
@@ -3971,7 +3953,7 @@ function CovoituragePanel({ matchId, user }) {
     };
 
     const handleJoin = (driverCovoitId) => {
-        fetch(API_URL + "action=join_covoiturage", {
+        fetch(API_URL + "?action=join_covoiturage", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId, driver_covoit_id: driverCovoitId })
@@ -3983,7 +3965,7 @@ function CovoituragePanel({ matchId, user }) {
 
     const handleAcceptPassenger = (passengerCovoitId) => {
         setAccepting(passengerCovoitId);
-        fetch(API_URL + "action=accept_passenger", {
+        fetch(API_URL + "?action=accept_passenger", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId, passenger_covoit_id: passengerCovoitId })
@@ -3996,7 +3978,7 @@ function CovoituragePanel({ matchId, user }) {
 
     const handleDelete = () => {
         if (!confirm("Retirer votre inscription covoiturage ?")) return;
-        fetch(API_URL + "action=delete_covoiturage", {
+        fetch(API_URL + "?action=delete_covoiturage", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId })
@@ -4127,7 +4109,7 @@ function MatchChatPanel({ matchId, user }) {
     const isCoach = user && user.role === "coach";
 
     const load = () => {
-        fetch(API_URL + "action=get_match_chat&match_id=" + matchId, { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_match_chat&match_id=" + matchId, { credentials: "same-origin" })
             .then(r => r.json()).then(d => { if (d.success) setMessages(d.messages || []); }).catch(() => {});
     };
     useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, [matchId]);
@@ -4142,7 +4124,7 @@ function MatchChatPanel({ matchId, user }) {
     const handleSend = () => {
         if (!newMsg.trim() || sending) return;
         setSending(true);
-        fetch(API_URL + "action=post_match_chat", {
+        fetch(API_URL + "?action=post_match_chat", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId, message: newMsg.trim() })
@@ -4154,7 +4136,7 @@ function MatchChatPanel({ matchId, user }) {
 
     const handleDelete = (msgId) => {
         if (!confirm("Supprimer ce message ?")) return;
-        fetch(API_URL + "action=delete_match_chat", {
+        fetch(API_URL + "?action=delete_match_chat", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: msgId })
@@ -4331,8 +4313,8 @@ function TrombiButton({ matchId, upcoming }) {
         setLoading(true);
         // Fetch convocation responses to find who's "present"
         Promise.all([
-            fetch(API_URL + "action=get_convocations&match_id=" + matchId, { credentials: "same-origin" }).then(r => r.json()),
-            fetch(API_URL + "action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" }).then(r => r.json())
+            fetch(API_URL + "?action=get_convocations&match_id=" + matchId, { credentials: "same-origin" }).then(r => r.json()),
+            fetch(API_URL + "?action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" }).then(r => r.json())
         ]).then(([convData, respData]) => {
             setLoading(false);
             const convocations = convData.success ? convData.convocations || {} : {};
@@ -4483,7 +4465,7 @@ function QuickConvocationResponse({ matchId, user }) {
     useEffect(() => {
         if (!isParent) return;
         // Check if player is convoked
-        fetch(API_URL + "action=get_convocations&match_id=" + matchId, { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_convocations&match_id=" + matchId, { credentials: "same-origin" })
             .then(r => r.json()).then(d => {
                 if (d.success && d.convocations && d.convocations[myPlayerId] && d.convocations[myPlayerId].convoked) {
                     setIsConvoked(true);
@@ -4491,7 +4473,7 @@ function QuickConvocationResponse({ matchId, user }) {
                 setLoaded(true);
             }).catch(() => setLoaded(true));
         // Get existing response
-        fetch(API_URL + "action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" })
             .then(r => r.json()).then(d => {
                 if (d.success && d.responses && d.responses[myPlayerId]) {
                     setMyResponse(d.responses[myPlayerId].response);
@@ -4501,7 +4483,7 @@ function QuickConvocationResponse({ matchId, user }) {
 
     const handleRespond = (resp) => {
         setSending(true);
-        fetch(API_URL + "action=respond_convocation", {
+        fetch(API_URL + "?action=respond_convocation", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId, player_id: myPlayerId, response: resp })
@@ -4873,7 +4855,7 @@ function App() {
     const matchesRef = useRef(INITIAL_MATCHES);
     useEffect(() => { matchesRef.current = matches; }, [matches]);
     useEffect(() => {
-        fetch(API_URL + "action=get_matches", { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_matches", { credentials: "same-origin" })
             .then(r => r.json())
             .then(data => {
                 if (data.success && data.matches && data.matches.length > 0) {
@@ -4884,7 +4866,7 @@ function App() {
             .catch(() => {});
     }, []);
     const handleDeleteMatch = (matchId) => {
-        fetch(API_URL + "action=delete_match", {
+        fetch(API_URL + "?action=delete_match", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ match_id: matchId })
@@ -4905,7 +4887,7 @@ function App() {
     const customUpcomingRef = useRef([]);
     useEffect(() => { customUpcomingRef.current = customUpcoming; }, [customUpcoming]);
     useEffect(() => {
-        fetch(API_URL + "action=get_custom_upcoming", { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" })
             .then(r => r.json()).then(d => {
                 if (d.success) {
                     setCustomUpcoming(d.matches || []);
@@ -4970,9 +4952,9 @@ function App() {
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
     useEffect(() => {
-        fetch(API_URL + "action=check_session", { credentials: "same-origin" })
+        fetch(API_URL + "?action=check_session", { credentials: "same-origin" })
             .then(r => r.json())
-            .then(data => { if (data.logged_in) { setUser(data.user); if (data.user.role === "coach") { fetch(API_URL + "action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } setAuthLoading(false); })
+            .then(data => { if (data.logged_in) { setUser(data.user); if (data.user.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } setAuthLoading(false); })
             .catch(() => setAuthLoading(false));
         // Register service worker for push notifications
         registerServiceWorker();
@@ -5002,13 +4984,13 @@ function App() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     useEffect(() => {
         if (!user) return;
-        const fetchUnread = () => { fetch(API_URL+"action=unread_count",{credentials:"same-origin"}).then(r=>r.json()).then(d=>setUnreadCount(d.count||0)).catch(()=>{}); };
+        const fetchUnread = () => { fetch(API_URL+"?action=unread_count",{credentials:"same-origin"}).then(r=>r.json()).then(d=>setUnreadCount(d.count||0)).catch(()=>{}); };
         fetchUnread();
         const interval = setInterval(fetchUnread, 30000);
         return () => clearInterval(interval);
     }, [user]);
     const handleLogout = () => {
-        fetch(API_URL + "action=logout", { credentials: "same-origin" })
+        fetch(API_URL + "?action=logout", { credentials: "same-origin" })
             .then(() => { window.location.href = "gate.html"; });
     };
     // ── NOTES STATE ──
@@ -5018,7 +5000,7 @@ function App() {
     const [matchNotes, setMatchNotes] = useState({});
     const [notesLoaded, setNotesLoaded] = useState(false);
     useEffect(() => {
-        fetch(API_URL + "action=get_all")
+        fetch(API_URL + "?action=get_all")
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
@@ -5162,11 +5144,11 @@ function App() {
                 tab === "joueurs" && !selectedPlayer && React.createElement(PlayersPage, { onSelect: goPlayer }),
                 tab === "joueurs" && selectedPlayer && React.createElement(PlayerDetail, { player: selectedPlayer, onBack: goBack, coachUnlocked: coachUnlocked, coachNotes: coachNotes, setCoachNotes: setCoachNotes, user: user, matches: matches }),
                 tab === "matchs" && !selectedMatch && !selectedUpcoming && React.createElement(MatchesPage, { onSelect: goMatch, onSelectUpcoming: goUpcoming, matches: matches, coachUnlocked: coachUnlocked, user: user, customUpcoming: customUpcoming, extrasRefresh: extrasRefresh, reloadCustom: () => {
-                    fetch(API_URL + "action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
+                    fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
                 tab === "matchs" && selectedMatch && React.createElement(MatchDetail, { match: selectedMatch, onBack: goBack, coachUnlocked: coachUnlocked, matchNotes: matchNotes, setMatchNotes: setMatchNotes, user: user, onDelete: handleDeleteMatch }),
                 tab === "matchs" && selectedUpcoming && React.createElement(UpcomingDetail, { upcoming: selectedUpcoming, onBack: goBack, user: user, onMatchCreated: (d) => {
-                    fetch(API_URL + "action=get_matches", { credentials: "same-origin" }).then(r => r.json()).then(data => {
+                    fetch(API_URL + "?action=get_matches", { credentials: "same-origin" }).then(r => r.json()).then(data => {
                         if (data.success && data.matches) {
                             setMatches(data.matches); matchesRef.current = data.matches;
                             if (d && d.moved_from_upcoming && d.match_id) {
@@ -5175,12 +5157,12 @@ function App() {
                             }
                         }
                     }).catch(() => {});
-                    fetch(API_URL + "action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success) { setCustomUpcoming(data.matches || []); customUpcomingRef.current = data.matches || []; } }).catch(() => {});
+                    fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success) { setCustomUpcoming(data.matches || []); customUpcomingRef.current = data.matches || []; } }).catch(() => {});
                 } }),
                 tab === "medias" && React.createElement(MediaPage, { user: user, matches: matches }),
                 tab === "coffre" && user && user.role === "coach" && React.createElement(VaultPage, { user: user }),
                 tab === "messagerie" && user && React.createElement(MessagingPage, { user: user }),
-                tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { setUser(u); if (u.role === "coach") { fetch(API_URL + "action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
+                tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { setUser(u); if (u.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
                 tab === "inscription" && React.createElement(RegisterPage, { onLogin: (u) => { setUser(u); } }),
                 tab === "mdp-oublie" && React.createElement(ForgotPasswordPage),
                 tab === "reset" && resetToken && React.createElement(ResetPasswordPage, { token: resetToken }),
@@ -5471,7 +5453,7 @@ function NewsSection({ user }) {
     const isCoach = user && user.role === "coach";
 
     useEffect(() => {
-        fetch(API_URL + "action=get_news", { credentials: "same-origin" }).then(r => r.json()).then(d => {
+        fetch(API_URL + "?action=get_news", { credentials: "same-origin" }).then(r => r.json()).then(d => {
             if (d.success) setNews(d.news || []);
             setLoading(false);
         }).catch(() => setLoading(false));
@@ -5510,13 +5492,13 @@ function NewsSection({ user }) {
         const fd = new FormData();
         fd.append("content", msgText);
         if (newsImage) fd.append("image", newsImage);
-        fetch(API_URL + "action=post_news", { method: "POST", credentials: "same-origin", body: fd })
+        fetch(API_URL + "?action=post_news", { method: "POST", credentials: "same-origin", body: fd })
             .then(r => r.json()).then(d => {
                 if (d.success) {
                     setNews(prev => [d.news, ...prev]); setNewMsg(""); clearImage();
                     // Envoyer notification push via l'endpoint existant
                     const preview = msgText.length > 100 ? msgText.substring(0, 100) + "..." : msgText;
-                    fetch(API_URL + "action=send_push", {
+                    fetch(API_URL + "?action=send_push", {
                         method: "POST", credentials: "same-origin",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ title: "\uD83D\uDCE2 ESPE U9 \u2014 Nouvelle actu !", body: preview, url: "#accueil" })
@@ -5531,13 +5513,13 @@ function NewsSection({ user }) {
 
     const updateNews = (id) => {
         if (!editText.trim()) return;
-        fetch(API_URL + "action=update_news", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, content: editText.trim() }) })
+        fetch(API_URL + "?action=update_news", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, content: editText.trim() }) })
             .then(r => r.json()).then(d => { if (d.success) { setNews(prev => prev.map(n => n.id === id ? { ...n, content: editText.trim(), updated_at: new Date().toISOString() } : n)); setEditId(null); setEditText(""); } });
     };
 
     const deleteNews = (id) => {
         if (!confirm("Supprimer cette actualit\u00E9 ?")) return;
-        fetch(API_URL + "action=delete_news", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
+        fetch(API_URL + "?action=delete_news", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
             .then(r => r.json()).then(d => { if (d.success) setNews(prev => prev.filter(n => n.id !== id)); });
     };
 
@@ -5655,7 +5637,6 @@ function LostObjectsPanel({ user }) {
     const [desc, setDesc] = useState("");
     const [showForm, setShowForm] = useState(false);
     const fileRef = useRef(null);
-    const carouselRef = useRef(null);
     const isCoach = user && user.role === "coach";
 
     useEffect(() => {
@@ -5663,25 +5644,6 @@ function LostObjectsPanel({ user }) {
             .then(r => r.json()).then(d => { if (d.success) setObjects(d.objects || []); })
             .catch(() => {}).finally(() => setLoading(false));
     }, []);
-
-    useEffect(function autoSlideLostCarousel() {
-        if (objects.length <= 2) return;
-        var el = carouselRef.current;
-        if (!el) return;
-        var isMobile = window.matchMedia("(max-width: 768px)").matches;
-        if (!isMobile) return;
-        var iv = setInterval(function() {
-            if (!el) return;
-            var step = el.clientWidth;
-            var next = el.scrollLeft + step;
-            if (next >= el.scrollWidth - 4) {
-                el.scrollTo({ left: 0, behavior: "smooth" });
-            } else {
-                el.scrollBy({ left: step, behavior: "smooth" });
-            }
-        }, 3000);
-        return function() { clearInterval(iv); };
-    }, [objects.length]);
 
     const uploadObject = async (file) => {
         if (!file) return;
@@ -5724,8 +5686,7 @@ function LostObjectsPanel({ user }) {
     if (loading) return null;
     if (objects.length === 0 && !isCoach) return null;
 
-    return (
-        React.createElement("div", { className: "lost-section" },
+    return React.createElement("div", { className: "lost-section" },
         React.createElement("div", { className: "lost-header" },
             React.createElement("div", { className: "section-title", style: { margin: 0 } }, "\uD83E\uDDE4 Objets perdus"),
             isCoach && React.createElement("button", {
@@ -5753,62 +5714,37 @@ function LostObjectsPanel({ user }) {
                 React.createElement("div", { className: "lost-empty-icon" }, "\uD83E\uDDF3"),
                 React.createElement("p", null, "Aucun objet perdu pour le moment"),
                 React.createElement("p", { style: { fontSize: 13 } }, "Bonne nouvelle !"))
-            : React.createElement("div", { className: "lost-carousel-wrap", ref: carouselRef },
-                React.createElement("div", { className: "lost-grid" },
-                    objects.map(function(obj) {
-                        return React.createElement("div", { className: "lost-card", key: obj.id },
-                            isCoach && React.createElement("button", {
-                                className: "lost-delete-btn", title: "Supprimer",
-                                onClick: function() { deleteObject(obj.id); }
-                            }, "\u2715"),
-                            React.createElement("img", {
-                                className: "lost-card-img", src: obj.photo_url, alt: obj.description || "Objet perdu",
-                                onClick: function() { setLightbox(obj.photo_url); }, loading: "lazy"
-                            }),
-                            React.createElement("div", { className: "lost-card-body" },
-                                obj.description && React.createElement("div", { className: "lost-card-desc", title: obj.description }, obj.description),
-                                obj.claimed_by
-                                    ? React.createElement("div", { className: "lost-claimed" }, "\u2705 R\u00E9clam\u00E9 par ", obj.claimed_name || "un membre")
-                                    : React.createElement("button", {
-                                        className: "lost-claim-btn",
-                                        onClick: function() { claimObject(obj.id); }
-                                    }, "\u270B C'est \u00E0 moi !")
-                            )
-                        );
-                    })
-                )
-            ),
+            : React.createElement("div", { className: "lost-grid" },
+                objects.map(obj => React.createElement("div", { className: "lost-card", key: obj.id },
+                    isCoach && React.createElement("button", {
+                        className: "lost-delete-btn", title: "Supprimer",
+                        onClick: () => deleteObject(obj.id)
+                    }, "\u2715"),
+                    React.createElement("img", {
+                        className: "lost-card-img", src: obj.photo_url, alt: obj.description || "Objet perdu",
+                        onClick: () => setLightbox(obj.photo_url), loading: "lazy"
+                    }),
+                    React.createElement("div", { className: "lost-card-body" },
+                        obj.description && React.createElement("div", { className: "lost-card-desc", title: obj.description }, obj.description),
+                        obj.claimed_by
+                            ? React.createElement(React.Fragment, null,
+                                React.createElement("div", { className: "lost-claimed" }, "\u2705 R\u00E9clam\u00E9 par ", obj.claimed_name || "un membre"),
+                                isCoach && React.createElement("button", {
+                                    onClick: () => deleteObject(obj.id),
+                                    style: { width: "100%", marginTop: 8, padding: "8px", border: "1px solid rgba(220,38,38,0.3)", borderRadius: 10, background: "rgba(220,38,38,0.08)", color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer" }
+                                }, "\uD83D\uDDD1\uFE0F Supprimer l'objet"))
+                            : React.createElement("button", {
+                                className: "lost-claim-btn",
+                                onClick: () => claimObject(obj.id)
+                            }, "\u270B C'est \u00E0 moi !"))))),
 
         lightbox && React.createElement("div", {
             className: "lost-lightbox",
-            onClick: function() { setLightbox(null); }
-        }, React.createElement("img", { src: lightbox, alt: "Zoom" })))
-    );
-}
-
-function parseStandings(apiRows) {
-    if (!apiRows || !apiRows.length) return STANDINGS_FALLBACK;
-    var espeNames = ["ESPE", "CHALONS", "CHÂLONS"];
-    return apiRows.map(function(r) {
-        var pts = parseInt(r.points) || 0;
-        var j = parseInt(r.played) || 0;
-        var v = parseInt(r.wins) || 0;
-        var d = parseInt(r.losses) || 0;
-        if (!j && pts > 0) { v = pts - Math.round(pts / 2); d = Math.round(pts / 2) - v; }
-        var teamName = r.team_name || r.team || "";
-        var isUs = espeNames.some(function(k) { return teamName.toUpperCase().indexOf(k) !== -1; });
-        return { rank: parseInt(r.rank_pos || r.rank) || 0, team: teamName, pts: pts, v: v, d: d, isUs: isUs };
-    });
+            onClick: () => setLightbox(null)
+        }, React.createElement("img", { src: lightbox, alt: "Zoom" })));
 }
 
 function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user, customUpcoming }) {
-    const [STANDINGS, setStandings] = useState(STANDINGS_FALLBACK);
-    useEffect(function() {
-        fetch(API_URL + "action=ffbb_standings", { credentials: "same-origin" })
-            .then(function(r) { return r.json(); })
-            .then(function(d) { if (d.success && d.standings && d.standings.length) setStandings(parseStandings(d.standings)); })
-            .catch(function() {});
-    }, []);
     const totalPts = matches.reduce((a, m) => a + m.espeScore, 0);
     const totalOpp = matches.reduce((a, m) => a + m.advScore, 0);
     const wins = matches.filter((m) => m.win).length;
@@ -5946,7 +5882,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
     const [saveStatus, setSaveStatus] = useState("");
     const [presence, setPresence] = useState(null);
     useEffect(function() {
-        fetch(API_URL + "action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" })
             .then(function(r) { return r.json(); })
             .then(function(d) { if (d.success) setPresence(d); })
             .catch(function() {});
@@ -5978,7 +5914,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                     " (",
                     player.licenceBC,
                     ")",
-                    (coachUnlocked || (user && user.player_id === player.id)) && React.createElement("a", { href: API_URL + "action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { marginLeft: 4, padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence")))),
+                    (coachUnlocked || (user && user.player_id === player.id)) && React.createElement("a", { href: API_URL + "?action=download_licence&player_id=" + player.id, download: "e-Licence_" + player.firstName + "_" + player.lastName + ".png", style: { marginLeft: 4, padding: "4px 10px", background: "var(--green-700)", color: "white", borderRadius: 6, fontSize: 11, fontWeight: 600, textDecoration: "none" }, target: "_blank", rel: "noopener noreferrer" }, "\uD83D\uDD04 T\u00E9l\u00E9charger la licence")))),
         React.createElement("div", { className: "section-title" }, "Stats saison"),
         React.createElement("div", { className: "detail-stats-grid" },
             React.createElement("div", { className: "detail-stat-box" },
@@ -6080,7 +6016,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
                 React.createElement("div", { className: "coach-save-bar" },
                     React.createElement("button", { className: "coach-save-btn", onClick: () => {
                             setSaveStatus("saving");
-                            fetch(API_URL + "action=save_note", {
+                            fetch(API_URL + "?action=save_note", {
                                 method: "POST", credentials: "same-origin",
                                 headers: {"Content-Type": "application/json"},
                                 body: JSON.stringify({ type: "player", ref_id: player.id, content: coachNotes[player.id] || "" })
@@ -6167,7 +6103,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
         const ids = allUpcoming.map(function(u) { return typeof u.id === "string" && u.id.indexOf("custom_") === 0 ? parseInt(u.id.replace("custom_", ""), 10) : (u.id | 0); }).filter(function(id) { return id > 0; });
         if (ids.length === 0) { setBulkExtras({}); return; }
         var uniq = ids.filter(function(v, i, a) { return a.indexOf(v) === i; });
-        fetch(API_URL + "action=get_bulk_match_extras&match_ids=" + uniq.join(","), { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_bulk_match_extras&match_ids=" + uniq.join(","), { credentials: "same-origin" })
             .then(function(r) { if (!r.ok) return {}; return r.json(); })
             .then(function(d) { if (d && d.success && d.extras) setBulkExtras(d.extras); })
             .catch(function() {});
@@ -6178,7 +6114,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
     const handleSave = () => {
         if (!formData.date || !formData.adversaire) return alert("Date et adversaire sont obligatoires !");
         setSaving(true);
-        fetch(API_URL + "action=save_upcoming", {
+        fetch(API_URL + "?action=save_upcoming", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData)
@@ -6187,7 +6123,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                 // Also save extras (gymnase + heure_rdv) for this match
                 const matchId = "custom_" + d.id;
                 if (formData.gymnase || formData.heureRdv) {
-                    fetch(API_URL + "action=save_match_extras", {
+                    fetch(API_URL + "?action=save_match_extras", {
                         method: "POST", credentials: "same-origin",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ match_id: matchId, gymnase: formData.gymnase, heure_rdv: formData.heureRdv })
@@ -6200,7 +6136,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
 
     const handleDelete = (dbId, adversaire) => {
         if (!confirm("Supprimer le match vs " + adversaire + " ?")) return;
-        fetch(API_URL + "action=delete_upcoming", {
+        fetch(API_URL + "?action=delete_upcoming", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: dbId })
@@ -6349,7 +6285,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
     const rightRef = useRef(null);
     // Charger les photos au montage
     useEffect(() => {
-        fetch(API_URL + "action=get_photos&match_id=" + matchId)
+        fetch(API_URL + "?action=get_photos&match_id=" + matchId)
             .then(r => r.json())
             .then(data => {
                 if (data.success && data.photos) {
@@ -6368,7 +6304,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
         form.append("photo", file);
         form.append("match_id", String(matchId));
         form.append("slot", slot);
-        fetch(API_URL + "action=upload_photo", {
+        fetch(API_URL + "?action=upload_photo", {
             method: "POST", credentials: "same-origin", body: form
         })
         .then(r => r.json())
@@ -6376,7 +6312,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
             setUploading(prev => ({ ...prev, [slot]: false }));
             if (data.success) {
                 // Recharger les photos
-                fetch(API_URL + "action=get_photos&match_id=" + matchId)
+                fetch(API_URL + "?action=get_photos&match_id=" + matchId)
                     .then(r => r.json())
                     .then(d => {
                         if (d.success && d.photos) {
@@ -6391,7 +6327,7 @@ function MatchPhotos({ matchId, coachUnlocked }) {
     };
     const handleDelete = (slot) => {
         if (!photos[slot] || !confirm("Supprimer cette photo ?")) return;
-        fetch(API_URL + "action=delete_photo", {
+        fetch(API_URL + "?action=delete_photo", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ photo_id: photos[slot].id })
@@ -6442,8 +6378,8 @@ function FrozenConvocationPanel({ matchId }) {
     const [loaded, setLoaded] = useState(false);
     useEffect(function() {
         Promise.all([
-            fetch(API_URL + "action=get_convocations&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); }),
-            fetch(API_URL + "action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); })
+            fetch(API_URL + "?action=get_convocations&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); }),
+            fetch(API_URL + "?action=get_convocation_responses&match_id=" + matchId, { credentials: "same-origin" }).then(function(r) { return r.json(); })
         ]).then(function(results) {
             var d1 = results[0], d2 = results[1];
             if (d1.success && d1.convocations) {
@@ -6556,7 +6492,7 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
                 React.createElement("div", { className: "coach-save-bar" },
                     React.createElement("button", { className: "coach-save-btn", onClick: () => {
                             setMSaved("saving");
-                            fetch(API_URL + "action=save_note", {
+                            fetch(API_URL + "?action=save_note", {
                                 method: "POST", credentials: "same-origin",
                                 headers: {"Content-Type": "application/json"},
                                 body: JSON.stringify({ type: "match", ref_id: m.id, content: (matchNotes && matchNotes[m.id]) || "" })
@@ -6638,7 +6574,7 @@ function MediaPage({ user, matches }) {
 
     // Charger les médias
     const loadMedia = () => {
-        const url = matchFilter ? API_URL + "action=get_media&match_id=" + matchFilter : API_URL + "action=get_media";
+        const url = matchFilter ? API_URL + "?action=get_media&match_id=" + matchFilter : API_URL + "?action=get_media";
         fetch(url, { credentials: "same-origin" }).then(r => r.json()).then(d => {
             if (d.success) setMediaList(d.media || []);
             setLoading(false);
@@ -6648,7 +6584,7 @@ function MediaPage({ user, matches }) {
 
     // Chat loading
     const loadChat = () => {
-        fetch(API_URL + "action=get_media_chat", { credentials: "same-origin" }).then(r => r.json()).then(d => {
+        fetch(API_URL + "?action=get_media_chat", { credentials: "same-origin" }).then(r => r.json()).then(d => {
             if (d.success) setChatMsgs(d.messages || []);
             setChatLoading(false);
         }).catch(() => setChatLoading(false));
@@ -6659,12 +6595,12 @@ function MediaPage({ user, matches }) {
     const sendChat = () => {
         if (!chatInput.trim() || chatSending) return;
         setChatSending(true);
-        fetch(API_URL + "action=post_media_chat", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: chatInput.trim() }) })
+        fetch(API_URL + "?action=post_media_chat", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: chatInput.trim() }) })
             .then(r => r.json()).then(d => { if (d.success && d.msg) { setChatMsgs(prev => [...prev, d.msg]); setChatInput(""); } else { alert("Erreur: " + (d.error || "Envoi \u00E9chou\u00E9")); } setChatSending(false); })
             .catch((e) => { alert("Erreur r\u00E9seau"); setChatSending(false); });
     };
     const deleteChat = (id) => {
-        fetch(API_URL + "action=delete_media_chat", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
+        fetch(API_URL + "?action=delete_media_chat", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
             .then(r => r.json()).then(d => { if (d.success) setChatMsgs(prev => prev.filter(m => m.id !== id)); });
     };
     const chatFmtTime = (d) => { const dt = new Date(d); return dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " " + dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); };
@@ -6698,7 +6634,7 @@ function MediaPage({ user, matches }) {
             try {
                 const xhr = new XMLHttpRequest();
                 await new Promise((resolve, reject) => {
-                    xhr.open("POST", API_URL + "action=upload_media");
+                    xhr.open("POST", API_URL + "?action=upload_media");
                     xhr.withCredentials = true;
                     xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadProgress(Math.round((uploaded / selectedFiles.length + (e.loaded / e.total) / selectedFiles.length) * 100)); };
                     xhr.onload = () => {
@@ -6721,7 +6657,7 @@ function MediaPage({ user, matches }) {
     const handleDelete = (media) => {
         if (!confirm("Supprimer ce m\u00E9dia ?")) return;
         setDeleting(media.id);
-        fetch(API_URL + "action=delete_media", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ media_id: media.id }) })
+        fetch(API_URL + "?action=delete_media", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ media_id: media.id }) })
             .then(r => r.json()).then(d => { if (d.success) { setMediaList(prev => prev.filter(m => m.id !== media.id)); setLightbox(null); } setDeleting(null); })
             .catch(() => setDeleting(null));
     };
@@ -6890,7 +6826,7 @@ function MediaPage({ user, matches }) {
     (function initGate() {
       var root = document.getElementById("root");
       root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a1f0d;color:#9cb5a4;font-family:Outfit,sans-serif;font-size:14px;">Chargement…</div>';
-      fetch(API_URL + "action=check_session", { credentials: "same-origin" })
+      fetch(API_URL + "?action=check_session", { credentials: "same-origin" })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (!d.logged_in) {
