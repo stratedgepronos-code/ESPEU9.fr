@@ -3527,6 +3527,47 @@ case 'set_maintenance':
     }
     break;
 
+// ═══ CRON FFBB SYNC (sam/dim 16h) ═══
+case 'cron_ffbb_sync':
+    $cronKey = trim($_GET['key'] ?? '');
+    if ($cronKey !== 'espe_cron_2026_secure') { http_response_code(403); echo json_encode(['error' => 'Clé invalide']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $st = $db->prepare("SELECT config_value FROM site_config WHERE config_key = 'ffbb_url'");
+        $st->execute();
+        $r = $st->fetch();
+        $ffbbUrl = $r ? $r['config_value'] : '';
+        if (!$ffbbUrl) { echo json_encode(['success' => false, 'error' => 'URL FFBB non configurée']); break; }
+
+        $ch = curl_init($ffbbUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30, CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $html = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($curlErr || $httpCode !== 200) { echo json_encode(['success' => false, 'error' => 'FFBB injoignable: ' . ($curlErr ?: "HTTP $httpCode")]); break; }
+
+        $standings = [];
+        if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d+)<\/(?:div|a)>/u', $html, $standM, PREG_SET_ORDER)) {
+            foreach ($standM as $s) {
+                $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+            }
+        }
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("DELETE FROM ffbb_standings");
+        $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points) VALUES (:r,:t,:p)");
+        foreach ($standings as $s) { $stIns->execute([':r'=>$s['rank'],':t'=>$s['team'],':p'=>$s['points']]); }
+        $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_last_sync', :v) ON DUPLICATE KEY UPDATE config_value = :v2")
+           ->execute([':v' => date('Y-m-d H:i:s'), ':v2' => date('Y-m-d H:i:s')]);
+        echo json_encode(['success' => true, 'standings_count' => count($standings), 'synced_at' => date('Y-m-d H:i:s')]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
+    break;
+
 // ═══ OBJETS PERDUS ═══
 case 'get_lost_objects':
     try {

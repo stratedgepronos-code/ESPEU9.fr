@@ -247,7 +247,7 @@ const INITIAL_MATCHES = [
     },
 ];
 const UPCOMING = [];
-const STANDINGS = [
+const STANDINGS_FALLBACK = [
     { rank: 1, team: "Gauloise de Vitry", pts: 8, v: 4, d: 0 },
     { rank: 2, team: "ESPE Châlons", pts: 7, v: 3, d: 1, isUs: true },
     { rank: 3, team: "Reims Champagne B-2", pts: 6, v: 2, d: 2 },
@@ -5784,7 +5784,32 @@ function LostObjectsPanel({ user }) {
     );
 }
 
+function parseStandings(apiRows) {
+    if (!apiRows || !apiRows.length) return STANDINGS_FALLBACK;
+    var n = apiRows.length;
+    var sumPts = apiRows.reduce(function(a, r) { return a + (parseInt(r.points) || 0); }, 0);
+    var gamesPerTeam = n > 1 ? Math.round(2 * sumPts / (3 * n)) : 0;
+    var espeNames = ["ESPE", "CHALONS", "CHÂLONS"];
+    return apiRows.map(function(r) {
+        var pts = parseInt(r.points) || 0;
+        var v = pts - gamesPerTeam;
+        if (v < 0) v = 0;
+        var d = gamesPerTeam - v;
+        if (d < 0) d = 0;
+        var teamName = r.team_name || r.team || "";
+        var isUs = espeNames.some(function(k) { return teamName.toUpperCase().indexOf(k) !== -1; });
+        return { rank: parseInt(r.rank_pos || r.rank) || 0, team: teamName, pts: pts, v: v, d: d, isUs: isUs };
+    });
+}
+
 function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user, customUpcoming }) {
+    const [STANDINGS, setStandings] = useState(STANDINGS_FALLBACK);
+    useEffect(function() {
+        fetch(API_URL + "action=ffbb_standings", { credentials: "same-origin" })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.success && d.standings && d.standings.length) setStandings(parseStandings(d.standings)); })
+            .catch(function() {});
+    }, []);
     const totalPts = matches.reduce((a, m) => a + m.espeScore, 0);
     const totalOpp = matches.reduce((a, m) => a + m.advScore, 0);
     const wins = matches.filter((m) => m.win).length;
