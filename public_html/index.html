@@ -1546,6 +1546,24 @@ body {
 .lost-lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* Objets perdus — mobile: 2 colonnes + carrousel auto toutes les 3s */
+@media (max-width: 768px) {
+  .lost-carousel-wrap {
+    overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -2px;
+  }
+  .lost-carousel-wrap::-webkit-scrollbar { display: none; }
+  .lost-carousel-wrap .lost-grid {
+    display: flex; flex-wrap: nowrap; gap: 10px; padding: 2px 2px 12px;
+    min-width: min-content;
+  }
+  .lost-carousel-wrap .lost-card {
+    flex: 0 0 calc(50% - 5px); min-width: calc(50% - 5px);
+    scroll-snap-align: start; scroll-snap-stop: always;
+  }
+  .lost-carousel-wrap .lost-card-img { height: 160px; }
+}
+
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .player-grid { grid-template-columns: repeat(2, 1fr); }
@@ -5637,6 +5655,7 @@ function LostObjectsPanel({ user }) {
     const [desc, setDesc] = useState("");
     const [showForm, setShowForm] = useState(false);
     const fileRef = useRef(null);
+    const carouselRef = useRef(null);
     const isCoach = user && user.role === "coach";
 
     useEffect(() => {
@@ -5644,6 +5663,22 @@ function LostObjectsPanel({ user }) {
             .then(r => r.json()).then(d => { if (d.success) setObjects(d.objects || []); })
             .catch(() => {}).finally(() => setLoading(false));
     }, []);
+
+    useEffect(function autoSlideLostCarousel() {
+        if (objects.length <= 2) return;
+        var el = carouselRef.current;
+        if (!el) return;
+        var iv = setInterval(function() {
+            if (!el) return;
+            var next = el.scrollLeft + el.clientWidth;
+            if (next >= el.scrollWidth - 4) {
+                el.scrollTo({ left: 0, behavior: "smooth" });
+            } else {
+                el.scrollBy({ left: el.clientWidth, behavior: "smooth" });
+            }
+        }, 3000);
+        return function() { clearInterval(iv); };
+    }, [objects.length]);
 
     const uploadObject = async (file) => {
         if (!file) return;
@@ -5712,7 +5747,8 @@ function LostObjectsPanel({ user }) {
                 React.createElement("div", { className: "lost-empty-icon" }, "\uD83E\uDDF3"),
                 React.createElement("p", null, "Aucun objet perdu pour le moment"),
                 React.createElement("p", { style: { fontSize: 13 } }, "Bonne nouvelle !"))
-            : React.createElement("div", { className: "lost-grid" },
+            : React.createElement("div", { className: "lost-carousel-wrap", ref: carouselRef },
+                React.createElement("div", { className: "lost-grid" },
                 objects.map(obj => React.createElement("div", { className: "lost-card", key: obj.id },
                     isCoach && React.createElement("button", {
                         className: "lost-delete-btn", title: "Supprimer",
