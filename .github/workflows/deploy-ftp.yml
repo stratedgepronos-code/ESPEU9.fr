@@ -45,6 +45,7 @@ jobs:
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -p 65002 -o StrictHostKeyChecking=no" \
             --exclude='.git' --exclude='.cursorrules' --exclude='config.php' \
+            --exclude='uploads/' \
             ./public_html/ \
             u527192911@178.16.128.35:/home/u527192911/domains/espeu9.fr/public_html/
 
