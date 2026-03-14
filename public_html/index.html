@@ -4564,7 +4564,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
     const isCoach = !!(user && user.role === "coach");
     const isHome = u.domExt === "dom";
-    const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: "" });
+    const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: u.heureRdv || "" });
     useEffect(function() {
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
         window.scrollTo(0, 0);
@@ -6126,7 +6126,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                     fetch(API_URL + "?action=save_match_extras", {
                         method: "POST", credentials: "same-origin",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ match_id: matchId, gymnase: formData.gymnase, heure_rdv: formData.heureRdv })
+                        body: JSON.stringify({ match_id: d.id, gymnase: formData.gymnase, heure_rdv: formData.heureRdv, date_match: formData.date, heure_match: formData.heure })
                     }).catch(() => {});
                 }
                 setSaving(false); setSaved("\u2705 Match ajout\u00E9 !"); setShowForm(false); resetForm(); reloadCustom(); setTimeout(() => setSaved(""), 3000);
@@ -6180,6 +6180,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
             const ex = bulkExtras[String(numericId)] || {};
             const displayDate = ex.date_match || u.date || "";
             const displayHeure = ex.heure_match || u.heure || "";
+            const displayHeureConvoc = ex.heure_rdv || u.heureRdv || "";
             const parts = displayDate.split("/");
             const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
             return React.createElement("div", { className: "upcoming-card", key: u.id, onClick: () => onSelectUpcoming(u), style: { cursor: "pointer", position: "relative" } },
@@ -6194,6 +6195,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                 React.createElement("div", { className: "upcoming-meta" },
                     u.journee ? "J" + u.journee + " \u2022 " : "",
                     displayHeure ? displayHeure : "Heure TBC",
+                    displayHeureConvoc ? [" \u2022 RDV ", displayHeureConvoc] : null,
                     (ex.gymnase || u.gymnase || u.lieu) ? [" \u2022 ", ex.gymnase || u.gymnase || u.lieu] : null)),
             React.createElement("span", { className: "upcoming-badge " + u.domExt }, u.domExt === "dom" ? "DOM" : "EXT"),
             // Edit/delete for custom matches (coach only)

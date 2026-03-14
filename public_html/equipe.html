@@ -2882,10 +2882,12 @@ function MessagingPage({ user }) {
                 React.createElement("textarea", { value: compBody, onChange: e=>setCompBody(e.target.value), placeholder: "\u00C9crire ton message...", rows: 6, style: { width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 15, boxSizing: "border-box", resize: "vertical" } })),
             React.createElement("button", { onClick: sendMsg, disabled: sending, style: { padding: "12px 28px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 15, opacity: sending?0.6:1 } }, sending ? "Envoi..." : "\uD83D\uDCE8 Envoyer")));
 }
-// ── Match Extras Panel (coach: gymnase, heure rdv, feuille de match) ──
-function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, onMatchCreated }) {
+// ── Match Extras Panel (coach: date, heure, gymnase, heure rdv, feuille de match) ──
+function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, isCustomMatch, upcomingDbId, onExtrasLoaded, onStatsExtracted, onMatchCreated }) {
     const [gymnase, setGymnase] = useState("");
     const [heureRdv, setHeureRdv] = useState("");
+    const [dateMatch, setDateMatch] = useState(initialDate||"");
+    const [heureMatch, setHeureMatch] = useState(initialHeure||"");
     const [saved, setSaved] = useState("");
     const [saving, setSaving] = useState(false);
     const [sheet, setSheet] = useState(null);
@@ -2896,26 +2898,39 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
     const scanRef = useRef(null);
     const [scanning, setScanning] = useState(false);
     const [scanStatus, setScanStatus] = useState("");
+    useEffect(function(){ setDateMatch(initialDate||""); setHeureMatch(initialHeure||""); }, [initialDate, initialHeure]);
+    const numericMatchId = (typeof matchId === "string" && matchId.indexOf("custom_") === 0) ? parseInt(matchId.replace("custom_",""), 10) : (matchId|0);
     // Load from DB
     useEffect(() => {
-        fetch(API_URL+"?action=get_match_extras&match_id="+matchId,{credentials:"same-origin"})
+        fetch(API_URL+"?action=get_match_extras&match_id="+numericMatchId,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{
             if(d.success){
                 setGymnase(d.gymnase||""); setHeureRdv(d.heure_rdv||"");
+                if(d.date_match) setDateMatch(d.date_match); if(d.heure_match) setHeureMatch(d.heure_match);
                 if(d.sheet) setSheet(d.sheet);
-                if(onExtrasLoaded) onExtrasLoaded({gymnase:d.gymnase||"",heure_rdv:d.heure_rdv||""});
+                if(onExtrasLoaded) onExtrasLoaded({gymnase:d.gymnase||"",heure_rdv:d.heure_rdv||"",date:d.date_match||initialDate||"",heure:d.heure_match||initialHeure||""});
             }
         }).catch(()=>{});
-    }, [matchId]);
+    }, [numericMatchId]);
     const handleSave = () => {
         setSaving(true); setSaved("");
-        fetch(API_URL+"?action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:matchId,gymnase,heure_rdv:heureRdv})})
-        .then(r=>r.json()).then(d=>{
-            setSaving(false);
-            if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({gymnase,heure_rdv:heureRdv}); }
-            else setSaved("Erreur");
-            setTimeout(()=>setSaved(""),3000);
-        }).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
+        if (isCustomMatch && upcomingDbId) {
+            fetch(API_URL+"?action=update_upcoming_infos",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:upcomingDbId,date:dateMatch,heure:heureMatch,heure_rdv:heureRdv,lieu:"",gymnase})})
+            .then(r=>r.json()).then(d=>{
+                setSaving(false);
+                if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
+                else setSaved("Erreur");
+                setTimeout(()=>setSaved(""),3000);
+            }).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
+        } else {
+            fetch(API_URL+"?action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:numericMatchId,gymnase,heure_rdv:heureRdv,date_match:dateMatch,heure_match:heureMatch})})
+            .then(r=>r.json()).then(d=>{
+                setSaving(false);
+                if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
+                else setSaved("Erreur");
+                setTimeout(()=>setSaved(""),3000);
+            }).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
+        }
     };
     const handleUploadSheet = () => {
         const file = sheetRef.current.files[0]; if(!file) return;
@@ -3014,10 +3029,16 @@ function MatchExtrasPanel({ matchId, isCoach, onExtrasLoaded, onStatsExtracted, 
         React.createElement("div", { className: "card", style: { padding: 20 } },
             React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 } },
                 React.createElement("div", null,
+                    React.createElement("label", { style: { display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "var(--text-dim)" } }, "\uD83D\uDCC5 Date (JJ/MM/AAAA)"),
+                    React.createElement("input", { type: "text", value: dateMatch, onChange: e=>setDateMatch(e.target.value), placeholder: "Ex: 08/03/2026", style: inputS })),
+                React.createElement("div", null,
+                    React.createElement("label", { style: { display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "var(--text-dim)" } }, "\u23F0 Heure match"),
+                    React.createElement("input", { type: "text", value: heureMatch, onChange: e=>setHeureMatch(e.target.value), placeholder: "Ex: 11:15", style: inputS })),
+                React.createElement("div", null,
                     React.createElement("label", { style: { display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "var(--text-dim)" } }, "\uD83C\uDFDF\uFE0F Gymnase"),
                     React.createElement("input", { type: "text", value: gymnase, onChange: e=>setGymnase(e.target.value), placeholder: "Ex: Gymnase Pierre de Coubertin", style: inputS })),
                 React.createElement("div", null,
-                    React.createElement("label", { style: { display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "var(--text-dim)" } }, "\u23F0 Heure de convocation"),
+                    React.createElement("label", { style: { display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "var(--text-dim)" } }, "\u23F0 Heure de convocation (RDV)"),
                     React.createElement("input", { type: "text", value: heureRdv, onChange: e=>setHeureRdv(e.target.value), placeholder: "Ex: 10:30", style: inputS }))),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" } },
                 React.createElement("button", { onClick: handleSave, disabled: saving, style: { padding: "10px 24px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14, opacity: saving?0.6:1 } }, saving ? "..." : "\uD83D\uDCBE Enregistrer"),
@@ -3957,7 +3978,9 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
     const isCoach = !!(user && user.role === "coach");
     const isHome = u.domExt === "dom";
-    const [extras, setExtras] = useState({ gymnase: u.gymnase || "", heure_rdv: "" });
+    const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: u.heureRdv || "" });
+    const displayDate = extras.date || u.date || "";
+    const displayHeure = extras.heure || u.heure || "";
     const displayGymnase = extras.gymnase || u.gymnase || "";
     const displayRdv = extras.heure_rdv || "";
     const espeTeam = React.createElement("div", { className: "match-detail-team" },
@@ -3973,7 +3996,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
             React.createElement("div", null,
                 React.createElement("div", { style: { fontSize: 42, fontWeight: 800, fontFamily: "'Bebas Neue', sans-serif", color: "var(--green-700)", textAlign: "center" } }, "VS"),
                 React.createElement("div", { className: "match-detail-vs", style: { textAlign: "center" } },
-                    "J", u.journee, " \u2022 ", u.date, u.heure ? [" \u2022 ", u.heure] : null),
+                    "J", u.journee, " \u2022 ", displayDate, displayHeure ? [" \u2022 ", displayHeure] : null),
                 (displayGymnase || u.lieu) && React.createElement("div", { style: { textAlign: "center", marginTop: 8 } },
                     React.createElement("a", {
                         href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent((displayGymnase ? displayGymnase + " " : "") + (u.lieu || "")),
@@ -3990,7 +4013,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
             React.createElement(CalendarButton, { upcoming: u, extras: extras }),
             isCoach && React.createElement(TrombiButton, { matchId: u.id, upcoming: u })),
         React.createElement(QuickConvocationResponse, { matchId: u.id, user: user }),
-        React.createElement(MatchExtrasPanel, { matchId: u.id, isCoach: isCoach, onExtrasLoaded: (e) => setExtras(e), onMatchCreated: isCoach ? onMatchCreated : null }),
+        React.createElement(MatchExtrasPanel, { matchId: u.id, isCoach: isCoach, initialDate: u.date, initialHeure: u.heure, isCustomMatch: (typeof u.id === "string" && u.id.indexOf("custom_") === 0), upcomingDbId: (typeof u.id === "string" && u.id.indexOf("custom_") === 0) ? parseInt(u.id.replace("custom_", ""), 10) : 0, onExtrasLoaded: (e) => setExtras(prev => ({ ...prev, ...e })), onMatchCreated: isCoach ? onMatchCreated : null }),
         !isHome && React.createElement(CovoituragePanel, { matchId: u.id, user: user }),
         React.createElement(ConvocationPanel, { upcoming: u, user: user }),
         React.createElement(MatchChatPanel, { matchId: u.id, user: user }));
@@ -5311,19 +5334,18 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
     const handleSave = () => {
         if (!formData.date || !formData.adversaire) return alert("Date et adversaire sont obligatoires !");
         setSaving(true);
-        fetch(API_URL + "action=save_upcoming", {
+        fetch(API_URL + "?action=save_upcoming", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData)
         }).then(r => r.json()).then(d => {
             if (d.success) {
-                // Also save extras (gymnase + heure_rdv) for this match
-                const matchId = "custom_" + d.id;
-                if (formData.gymnase || formData.heureRdv) {
-                    fetch(API_URL + "action=save_match_extras", {
+                // Enregistrer aussi les extras en base (id numérique pour cohérence)
+                if (formData.gymnase || formData.heureRdv || formData.date || formData.heure) {
+                    fetch(API_URL + "?action=save_match_extras", {
                         method: "POST", credentials: "same-origin",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ match_id: matchId, gymnase: formData.gymnase, heure_rdv: formData.heureRdv })
+                        body: JSON.stringify({ match_id: d.id, gymnase: formData.gymnase, heure_rdv: formData.heureRdv, date_match: formData.date, heure_match: formData.heure })
                     }).catch(() => {});
                 }
                 setSaving(false); setSaved("\u2705 Match ajout\u00E9 !"); setShowForm(false); resetForm(); reloadCustom(); setTimeout(() => setSaved(""), 3000);
@@ -5333,7 +5355,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
 
     const handleDelete = (dbId, adversaire) => {
         if (!confirm("Supprimer le match vs " + adversaire + " ?")) return;
-        fetch(API_URL + "action=delete_upcoming", {
+        fetch(API_URL + "?action=delete_upcoming", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: dbId })

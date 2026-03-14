@@ -2261,11 +2261,12 @@ case 'save_upcoming':
             $st->execute([':j'=>$journee, ':d'=>$date, ':h'=>$heure, ':hr'=>$heureRdv, ':l'=>$lieu, ':g'=>$gymnase, ':de'=>$domExt, ':a'=>$adversaire, ':logo'=>$logoUrl]);
             $editId = (int)$db->lastInsertId();
         }
-        // Also save to match_extras for compatibility
-        $matchKey = 'custom_' . $editId;
-        $db->exec("CREATE TABLE IF NOT EXISTS match_extras (match_id VARCHAR(50) PRIMARY KEY, gymnase VARCHAR(150) DEFAULT '', heure_rdv VARCHAR(10) DEFAULT '')");
-        $stE = $db->prepare("INSERT INTO match_extras (match_id, gymnase, heure_rdv) VALUES (:mid, :g, :hr) ON DUPLICATE KEY UPDATE gymnase=:g2, heure_rdv=:hr2");
-        $stE->execute([':mid'=>$matchKey, ':g'=>$gymnase, ':hr'=>$heureRdv, ':g2'=>$gymnase, ':hr2'=>$heureRdv]);
+        // Also save to match_extras (id numérique pour cohérence avec get_match_extras / get_bulk_match_extras)
+        $db->exec("CREATE TABLE IF NOT EXISTS match_extras (match_id INT PRIMARY KEY, gymnase VARCHAR(255) DEFAULT '', heure_rdv VARCHAR(20) DEFAULT '', date_match VARCHAR(20) DEFAULT '', heure_match VARCHAR(10) DEFAULT '')");
+        try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
+        $stE = $db->prepare("INSERT INTO match_extras (match_id, gymnase, heure_rdv, date_match, heure_match) VALUES (:mid, :g, :hr, :d, :hm) ON DUPLICATE KEY UPDATE gymnase=:g2, heure_rdv=:hr2, date_match=:d2, heure_match=:hm2");
+        $stE->execute([':mid'=>$editId, ':g'=>$gymnase, ':hr'=>$heureRdv, ':d'=>$date, ':hm'=>$heure, ':g2'=>$gymnase, ':hr2'=>$heureRdv, ':d2'=>$date, ':hm2'=>$heure]);
         // Notify parents
         notifyAllParents(
             "Nouveau match \u2014 " . ($journee ? $journee : "Coupe") . " vs " . $adversaire,
