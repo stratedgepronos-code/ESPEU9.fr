@@ -3499,9 +3499,9 @@ function MessagingPage({ user }) {
             React.createElement("button", { onClick: sendMsg, disabled: sending, style: { padding: "12px 28px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 15, opacity: sending?0.6:1 } }, sending ? "Envoi..." : "\uD83D\uDCE8 Envoyer")));
 }
 // ── Match Extras Panel (coach: jour, heure, gymnase, heure rdv, feuille de match) ──
-function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initialLieu, isCustomMatch, upcomingDbId, onExtrasLoaded, onStatsExtracted, onMatchCreated }) {
-    const [gymnase, setGymnase] = useState("");
-    const [heureRdv, setHeureRdv] = useState("");
+function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initialLieu, initialGymnase, initialHeureRdv, isCustomMatch, upcomingDbId, onExtrasLoaded, onStatsExtracted, onMatchCreated }) {
+    const [gymnase, setGymnase] = useState(initialGymnase||"");
+    const [heureRdv, setHeureRdv] = useState(initialHeureRdv||"");
     const [dateMatch, setDateMatch] = useState(initialDate||"");
     const [heureMatch, setHeureMatch] = useState(initialHeure||"");
     const [saved, setSaved] = useState("");
@@ -3515,18 +3515,18 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
     const [scanning, setScanning] = useState(false);
     const [scanStatus, setScanStatus] = useState("");
     const numericMatchId = (typeof matchId === "string" && matchId.indexOf("custom_") === 0) ? parseInt(matchId.replace("custom_",""), 10) : (matchId|0);
-    useEffect(function(){ setDateMatch(initialDate||""); setHeureMatch(initialHeure||""); }, [initialDate, initialHeure]);
+    useEffect(function(){ setDateMatch(initialDate||""); setHeureMatch(initialHeure||""); setGymnase(initialGymnase||""); setHeureRdv(initialHeureRdv||""); }, [initialDate, initialHeure, initialGymnase, initialHeureRdv]);
     useEffect(() => {
         fetch(API_URL+"?action=get_match_extras&match_id="+numericMatchId,{credentials:"same-origin"})
         .then(r=>r.json()).then(d=>{
             if(d.success){
-                setGymnase(d.gymnase||""); setHeureRdv(d.heure_rdv||"");
+                setGymnase(d.gymnase||initialGymnase||""); setHeureRdv(d.heure_rdv||initialHeureRdv||"");
                 if(d.date_match) setDateMatch(d.date_match); if(d.heure_match) setHeureMatch(d.heure_match);
                 if(d.sheet) setSheet(d.sheet);
-                if(onExtrasLoaded) onExtrasLoaded({
-                    gymnase:d.gymnase||"", heure_rdv:d.heure_rdv||"",
-                    date:d.date_match||initialDate||"", heure:d.heure_match||initialHeure||""
-                });
+                var loaded = { date:d.date_match||initialDate||"", heure:d.heure_match||initialHeure||"" };
+                if(d.gymnase) loaded.gymnase = d.gymnase; 
+                if(d.heure_rdv) loaded.heure_rdv = d.heure_rdv;
+                if(onExtrasLoaded) onExtrasLoaded(loaded);
             }
         }).catch(()=>{});
     }, [numericMatchId]);
@@ -4607,7 +4607,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
             React.createElement(CalendarButton, { upcoming: u, extras: extras }),
             isCoach && React.createElement(TrombiButton, { matchId: u.id, upcoming: u })),
         React.createElement(QuickConvocationResponse, { matchId: u.id, user: user }),
-        React.createElement(MatchExtrasPanel, { matchId: u.id, isCoach: isCoach, initialDate: u.date, initialHeure: u.heure, initialLieu: u.lieu, isCustomMatch: isCustomMatch, upcomingDbId: upcomingDbId, onExtrasLoaded: (e) => setExtras(function(prev){ return { ...prev, ...e }; }), onStatsExtracted: function() {}, onMatchCreated: isCoach ? onMatchCreated : null }),
+        React.createElement(MatchExtrasPanel, { matchId: u.id, isCoach: isCoach, initialDate: u.date, initialHeure: u.heure, initialLieu: u.lieu, initialGymnase: u.gymnase||"", initialHeureRdv: u.heureRdv||"", isCustomMatch: isCustomMatch, upcomingDbId: upcomingDbId, onExtrasLoaded: (e) => setExtras(function(prev){ return { ...prev, ...e }; }), onStatsExtracted: function() {}, onMatchCreated: isCoach ? onMatchCreated : null }),
         !isHome && React.createElement(CovoituragePanel, { matchId: u.id, user: user }),
         React.createElement(ConvocationPanel, { upcoming: u, user: user }),
         React.createElement(MatchChatPanel, { matchId: u.id, user: user }));

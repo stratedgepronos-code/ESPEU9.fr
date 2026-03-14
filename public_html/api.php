@@ -1067,6 +1067,14 @@ case 'update_upcoming_infos':
         $db=getDB();
         $st=$db->prepare("UPDATE upcoming_matches SET date=:d, heure=:h, heure_rdv=:hr, lieu=:l, gymnase=:g WHERE id=:id");
         $st->execute([':d'=>$date,':h'=>$heure,':hr'=>$heureRdv,':l'=>$lieu,':g'=>$gymnase,':id'=>$id]);
+        // Synchroniser aussi dans match_extras (source de vérité pour get_match_extras)
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS match_extras (match_id INT PRIMARY KEY, gymnase VARCHAR(255) DEFAULT '', heure_rdv VARCHAR(20) DEFAULT '', date_match VARCHAR(20) DEFAULT '', heure_match VARCHAR(10) DEFAULT '')");
+            try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e2) {}
+            try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e2) {}
+            $stE=$db->prepare("INSERT INTO match_extras (match_id,gymnase,heure_rdv,date_match,heure_match) VALUES(:mid,:g,:h,:d,:hm) ON DUPLICATE KEY UPDATE gymnase=:g2,heure_rdv=:h2,date_match=:d2,heure_match=:hm2");
+            $stE->execute([':mid'=>$id,':g'=>$gymnase,':h'=>$heureRdv,':d'=>$date,':hm'=>$heure,':g2'=>$gymnase,':h2'=>$heureRdv,':d2'=>$date,':hm2'=>$heure]);
+        } catch (Exception $e2) {}
         echo json_encode(['success'=>true]);
     } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
     break;
@@ -3345,9 +3353,9 @@ case 'ffbb_sync':
                         }
                     }
                     if ($check->fetch()) {
-                        // Ne pas écraser date/heure : seul le coach peut les modifier une fois en base (fuseau Paris)
-                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, dom_ext=:de, adversaire=:adv, lieu=:l, gymnase=:g WHERE ffbb_id=:fid");
-                        $st->execute([':j'=>$m['journee'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
+                        // Ne pas écraser date/heure/gymnase/heure_rdv : seul le coach peut les modifier
+                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, dom_ext=:de, adversaire=:adv, lieu=:l WHERE ffbb_id=:fid");
+                        $st->execute([':j'=>$m['journee'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':fid'=>$m['ffbb_id']]);
                     } else {
                         $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, lieu, gymnase, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:l,:g,:fid)");
                         $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
