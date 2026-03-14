@@ -420,8 +420,8 @@ body {
   function applyData(data,first){
     myId=data.user_id||0; isAdmin=!!data.is_admin;
     loadingZone.style.display='none';
-    if(myId){list.style.display='flex';formZone.style.display='block';loginWall.style.display='none';}
-    else{list.style.display='none';formZone.style.display='none';loginWall.style.display='flex';}
+    if(myId){list.style.display='flex';formZone.style.display='block';loginWall.style.display='none'; if(userBadge)userBadge.textContent=data.display_name||'Connecté';}
+    else{list.style.display='none';formZone.style.display='none';loginWall.style.display='flex'; if(userBadge)userBadge.textContent='Non connecté';}
     if(!data.messages||!data.messages.length){showEmpty();return;}
     /* L'API renvoie DESC (récent en premier) → on affiche tel quel */
     list.innerHTML=data.messages.map(function(m){return msgHTML(m,false);}).join('');

@@ -5640,7 +5640,7 @@ function LostObjectsPanel({ user }) {
     const isCoach = user && user.role === "coach";
 
     useEffect(() => {
-        fetch(API_URL + "action=get_lost_objects", { credentials: "same-origin" })
+        fetch(API_URL + "?action=get_lost_objects", { credentials: "same-origin" })
             .then(r => r.json()).then(d => { if (d.success) setObjects(d.objects || []); })
             .catch(() => {}).finally(() => setLoading(false));
     }, []);
@@ -5652,7 +5652,7 @@ function LostObjectsPanel({ user }) {
         fd.append("photo", file);
         fd.append("description", desc);
         try {
-            const r = await fetch(API_URL + "action=add_lost_object", { method: "POST", credentials: "same-origin", body: fd });
+            const r = await fetch(API_URL + "?action=add_lost_object", { method: "POST", credentials: "same-origin", body: fd });
             const d = await r.json();
             if (d.success && d.object) { setObjects(prev => [d.object, ...prev]); setDesc(""); setShowForm(false); }
             else alert(d.error || "Erreur");
@@ -5664,7 +5664,7 @@ function LostObjectsPanel({ user }) {
     const deleteObject = async (id) => {
         if (!confirm("Supprimer cet objet ?")) return;
         try {
-            const r = await fetch(API_URL + "action=delete_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+            const r = await fetch(API_URL + "?action=delete_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
             const d = await r.json();
             if (d.success) setObjects(prev => prev.filter(o => String(o.id) !== String(id)));
         } catch(e) { alert("Erreur"); }
@@ -5673,7 +5673,7 @@ function LostObjectsPanel({ user }) {
     const claimObject = async (id) => {
         if (!confirm("Confirmer que cet objet vous appartient ?")) return;
         try {
-            const r = await fetch(API_URL + "action=claim_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+            const r = await fetch(API_URL + "?action=claim_lost_object", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
             const d = await r.json();
             if (d.success && d.object) {
                 setObjects(prev => prev.map(o => String(o.id) === String(id) ? d.object : o));

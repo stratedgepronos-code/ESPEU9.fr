@@ -1268,10 +1268,10 @@ case 'respond_convocation':
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
     if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = (int)($in['match_id'] ?? 0);
+    $matchId = trim((string)($in['match_id'] ?? ''));
     $playerId = (int)($in['player_id'] ?? 0);
     $response = $in['response'] ?? '';
-    if (!$matchId || !$playerId || !in_array($response, ['present', 'absent', 'attente'])) {
+    if ($matchId === '' || !$playerId || !in_array($response, ['present', 'absent', 'attente'])) {
         http_response_code(400); echo json_encode(['error' => 'Données invalides']); break;
     }
     // Vérifier que l'utilisateur est parent de ce joueur OU coach
@@ -1287,7 +1287,7 @@ case 'respond_convocation':
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS convocation_responses (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            match_id INT NOT NULL,
+            match_id VARCHAR(50) NOT NULL,
             player_id INT NOT NULL,
             user_id INT NOT NULL,
             response ENUM('present','absent','attente') NOT NULL,
@@ -1307,9 +1307,9 @@ case 'delete_convocation_response':
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
     if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = (int)($in['match_id'] ?? 0);
+    $matchId = trim((string)($in['match_id'] ?? ''));
     $playerId = (int)($in['player_id'] ?? 0);
-    if (!$matchId || !$playerId) { http_response_code(400); echo json_encode(['error' => 'match_id et player_id requis']); break; }
+    if ($matchId === '' || !$playerId) { http_response_code(400); echo json_encode(['error' => 'match_id et player_id requis']); break; }
     try {
         $db = getDB();
         $st = $db->prepare("DELETE FROM convocation_responses WHERE match_id = :mid AND player_id = :pid");
@@ -1319,13 +1319,14 @@ case 'delete_convocation_response':
     break;
 
 case 'get_convocation_responses':
-    $matchId = (int)($_GET['match_id'] ?? 0);
-    if (!$matchId) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
+    $matchId = trim((string)($_GET['match_id'] ?? ''));
+    if ($matchId === '') { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
     try {
         $db = getDB();
+        try { $db->exec("ALTER TABLE convocation_responses MODIFY COLUMN match_id VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
         $db->exec("CREATE TABLE IF NOT EXISTS convocation_responses (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            match_id INT NOT NULL,
+            match_id VARCHAR(50) NOT NULL,
             player_id INT NOT NULL,
             user_id INT NOT NULL,
             response ENUM('present','absent','attente') NOT NULL,
@@ -1333,7 +1334,6 @@ case 'get_convocation_responses':
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_response (match_id, player_id)
         )");
-        // Mettre à jour l'ENUM si la table existait déjà sans 'attente'
         try { $db->exec("ALTER TABLE convocation_responses MODIFY COLUMN response ENUM('present','absent','attente') NOT NULL"); } catch(Exception $e2) {}
         $st = $db->prepare("SELECT player_id, response, updated_at FROM convocation_responses WHERE match_id = :mid");
         $st->execute([':mid' => $matchId]);
@@ -1354,15 +1354,13 @@ case 'remind_convocation_no_response':
     if ($matchId === '' || $matchId === null) { http_response_code(400); echo json_encode(['error' => 'match_id requis']); break; }
     try {
         $db = getDB();
-        $matchIdNum = is_string($matchId) && strpos($matchId, 'custom_') === 0 ? (int)str_replace('custom_', '', $matchId) : (int)$matchId;
         $st = $db->prepare("SELECT player_id FROM convocations WHERE match_id = :mid AND player_id > 0 AND convoked = 1");
         $st->execute([':mid' => $matchId]);
         $convokedPids = [];
         while ($r = $st->fetch()) { $convokedPids[] = (int)$r['player_id']; }
         if (empty($convokedPids)) { echo json_encode(['success' => true, 'reminders_sent' => 0, 'message' => 'Aucun joueur convoqué']); break; }
-        if ($matchIdNum <= 0) { http_response_code(400); echo json_encode(['error' => 'match_id invalide pour les réponses']); break; }
         $st = $db->prepare("SELECT player_id, response FROM convocation_responses WHERE match_id = :mid");
-        $st->execute([':mid' => $matchIdNum]);
+        $st->execute([':mid' => $matchId]);
         $responses = [];
         while ($r = $st->fetch()) { $responses[(int)$r['player_id']] = $r['response']; }
         $toRemind = array_filter($convokedPids, function($pid) use ($responses) {
@@ -2291,13 +2289,14 @@ case 'delete_upcoming':
 
 // ═══ CHAT PAR MATCH ═══
 case 'get_match_chat':
-    $matchId = (int)($_GET['match_id'] ?? 0);
-    if (!$matchId) { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
+    $matchId = trim((string)($_GET['match_id'] ?? ''));
+    if ($matchId === '') { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
     try {
         $db = getDB();
+        try { $db->exec("ALTER TABLE match_chat MODIFY COLUMN match_id VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
         $db->exec("CREATE TABLE IF NOT EXISTS match_chat (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            match_id INT NOT NULL,
+            match_id VARCHAR(50) NOT NULL,
             user_id INT NOT NULL,
             display_name VARCHAR(100) DEFAULT '',
             role VARCHAR(20) DEFAULT 'parent',
@@ -2330,13 +2329,13 @@ case 'post_match_chat':
     }
     recordAttempt($clientIp, 'match_chat');
     $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = (int)($in['match_id'] ?? 0);
+    $matchId = trim((string)($in['match_id'] ?? ''));
     $message = trim($in['message'] ?? '');
-    if (!$matchId || !$message || mb_strlen($message) > 1000) { http_response_code(400); echo json_encode(['error'=>'Message requis (max 1000 car.)']); break; }
+    if ($matchId === '' || !$message || mb_strlen($message) > 1000) { http_response_code(400); echo json_encode(['error'=>'Message requis (max 1000 car.)']); break; }
     try {
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS match_chat (
-            id INT AUTO_INCREMENT PRIMARY KEY, match_id INT NOT NULL, user_id INT NOT NULL,
+            id INT AUTO_INCREMENT PRIMARY KEY, match_id VARCHAR(50) NOT NULL, user_id INT NOT NULL,
             display_name VARCHAR(100) DEFAULT '', role VARCHAR(20) DEFAULT 'parent',
             message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_match (match_id)
@@ -2372,13 +2371,14 @@ case 'delete_match_chat':
 
 // ═══ COVOITURAGE ═══
 case 'get_covoiturage':
-    $matchId = (int)($_GET['match_id'] ?? 0);
-    if (!$matchId) { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
+    $matchId = trim((string)($_GET['match_id'] ?? ''));
+    if ($matchId === '') { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
     try {
         $db = getDB();
+        try { $db->exec("ALTER TABLE covoiturage MODIFY COLUMN match_id VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
         $db->exec("CREATE TABLE IF NOT EXISTS covoiturage (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            match_id INT NOT NULL,
+            match_id VARCHAR(50) NOT NULL,
             user_id INT NOT NULL,
             type ENUM('driver','passenger') NOT NULL DEFAULT 'driver',
             seats_total INT DEFAULT 3,
@@ -2416,17 +2416,17 @@ case 'get_covoiturage':
 case 'save_covoiturage':
     if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = (int)($in['match_id'] ?? 0);
+    $matchId = trim((string)($in['match_id'] ?? ''));
     $type = $in['type'] ?? 'driver'; // 'driver' or 'passenger'
     $seatsTotal = max(1, min(8, (int)($in['seats_total'] ?? 3)));
     $message = trim(mb_substr($in['message'] ?? '', 0, 255));
     $driverCovoitId = (int)($in['driver_id'] ?? 0); // for passengers: which driver entry
-    if (!$matchId) { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
+    if ($matchId === '') { http_response_code(400); echo json_encode(['error'=>'match_id requis']); break; }
     if (!in_array($type, ['driver','passenger'])) $type = 'driver';
     try {
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS covoiturage (
-            id INT AUTO_INCREMENT PRIMARY KEY, match_id INT NOT NULL, user_id INT NOT NULL,
+            id INT AUTO_INCREMENT PRIMARY KEY, match_id VARCHAR(50) NOT NULL, user_id INT NOT NULL,
             type ENUM('driver','passenger') NOT NULL DEFAULT 'driver',
             seats_total INT DEFAULT 3, driver_id INT DEFAULT NULL,
             message VARCHAR(255) DEFAULT '', display_name VARCHAR(100) DEFAULT '',
@@ -2452,9 +2452,9 @@ case 'save_covoiturage':
 case 'join_covoiturage':
     if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = (int)($in['match_id'] ?? 0);
+    $matchId = trim((string)($in['match_id'] ?? ''));
     $driverCovoitId = (int)($in['driver_covoit_id'] ?? 0);
-    if (!$matchId || !$driverCovoitId) { http_response_code(400); echo json_encode(['error'=>'Données manquantes']); break; }
+    if ($matchId === '' || !$driverCovoitId) { http_response_code(400); echo json_encode(['error'=>'Données manquantes']); break; }
     try {
         $db = getDB();
         // Check seats available
@@ -2478,9 +2478,9 @@ case 'join_covoiturage':
 case 'accept_passenger':
     if (!$uid) { http_response_code(401); echo json_encode(['error'=>'Non connecté']); break; }
     $in = json_decode(file_get_contents('php://input'), true);
-    $matchId = (int)($in['match_id'] ?? 0);
+    $matchId = trim((string)($in['match_id'] ?? ''));
     $passengerId = (int)($in['passenger_covoit_id'] ?? 0);
-    if (!$matchId || !$passengerId) { http_response_code(400); echo json_encode(['error'=>'Données manquantes']); break; }
+    if ($matchId === '' || !$passengerId) { http_response_code(400); echo json_encode(['error'=>'Données manquantes']); break; }
     try {
         $db = getDB();
         // Verify the current user is a driver for this match
@@ -2663,7 +2663,8 @@ case 'chat_list':
     $limit = min(200, max(20, (int)($_GET['limit'] ?? 100)));
     $st = $db->query("SELECT id, user_id, display_name, role, content, created_at FROM chat_messages ORDER BY created_at DESC LIMIT " . $limit);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode(['success' => true, 'messages' => $rows, 'user_id' => $uid, 'is_admin' => ($role === 'coach')]);
+    $displayName = isset($_SESSION['display_name']) ? $_SESSION['display_name'] : (isset($_SESSION['username']) ? $_SESSION['username'] : '');
+    echo json_encode(['success' => true, 'messages' => $rows, 'user_id' => $uid, 'is_admin' => ($role === 'coach'), 'display_name' => $displayName]);
     break;
 
 case 'chat_post':
@@ -3331,8 +3332,9 @@ case 'ffbb_sync':
                         }
                     }
                     if ($check->fetch()) {
-                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, date=:d, heure=:h, dom_ext=:de, adversaire=:adv, lieu=:l, gymnase=:g WHERE ffbb_id=:fid");
-                        $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
+                        // Ne pas écraser date/heure : seul le coach peut les modifier une fois en base (fuseau Paris)
+                        $st = $db->prepare("UPDATE upcoming_matches SET journee=:j, dom_ext=:de, adversaire=:adv, lieu=:l, gymnase=:g WHERE ffbb_id=:fid");
+                        $st->execute([':j'=>$m['journee'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
                     } else {
                         $st = $db->prepare("INSERT INTO upcoming_matches (journee, date, heure, dom_ext, adversaire, lieu, gymnase, ffbb_id) VALUES (:j,:d,:h,:de,:adv,:l,:g,:fid)");
                         $st->execute([':j'=>$m['journee'],':d'=>$m['date'],':h'=>$m['heure'],':de'=>$m['domExt'],':adv'=>$m['adversaire'],':l'=>$lieu,':g'=>$gymnase,':fid'=>$m['ffbb_id']]);
