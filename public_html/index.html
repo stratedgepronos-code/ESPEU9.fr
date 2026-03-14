@@ -3532,22 +3532,22 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
     }, [numericMatchId]);
     const handleSave = () => {
         setSaving(true); setSaved("");
+        const extrasPayload = {match_id:numericMatchId,gymnase,heure_rdv:heureRdv,date_match:dateMatch,heure_match:heureMatch};
+        const onDone = (d) => {
+            setSaving(false);
+            if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
+            else setSaved("Erreur");
+            setTimeout(()=>setSaved(""),3000);
+        };
+        // Toujours sauver dans match_extras (source de vérité pour get_match_extras)
+        fetch(API_URL+"?action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(extrasPayload)}).catch(()=>{});
+        // Pour les matchs custom, aussi mettre à jour upcoming_matches
         if (isCustomMatch && upcomingDbId) {
             fetch(API_URL+"?action=update_upcoming_infos",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:upcomingDbId,date:dateMatch,heure:heureMatch,heure_rdv:heureRdv,lieu:initialLieu||"",gymnase})})
-            .then(r=>r.json()).then(d=>{
-                setSaving(false);
-                if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
-                else setSaved("Erreur");
-                setTimeout(()=>setSaved(""),3000);
-            }).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
+            .then(r=>r.json()).then(onDone).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
         } else {
-            fetch(API_URL+"?action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:numericMatchId,gymnase,heure_rdv:heureRdv,date_match:dateMatch,heure_match:heureMatch})})
-            .then(r=>r.json()).then(d=>{
-                setSaving(false);
-                if(d.success){ setSaved("\u2705 Enregistr\u00E9 !"); if(onExtrasLoaded) onExtrasLoaded({date:dateMatch,heure:heureMatch,gymnase,heure_rdv:heureRdv}); }
-                else setSaved("Erreur");
-                setTimeout(()=>setSaved(""),3000);
-            }).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
+            fetch(API_URL+"?action=save_match_extras",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(extrasPayload)})
+            .then(r=>r.json()).then(onDone).catch(()=>{setSaving(false);setSaved("Erreur r\u00E9seau");});
         }
     };
     const handleUploadSheet = () => {
