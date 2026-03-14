@@ -3562,11 +3562,11 @@ function MatchChatPanel({ matchId, user }) {
                             avatar ? React.createElement("img", { src: avatar, alt: "", style: avatarS(isCoachMsg) }) :
                                 React.createElement("div", { style: avatarPlaceholderS }, m.display_name.charAt(0).toUpperCase()),
                             isCoachMsg && React.createElement("span", { style: crownS }, "\uD83D\uDC51")),
-                        // Bubble
-                        React.createElement("div", null,
+                        // Bubble (conteneur flex:1 minWidth:0 pour que la bulle ait une largeur correcte)
+                        React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                             React.createElement("div", { style: bubbleS(isMe, isCoachMsg) },
                                 !isMe && React.createElement("div", { style: nameS(isCoachMsg) }, m.display_name, isCoachMsg && React.createElement("span", null, " \uD83D\uDC51")),
-                                React.createElement("div", { style: { fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" } }, m.message),
+                                React.createElement("div", { style: { fontSize: 14, lineHeight: 1.5, wordBreak: "break-word", overflowWrap: "break-word" } }, m.message),
                                 (isCoach || isMe) && React.createElement("span", { onClick: (e) => { e.stopPropagation(); handleDelete(m.id); }, style: { position: "absolute", top: 4, right: isMe ? "auto" : 8, left: isMe ? 8 : "auto", cursor: "pointer", fontSize: 11, opacity: 0.5 } }, "\u2716")),
                             React.createElement("div", { style: { ...timeS, textAlign: isMe ? "right" : "left" } }, formatTime(m.created_at))));
                 }),
