@@ -6176,11 +6176,9 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
         }),
         React.createElement("div", { className: "section-title", style: { marginTop: 40 } }, "Matchs \u00E0 venir"),
         allUpcoming.map((u) => {
-            const numericId = (typeof u.id === "string" && u.id.indexOf("custom_") === 0) ? parseInt(u.id.replace("custom_", ""), 10) : (u.id | 0);
-            const ex = bulkExtras[String(numericId)] || {};
-            const displayDate = ex.date_match || u.date || "";
-            const displayHeure = ex.heure_match || u.heure || "";
-            const displayHeureConvoc = ex.heure_rdv || u.heureRdv || "";
+            const displayDate = u.date || "";
+            const displayHeure = u.heure || "";
+            const displayHeureConvoc = u.heureRdv || u.heure_rdv || "";
             const parts = displayDate.split("/");
             const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
             return React.createElement("div", { className: "upcoming-card", key: u.id, onClick: () => onSelectUpcoming(u), style: { cursor: "pointer", position: "relative" } },
@@ -6196,7 +6194,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                     u.journee ? "J" + u.journee + " \u2022 " : "",
                     displayHeure ? displayHeure : "Heure TBC",
                     displayHeureConvoc ? [" \u2022 RDV ", displayHeureConvoc] : null,
-                    (ex.gymnase || u.gymnase || u.lieu) ? [" \u2022 ", ex.gymnase || u.gymnase || u.lieu] : null)),
+                    (u.gymnase || u.lieu) ? [" \u2022 ", u.gymnase || u.lieu] : null)),
             React.createElement("span", { className: "upcoming-badge " + u.domExt }, u.domExt === "dom" ? "DOM" : "EXT"),
             // Edit/delete for custom matches (coach only)
             u.custom && isCoach && React.createElement("div", { style: { position: "absolute", top: 6, right: 6, display: "flex", gap: 4 }, onClick: e => e.stopPropagation() },

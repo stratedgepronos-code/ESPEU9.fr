@@ -968,12 +968,8 @@ case 'get_match_extras':
         )");
         try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
         try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
-        // Lire : d'abord par id numérique, sinon par 'custom_X' (si table en VARCHAR)
         $st=$db->prepare("SELECT * FROM match_extras WHERE match_id=:mid"); $st->execute([':mid'=>$matchId]);
         $row=$st->fetch();
-        if (!$row && $matchId !== '' && $matchId !== '0') {
-            $st2=$db->prepare("SELECT * FROM match_extras WHERE match_id=:mid_custom"); $st2->execute([':mid_custom'=>'custom_'.$matchId]); $row=$st2->fetch();
-        }
         $st2=$db->prepare("SELECT id,filename FROM match_photos WHERE match_id=:mid AND slot='sheet'"); $st2->execute([':mid'=>$matchId]);
         $sheet=$st2->fetch();
         echo json_encode([
@@ -996,19 +992,17 @@ case 'get_bulk_match_extras':
         $db = getDB();
         try { $db->exec("ALTER TABLE match_extras ADD COLUMN date_match VARCHAR(20) DEFAULT ''"); } catch (Exception $e) {}
         try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $st = $db->prepare("SELECT match_id, gymnase, heure_rdv, date_match, heure_match FROM match_extras WHERE match_id IN ($placeholders)");
+        $st->execute(array_values($ids));
         $extras = [];
-        foreach ($ids as $id) {
-            $st = $db->prepare("SELECT match_id, gymnase, heure_rdv, date_match, heure_match FROM match_extras WHERE match_id=:mid OR match_id=:mid_custom");
-            $st->execute([':mid' => $id, ':mid_custom' => 'custom_'.$id]);
-            $r = $st->fetch(PDO::FETCH_ASSOC);
-            if ($r) {
-                $extras[(string)$id] = [
-                    'gymnase' => $r['gymnase'] ?? '',
-                    'heure_rdv' => $r['heure_rdv'] ?? '',
-                    'date_match' => $r['date_match'] ?? '',
-                    'heure_match' => $r['heure_match'] ?? ''
-                ];
-            }
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $extras[(string)$r['match_id']] = [
+                'gymnase' => $r['gymnase'] ?? '',
+                'heure_rdv' => $r['heure_rdv'] ?? '',
+                'date_match' => $r['date_match'] ?? '',
+                'heure_match' => $r['heure_match'] ?? ''
+            ];
         }
         echo json_encode(['success' => true, 'extras' => $extras]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
@@ -1037,11 +1031,8 @@ case 'save_match_extras':
         try { $db->exec("ALTER TABLE match_extras ADD COLUMN heure_match VARCHAR(10) DEFAULT ''"); } catch (Exception $e) {}
         $st=$db->prepare("INSERT INTO match_extras (match_id,gymnase,heure_rdv,date_match,heure_match) VALUES(:mid,:g,:h,:d,:hm) ON DUPLICATE KEY UPDATE gymnase=:g2,heure_rdv=:h2,date_match=:d2,heure_match=:hm2");
         $st->execute([':mid'=>$matchId,':g'=>$gymnase,':h'=>$heureRdv,':d'=>$dateMatch,':hm'=>$heureMatch,':g2'=>$gymnase,':h2'=>$heureRdv,':d2'=>$dateMatch,':hm2'=>$heureMatch]);
-        // Synchroniser aussi la clé 'custom_X' si elle existe (table en VARCHAR)
-        try {
-            $stSync=$db->prepare("UPDATE match_extras SET gymnase=:g,heure_rdv=:h,date_match=:d,heure_match=:hm WHERE match_id=:mid_custom");
-            $stSync->execute([':g'=>$gymnase,':h'=>$heureRdv,':d'=>$dateMatch,':hm'=>$heureMatch,':mid_custom'=>'custom_'.$matchId]);
-        } catch (Exception $e) {}
+        // Nettoyer l'ancienne clé 'custom_X' si elle existe
+        try { $db->prepare("DELETE FROM match_extras WHERE match_id=:old")->execute([':old'=>'custom_'.$matchId]); } catch (Exception $e) {}
         echo json_encode(['success'=>true]);
 
         if ($gymnase || $heureRdv || $dateMatch || $heureMatch) {
