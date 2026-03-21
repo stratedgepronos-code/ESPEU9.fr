@@ -304,6 +304,11 @@ function getAdvLogo(name) {
     for (var key in ADV_LOGO_MAP) { if (upper.indexOf(key.toUpperCase()) >= 0 || key.toUpperCase().indexOf(upper) >= 0) return ADV_LOGO_MAP[key]; }
     return null;
 }
+/** Logo d’un côté du score : même logique que la fiche détail (short puis nom complet — ex. ASC + « Courtisols »). */
+function getMatchSideLogo(short, nom) {
+    if (short === "ESPE") return LOGO;
+    return getAdvLogo(short) || getAdvLogo(nom);
+}
 const CLUB_INFO = {
     adresse: "13, rue René LEMOINE",
     ville: "51000 Châlons en Champagne",
@@ -5842,8 +5847,8 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
             const rightName = m.equipeB.short;
             const leftScore = m.equipeA.score;
             const rightScore = m.equipeB.score;
-            const leftLogo = leftName === "ESPE" ? LOGO : getAdvLogo(leftName);
-            const rightLogo = rightName === "ESPE" ? LOGO : getAdvLogo(rightName);
+            const leftLogo = getMatchSideLogo(leftName, m.equipeA.nom);
+            const rightLogo = getMatchSideLogo(rightName, m.equipeB.nom);
             return React.createElement("div", { className: "result-card", key: m.id, onClick: () => onMatchClick(m) },
             React.createElement("div", { className: `result-score ${m.win ? "result-win" : "result-loss"}` },
                 leftScore,
@@ -6188,8 +6193,8 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
             const rightName = m.equipeB.short;
             const leftScore = m.equipeA.score;
             const rightScore = m.equipeB.score;
-            const leftLogo = leftName === "ESPE" ? LOGO : getAdvLogo(leftName);
-            const rightLogo = rightName === "ESPE" ? LOGO : getAdvLogo(rightName);
+            const leftLogo = getMatchSideLogo(leftName, m.equipeA.nom);
+            const rightLogo = getMatchSideLogo(rightName, m.equipeB.nom);
             return React.createElement("div", { className: "result-card", key: m.id, onClick: () => onSelect(m) },
             React.createElement("div", { className: `result-score ${m.win ? "result-win" : "result-loss"}` },
                 leftScore, " - ", rightScore),

@@ -126,12 +126,50 @@ let COACH_PHOTO = "";
 let CHAMPAGNE_LOGO = "https://espeu9.fr/images/champagne-logo.jpg";
 let LOGO = "https://espeu9.fr/images/logo-espe.png";
 let LOGO_HERO = "https://espeu9.fr/images/logo-hero.png";
-let TEAM_LOGOS = { ESPE: 'https://espeu9.fr/images/logo-espe.png' };
-let ADV_LOGO_MAP = {};
+let TEAM_LOGOS = {
+    ESPE: 'https://espeu9.fr/images/logo-espe.png',
+    REIMS: "https://api.ffbb.com/assets/c5418ebc-3faf-4126-9a19-043894d6ce13?height=120&fit=contain&format=png",
+    COURTISOLS: "https://api.ffbb.com/assets/ade1219c-3242-416a-946e-d316afabe836?height=120&fit=contain&format=png",
+    CORMONTREUIL: "https://api.ffbb.com/assets/87536c17-1efc-4cf4-ad9a-727b9023b044?height=120&fit=contain&format=png",
+    VITRY: "https://api.ffbb.com/assets/1bf5d791-4731-4f59-b58c-21fb5871c51b?height=120&fit=contain&format=png",
+};
+const DEFAULT_ADV_LOGO_MAP = {
+    "REIMS": TEAM_LOGOS.REIMS,
+    "Reims Champagne Basket - 2": TEAM_LOGOS.REIMS,
+    "Reims Champagne B-2": TEAM_LOGOS.REIMS,
+    "REIMS CHAMPAGNE BASKET - 2": TEAM_LOGOS.REIMS,
+    "REIMS CHAMPAGNE BASKET": TEAM_LOGOS.REIMS,
+    "COURTISOLS": TEAM_LOGOS.COURTISOLS,
+    "Avenir Sportif Courtisols": TEAM_LOGOS.COURTISOLS,
+    "AS Courtisols": TEAM_LOGOS.COURTISOLS,
+    "AVENIR SPORTIF COURTISOLS BASKET": TEAM_LOGOS.COURTISOLS,
+    "AVENIR SPORTIF COURTISOLS": TEAM_LOGOS.COURTISOLS,
+    "CORMONTREUIL": TEAM_LOGOS.CORMONTREUIL,
+    "Assoc. Cormontreuil": TEAM_LOGOS.CORMONTREUIL,
+    "ASSOCIATION CORMONTREUIL CHAMPAGNE BASKET": TEAM_LOGOS.CORMONTREUIL,
+    "ASSOCIATION CORMONTREUIL": TEAM_LOGOS.CORMONTREUIL,
+    "VITRY": TEAM_LOGOS.VITRY,
+    "Gauloise de Vitry": TEAM_LOGOS.VITRY,
+    "Gauloise de Vitry le François": TEAM_LOGOS.VITRY,
+    "GAULOISE DE VITRY LE FRANCOIS": TEAM_LOGOS.VITRY,
+    "GAULOISE DE VITRY": TEAM_LOGOS.VITRY,
+};
+let ADV_LOGO_MAP = Object.assign({}, DEFAULT_ADV_LOGO_MAP);
 let TEAM_INFO = {};  // infos de l'équipe courante
 let INITIAL_MATCHES = [];  // résultats matchs joués
 function getAdvLogo(name) {
-    return ADV_LOGO_MAP[name] || null;
+    if (!name) return null;
+    if (ADV_LOGO_MAP[name]) return ADV_LOGO_MAP[name];
+    var upper = String(name).toUpperCase();
+    for (var key in ADV_LOGO_MAP) {
+        if (upper.indexOf(key.toUpperCase()) >= 0 || key.toUpperCase().indexOf(upper) >= 0) return ADV_LOGO_MAP[key];
+    }
+    return null;
+}
+function getMatchSideLogo(short, nom, explicitLogo) {
+    if (short === "ESPE") return LOGO;
+    if (explicitLogo) return explicitLogo;
+    return getAdvLogo(short) || getAdvLogo(nom);
 }
 const CLUB_INFO = {
     adresse: "13, rue René LEMOINE",
@@ -214,6 +252,7 @@ async function loadTeamData() {
             isUs: s.is_us == 1, logo: s.logo || s.logo_url || ''
         }));
         
+        ADV_LOGO_MAP = Object.assign({}, DEFAULT_ADV_LOGO_MAP);
         // Logos adversaires depuis upcoming
         (j.upcoming || []).forEach(m => {
             if (m.adversaire_logo) { ADV_LOGO_MAP[m.adversaire] = m.adversaire_logo; }
@@ -5099,8 +5138,8 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
             const rightName = m.equipeB.short;
             const leftScore = m.equipeA.score;
             const rightScore = m.equipeB.score;
-            const leftLogo = leftName === "ESPE" ? LOGO : (m.equipeA.logo || getAdvLogo(leftName));
-            const rightLogo = rightName === "ESPE" ? LOGO : (m.equipeB.logo || getAdvLogo(rightName));
+            const leftLogo = getMatchSideLogo(leftName, m.equipeA.nom, m.equipeA.logo);
+            const rightLogo = getMatchSideLogo(rightName, m.equipeB.nom, m.equipeB.logo);
             return React.createElement("div", { className: "result-card", key: m.id, onClick: () => onMatchClick(m) },
             React.createElement("div", { className: `result-score ${m.win ? "result-win" : "result-loss"}` },
                 leftScore,
@@ -5408,8 +5447,8 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
             const rightName = m.equipeB.short;
             const leftScore = m.equipeA.score;
             const rightScore = m.equipeB.score;
-            const leftLogo = leftName === "ESPE" ? LOGO : (m.equipeA.logo || getAdvLogo(leftName));
-            const rightLogo = rightName === "ESPE" ? LOGO : (m.equipeB.logo || getAdvLogo(rightName));
+            const leftLogo = getMatchSideLogo(leftName, m.equipeA.nom, m.equipeA.logo);
+            const rightLogo = getMatchSideLogo(rightName, m.equipeB.nom, m.equipeB.logo);
             return React.createElement("div", { className: "result-card", key: m.id, onClick: () => onSelect(m) },
             React.createElement("div", { className: `result-score ${m.win ? "result-win" : "result-loss"}` },
                 leftScore, " - ", rightScore),
