@@ -1204,13 +1204,42 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 .media-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
-.media-card img, .media-card video { width: 100%; max-height: 220px; object-fit: cover; display: block; border-radius: 12px 12px 0 0; }
-.media-card .media-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(4px); }
-.media-card .media-video-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.5); border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.media-card .media-info { padding: 8px 10px; font-size: 12px; }
-.media-card .media-author { color: var(--text-dim); font-size: 11px; }
+.media-card-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, var(--surface2), var(--card-bg, #f0f4f0));
+  overflow: hidden;
+}
+.media-card-thumb img,
+.media-card-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.media-card .media-badge { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(0,0,0,0.65); color: white; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(4px); max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.media-card .media-video-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1; background: rgba(0,0,0,0.5); border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.media-card .media-info {
+  padding: 10px 10px 12px;
+  font-size: 12px;
+  flex: 1 0 auto;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+}
+.media-card .media-info-caption { font-weight: 600; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; min-height: calc(1.25em * 2); }
+.media-card .media-author { color: var(--text-dim); font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: auto; }
 /* Lightbox */
 .media-lightbox { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; flex-direction: column; }
 .media-lightbox img, .media-lightbox video { max-width: 95vw; max-height: 80vh; border-radius: 8px; object-fit: contain; }
@@ -5760,6 +5789,7 @@ function StatTable({ title, stats, type, userNum }) {
                     React.createElement("td", { style: isMe ? { fontWeight: 600 } : {} }, s.fautes));
                 }))))));}
 // MEDIA PAGE
+const MEDIA_CARD_BROKEN = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect fill="%23dce5dc" width="200" height="200"/><text x="100" y="105" text-anchor="middle" fill="%2364748b" font-size="11" font-family="system-ui,sans-serif">Image indisponible</text></svg>');
 function MediaPage({ user, matches }) {
     const [mediaList, setMediaList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -5997,16 +6027,17 @@ function MediaPage({ user, matches }) {
             React.createElement("p", null, "Soyez le premier \u00E0 partager un souvenir de l\u2019\u00E9quipe !")) :
         React.createElement("div", { className: "media-grid" },
             filtered.map(m => React.createElement("div", { key: m.id, className: "media-card", onClick: () => setLightbox(m) },
-                m.media_type === "photo" ?
-                    React.createElement("img", { src: API_URL.replace("api.php", "") + m.url, alt: m.caption || m.original_name, loading: "lazy" }) :
-                    React.createElement("div", { style: { position: "relative" } },
-                        React.createElement("video", { src: API_URL.replace("api.php", "") + m.url, preload: "metadata", style: { width: "100%", display: "block" } }),
-                        React.createElement("div", { className: "media-video-icon" },
-                            React.createElement("svg", { width: 24, height: 24, viewBox: "0 0 24 24", fill: "white" },
-                                React.createElement("path", { d: "M8 5v14l11-7z" })))),
-                m.match_id && React.createElement("div", { className: "media-badge" }, getMatchLabel(m.match_id)),
+                React.createElement("div", { className: "media-card-thumb" },
+                    m.media_type === "photo" ?
+                        React.createElement("img", { src: API_URL.replace("api.php", "") + m.url, alt: m.caption || m.original_name, loading: "lazy", onError: function(ev) { ev.target.onerror = null; ev.target.src = MEDIA_CARD_BROKEN; } }) :
+                        React.createElement(React.Fragment, null,
+                            React.createElement("video", { src: API_URL.replace("api.php", "") + m.url, preload: "metadata", muted: true, playsInline: true }),
+                            React.createElement("div", { className: "media-video-icon" },
+                                React.createElement("svg", { width: 24, height: 24, viewBox: "0 0 24 24", fill: "white" },
+                                    React.createElement("path", { d: "M8 5v14l11-7z" })))),
+                    m.match_id && React.createElement("div", { className: "media-badge" }, getMatchLabel(m.match_id))),
                 React.createElement("div", { className: "media-info" },
-                    m.caption && React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, m.caption),
+                    React.createElement("div", { className: "media-info-caption" }, m.caption || "\u00A0"),
                     React.createElement("div", { className: "media-author" }, m.username, " \u2022 ", formatDate(m.created_at)))))),
 
         // Lightbox
