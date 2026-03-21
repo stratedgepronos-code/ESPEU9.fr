@@ -889,16 +889,33 @@ case 'get_photos':
 case 'upload_photo':
     if($_SERVER['REQUEST_METHOD']!=='POST'){http_response_code(405);echo json_encode(['error'=>'POST requis']);break;}
     if(!isset($_SESSION['role'])||$_SESSION['role']!=='coach'){http_response_code(403);echo json_encode(['error'=>'Coach requis']);break;}
-    $matchId=$_POST['match_id']??''; $slot=$_POST['slot']??'';
-    if(!$matchId||!in_array($slot,['left','right'])){http_response_code(400);echo json_encode(['error'=>'match_id et slot requis']);break;}
-    if(!isset($_FILES['photo'])||$_FILES['photo']['error']!==UPLOAD_ERR_OK){http_response_code(400);echo json_encode(['error'=>'Aucun fichier']);break;}
+    $matchId=trim((string)($_POST['match_id']??''));
+    $slot=strtolower(trim((string)($_POST['slot']??'')));
+    if($matchId===''||!in_array($slot,['left','right'],true)){http_response_code(400);echo json_encode(['error'=>'match_id et slot (left/right) requis']);break;}
+    if(!isset($_FILES['photo'])){http_response_code(400);echo json_encode(['error'=>'Aucun fichier reçu']);break;}
     $file=$_FILES['photo'];
+    if($file['error']!==UPLOAD_ERR_OK){
+        $errMsg='Erreur transfert fichier';
+        if($file['error']===UPLOAD_ERR_INI_SIZE||$file['error']===UPLOAD_ERR_FORM_SIZE){$errMsg='Fichier trop volumineux (réduis la taille ou augmente upload_max_filesize sur le serveur)';}
+        elseif($file['error']===UPLOAD_ERR_PARTIAL){$errMsg='Transfert interrompu — réessayez';}
+        elseif($file['error']===UPLOAD_ERR_NO_FILE){$errMsg='Aucun fichier';}
+        http_response_code(400);echo json_encode(['error'=>$errMsg]);break;
+    }
     if($file['size']>5*1024*1024){http_response_code(400);echo json_encode(['error'=>'Max 5 Mo']);break;}
-    $allowed=['image/jpeg','image/png','image/webp','image/gif'];
-    $finfo=finfo_open(FILEINFO_MIME_TYPE); $mime=finfo_file($finfo,$file['tmp_name']); finfo_close($finfo);
-    if(!in_array($mime,$allowed)){http_response_code(400);echo json_encode(['error'=>'Type non autorisé']);break;}
+    $extMap=['image/jpeg'=>'jpg','image/pjpeg'=>'jpg','image/png'=>'png','image/x-png'=>'png','image/webp'=>'webp','image/gif'=>'gif','image/avif'=>'avif'];
+    $finfo=finfo_open(FILEINFO_MIME_TYPE); $mime=$finfo?finfo_file($finfo,$file['tmp_name']):''; if($finfo)finfo_close($finfo);
+    if(!isset($extMap[$mime])){
+        $gi=@getimagesize($file['tmp_name']);
+        if($gi && !empty($gi['mime']) && isset($extMap[$gi['mime']])){$mime=$gi['mime'];}
+    }
+    if(!isset($extMap[$mime])){
+        $guess=strtolower(pathinfo($file['name']??'',PATHINFO_EXTENSION));
+        if($guess==='jpg'||$guess==='jpeg')$mime='image/jpeg';
+        elseif(in_array($guess,['png','webp','gif','avif'],true))$mime='image/'.$guess;
+    }
+    if(!isset($extMap[$mime])){http_response_code(400);echo json_encode(['error'=>'Format refusé (JPG, PNG, WebP, GIF, AVIF). Les photos iPhone en HEIC : Réglages > Appareil photo > Formats > « Le plus compatible » ou exporte en JPG.']);break;}
     $dir=__DIR__.'/uploads/'; if(!is_dir($dir)) mkdir($dir,0755,true);
-    $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'][$mime];
+    $ext=$extMap[$mime];
     $fn='match_'.$matchId.'_'.$slot.'_'.time().'.'.$ext;
     if(!move_uploaded_file($file['tmp_name'],$dir.$fn)){http_response_code(500);echo json_encode(['error'=>'Erreur upload']);break;}
     try {

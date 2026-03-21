@@ -5589,23 +5589,30 @@ function MatchPhotos({ matchId, coachUnlocked }) {
         fetch(API_URL + "action=upload_photo", {
             method: "POST", credentials: "same-origin", body: form
         })
-        .then(r => r.json())
-        .then(data => {
-            setUploading(prev => ({ ...prev, [slot]: false }));
-            if (data.success) {
-                // Recharger les photos
+        .then(function(r) {
+            return r.text().then(function(t) {
+                var data = {};
+                try { data = JSON.parse(t); } catch (e) { data = { error: t ? t.slice(0, 200) : ("HTTP " + r.status) }; }
+                return { ok: r.ok, data: data };
+            });
+        })
+        .then(function(res) {
+            setUploading(function(prev) { return { ...prev, [slot]: false }; });
+            if (res.ok && res.data.success) {
                 fetch(API_URL + "action=get_photos&match_id=" + matchId)
-                    .then(r => r.json())
-                    .then(d => {
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
                         if (d.success && d.photos) {
                             const p = { left: null, right: null };
-                            d.photos.forEach(ph => { p[ph.slot] = ph; });
+                            d.photos.forEach(function(ph) { p[ph.slot] = ph; });
                             setPhotos(p);
                         }
                     });
+            } else {
+                alert(res.data.error || "Erreur upload");
             }
         })
-        .catch(() => { setUploading(prev => ({ ...prev, [slot]: false })); });
+        .catch(function() { setUploading(function(prev) { return { ...prev, [slot]: false }; }); alert("Erreur réseau"); });
     };
     const handleDelete = (slot) => {
         if (!photos[slot] || !confirm("Supprimer cette photo ?")) return;
