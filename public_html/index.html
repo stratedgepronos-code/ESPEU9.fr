@@ -6676,19 +6676,40 @@ function MediaPage({ user, matches }) {
         return (bytes/1024/1024).toFixed(1) + " Mo";
     };
     const formatDate = (d) => { const dt = new Date(d); return dt.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }); };
+    const parseFrDateSort = (s) => {
+        if (!s || typeof s !== "string") return 0;
+        const p = s.split("/");
+        if (p.length !== 3) return 0;
+        const t = new Date(parseInt(p[2], 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10)).getTime();
+        return isNaN(t) ? 0 : t;
+    };
     const getMatchLabel = (mid) => {
         if (!mid) return null;
         const m = (matches||[]).find(x => x.id === mid);
-        return m ? ("J" + m.day + " vs " + m.adversaire) : ("Match #" + mid);
+        if (!m) return ("Match #" + mid);
+        const adv = m.equipeA && m.equipeA.short === "ESPE" ? (m.equipeB && m.equipeB.short) : (m.equipeA && m.equipeA.short);
+        return "J" + (m.journee != null ? m.journee : "?") + " vs " + (adv || m.adversaire || "Adversaire");
     };
 
-    // Filtrer
-    let filtered = mediaList;
+    // Filtrer puis trier par date (match si lié, sinon date d'upload) — plus récent en premier
+    let filtered = mediaList.slice();
     if (filter === "photo") filtered = filtered.filter(m => m.media_type === "photo");
     else if (filter === "video") filtered = filtered.filter(m => m.media_type === "video");
+    filtered.sort(function(a, b) {
+        var ta = a.match_event_date ? parseFrDateSort(a.match_event_date) : new Date(a.created_at).getTime();
+        var tb = b.match_event_date ? parseFrDateSort(b.match_event_date) : new Date(b.created_at).getTime();
+        if (tb !== ta) return tb - ta;
+        return new Date(b.created_at) - new Date(a.created_at);
+    });
 
-    // Liste des matchs qui ont des médias
-    const matchesWithMedia = [...new Set(mediaList.filter(m => m.match_id).map(m => m.match_id))];
+    const matchesSortedByDate = (matches||[]).slice().sort(function(a, b) { return parseFrDateSort(b.date) - parseFrDateSort(a.date); });
+    const matchesWithMedia = [...new Set(mediaList.filter(m => m.match_id).map(m => m.match_id))].sort(function(a, b) {
+        var ma = (matches||[]).find(x => x.id === a);
+        var mb = (matches||[]).find(x => x.id === b);
+        var ta = ma && ma.date ? parseFrDateSort(ma.date) : 0;
+        var tb = mb && mb.date ? parseFrDateSort(mb.date) : 0;
+        return tb - ta;
+    });
 
     if (!user) return React.createElement("div", { className: "media-empty" },
         React.createElement("div", { className: "media-empty-icon" }, "\uD83D\uDD12"),
@@ -6729,7 +6750,7 @@ function MediaPage({ user, matches }) {
                 React.createElement("label", { style: { fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 } }, "Associer \u00E0 un match (optionnel)"),
                 React.createElement("select", { value: uploadMatchId, onChange: e => setUploadMatchId(e.target.value), style: { width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, background: "var(--surface)" } },
                     React.createElement("option", { value: "" }, "\u2014 Aucun match \u2014"),
-                    (matches||[]).map(m => React.createElement("option", { key: m.id, value: m.id }, "J", m.day, " vs ", m.adversaire, " (", m.date, ")")))),
+                    matchesSortedByDate.map(m => React.createElement("option", { key: m.id, value: m.id }, "J", m.journee, " vs ", (m.equipeA && m.equipeA.short === "ESPE" ? (m.equipeB && m.equipeB.short) : (m.equipeA && m.equipeA.short)) || m.adversaire || "", " (", m.date, ")")))),
             // Légende
             React.createElement("div", { style: { marginBottom: 14 } },
                 React.createElement("label", { style: { fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 } }, "L\u00E9gende (optionnel)"),

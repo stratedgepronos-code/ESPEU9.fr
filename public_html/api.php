@@ -1912,10 +1912,10 @@ case 'get_media':
             INDEX idx_created (created_at DESC)
         )");
         if ($matchFilter) {
-            $st = $db->prepare("SELECT id, user_id, username, match_id, filename, original_name, mime_type, file_size, media_type, caption, created_at FROM media WHERE match_id = :mid ORDER BY created_at DESC");
+            $st = $db->prepare("SELECT me.id, me.user_id, me.username, me.match_id, me.filename, me.original_name, me.mime_type, me.file_size, me.media_type, me.caption, me.created_at, mr.date AS match_event_date FROM media me LEFT JOIN match_results mr ON me.match_id = mr.id WHERE me.match_id = :mid ORDER BY me.created_at DESC");
             $st->execute([':mid' => $matchFilter]);
         } else {
-            $st = $db->query("SELECT id, user_id, username, match_id, filename, original_name, mime_type, file_size, media_type, caption, created_at FROM media ORDER BY created_at DESC LIMIT 200");
+            $st = $db->query("SELECT me.id, me.user_id, me.username, me.match_id, me.filename, me.original_name, me.mime_type, me.file_size, me.media_type, me.caption, me.created_at, mr.date AS match_event_date FROM media me LEFT JOIN match_results mr ON me.match_id = mr.id ORDER BY COALESCE(STR_TO_DATE(mr.date, '%d/%m/%Y'), DATE(me.created_at)) DESC, me.created_at DESC LIMIT 200");
         }
         $media = [];
         while ($r = $st->fetch()) {
@@ -1930,7 +1930,8 @@ case 'get_media':
                 'file_size' => (int)$r['file_size'],
                 'media_type' => $r['media_type'],
                 'caption' => $r['caption'],
-                'created_at' => $r['created_at']
+                'created_at' => $r['created_at'],
+                'match_event_date' => $r['match_event_date'] ?? null
             ];
         }
         echo json_encode(['success' => true, 'media' => $media]);
