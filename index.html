@@ -48,19 +48,20 @@ function urlBase64ToUint8Array(base64String) {
 async function registerServiceWorker() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
     try {
-        const reg = await navigator.serviceWorker.register("/sw.js?v=3.1");
+        // Enregistrer le SW avec un cache-buster pour forcer le téléchargement
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        // Forcer la vérification de mise à jour auprès du serveur
         reg.update().catch(() => {});
-        if (reg.waiting) { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
+        // Si un nouveau SW attend, l'activer immédiatement
+        if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
         reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'activated') {
-                        reg.getNotifications().then(notifs => {
-                            notifs.forEach(n => {
-                                if (!n.title || n.title === '' || n.title === 'espeu9.fr') n.close();
-                            });
-                        }).catch(() => {});
+                        console.log('[ESPE] Nouveau Service Worker activé !');
                     }
                 });
             }
@@ -1769,50 +1770,15 @@ body {
 .cookie-banner button { background: #fff; color: var(--green-900); border: none; border-radius: 8px; padding: 8px 20px; font-weight: 700; font-size: 13px; cursor: pointer; flex-shrink: 0; }
 
 /* FOOTER */
-@keyframes footerGlow {
-  0%, 100% { opacity: 0.4; transform: scaleX(0.3); }
-  50% { opacity: 1; transform: scaleX(1); }
-}
-@keyframes footerParticle {
-  0% { transform: translateY(0) scale(1); opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { transform: translateY(-120px) scale(0.3); opacity: 0; }
-}
-@keyframes footerColReveal {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes footerLogoFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-6px) rotate(2deg); }
-}
 .footer {
-  background: linear-gradient(135deg, var(--green-900) 0%, #071e0e 50%, #0a2912 100%);
+  background: linear-gradient(135deg, var(--green-900) 0%, #0a2912 100%);
   color: rgba(255,255,255,0.9);
   margin-top: auto;
   margin-bottom: 0;
   padding: 0;
   width: 100%;
-  position: relative;
-  overflow: hidden;
 }
-.footer::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold-light), #1a6b2e, var(--gold-light), transparent);
-  animation: footerGlow 4s ease-in-out infinite;
-  transform-origin: center;
-}
-.footer::after {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: radial-gradient(ellipse at 20% 50%, rgba(26,107,46,0.08) 0%, transparent 70%),
-              radial-gradient(ellipse at 80% 30%, rgba(200,168,50,0.05) 0%, transparent 60%);
-  pointer-events: none;
-}
+
 .footer-inner {
   max-width: 1200px;
   margin: 0 auto;
@@ -1820,17 +1786,7 @@ body {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 1fr 1fr;
   gap: 36px;
-  position: relative;
-  z-index: 1;
 }
-.footer.footer-visible .footer-col {
-  animation: footerColReveal 0.6s ease-out both;
-}
-.footer.footer-visible .footer-col:nth-child(1) { animation-delay: 0s; }
-.footer.footer-visible .footer-col:nth-child(2) { animation-delay: 0.12s; }
-.footer.footer-visible .footer-col:nth-child(3) { animation-delay: 0.24s; }
-.footer.footer-visible .footer-col:nth-child(4) { animation-delay: 0.36s; }
-.footer-col { opacity: 0; }
 
 .footer-brand {
   display: flex;
@@ -1848,11 +1804,6 @@ body {
   padding: 0;
   box-shadow: none;
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
-  animation: footerLogoFloat 4s ease-in-out infinite;
-  transition: filter 0.3s;
-}
-.footer-logo:hover {
-  filter: drop-shadow(0 4px 20px rgba(200,168,50,0.5)) brightness(1.15);
 }
 
 .footer-club-name {
@@ -1912,10 +1863,6 @@ body {
 
 .footer-sitemap a:hover {
   color: white;
-  transform: translateX(4px);
-}
-.footer-sitemap a {
-  transition: color 0.2s, transform 0.25s;
 }
 
 .footer-item {
@@ -1948,25 +1895,13 @@ body {
   text-decoration: none;
   font-size: 14px;
   margin-bottom: 8px;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s;
 }
-.footer-social-link::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(200,168,50,0.15), rgba(26,107,46,0.2));
-  opacity: 0;
-  transition: opacity 0.35s;
-}
+
 .footer-social-link:hover {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.15);
   color: white;
-  transform: translateX(6px);
-  box-shadow: 0 0 20px rgba(200,168,50,0.15);
 }
-.footer-social-link:hover::before { opacity: 1; }
 
 .footer-social-link svg {
   color: var(--gold-light);
@@ -1977,22 +1912,13 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 24px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255,255,255,0.1);
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
   font-size: 12px;
   color: rgba(255,255,255,0.4);
-  position: relative;
-  z-index: 1;
-}
-.footer-particle {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: footerParticle linear infinite;
-  z-index: 0;
 }
 
 @media (max-width: 900px) {
@@ -2142,6 +2068,493 @@ body {
 .vault-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
 .vault-empty p { color: var(--text-dim); font-size: 14px; margin: 0; }
 .vault-empty .sub { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+/* ═══ AUTH GATE — Full screen login/register ═══ */
+.auth-gate {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #080e0a 0%, #0d1f12 30%, #0f3d1a 60%, #0a1a0e 100%);
+  position: relative; overflow: hidden; padding: 24px 16px;
+}
+.auth-gate::before {
+  content: ''; position: absolute; top: -200px; right: -150px; width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(200,168,50,0.08) 0%, transparent 70%);
+  pointer-events: none; animation: authGlow 8s ease-in-out infinite;
+}
+.auth-gate::after {
+  content: ''; position: absolute; bottom: -150px; left: -100px; width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(26,107,46,0.12) 0%, transparent 70%);
+  pointer-events: none; animation: authGlow 8s ease-in-out infinite reverse;
+}
+@keyframes authGlow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes authFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes authPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(200,168,50,0.2); } 50% { box-shadow: 0 0 30px 4px rgba(200,168,50,0.1); } }
+
+.auth-card {
+  position: relative; z-index: 2; width: 100%; max-width: 440px;
+  background: rgba(255,255,255,0.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 24px;
+  padding: 40px 36px; animation: authFadeIn 0.6s ease-out;
+}
+.auth-logo-wrap {
+  text-align: center; margin-bottom: 28px; animation: authFadeIn 0.8s ease-out;
+}
+.auth-logo {
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 3px solid rgba(200,168,50,0.3); padding: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: authPulse 4s ease-in-out infinite;
+  background: rgba(0,0,0,0.2); object-fit: cover;
+}
+.auth-team-name {
+  font-family: 'Bebas Neue', sans-serif; font-size: clamp(28px, 5vw, 38px);
+  letter-spacing: 4px; color: #fff; margin-top: 16px; line-height: 1;
+}
+.auth-team-sub {
+  font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 2px;
+  text-transform: uppercase; margin-top: 6px;
+}
+.auth-badge {
+  display: inline-block; padding: 4px 14px; background: rgba(200,168,50,0.12);
+  border: 1px solid rgba(200,168,50,0.2); border-radius: 100px;
+  font-size: 10px; font-weight: 600; color: var(--gold-light);
+  text-transform: uppercase; letter-spacing: 2px; margin-top: 12px;
+}
+
+/* Tabs login/register */
+.auth-tabs {
+  display: flex; gap: 4px; background: rgba(255,255,255,0.06); border-radius: 12px;
+  padding: 4px; margin-bottom: 28px;
+}
+.auth-tab {
+  flex: 1; padding: 10px 0; border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.25s;
+  font-family: 'Outfit', sans-serif; letter-spacing: 0.5px;
+  background: transparent; color: rgba(255,255,255,0.4);
+}
+.auth-tab.active {
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  color: #fff; box-shadow: 0 4px 16px rgba(26,107,46,0.3);
+}
+.auth-tab:not(.active):hover { color: rgba(255,255,255,0.7); }
+
+/* Form fields */
+.auth-field { margin-bottom: 16px; }
+.auth-label {
+  display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px;
+  color: rgba(255,255,255,0.5); letter-spacing: 0.5px; text-transform: uppercase;
+}
+.auth-input {
+  width: 100%; padding: 13px 16px; border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06);
+  color: #fff; font-size: 15px; font-family: 'Outfit', sans-serif;
+  transition: all 0.2s; box-sizing: border-box;
+}
+.auth-input::placeholder { color: rgba(255,255,255,0.25); }
+.auth-input:focus {
+  outline: none; border-color: var(--gold-light);
+  background: rgba(255,255,255,0.1); box-shadow: 0 0 0 3px rgba(200,168,50,0.1);
+}
+.auth-select {
+  width: 100%; padding: 13px 16px; border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06);
+  color: #fff; font-size: 15px; font-family: 'Outfit', sans-serif;
+  appearance: auto; transition: all 0.2s; box-sizing: border-box;
+}
+.auth-select:focus { outline: none; border-color: var(--gold-light); }
+.auth-select option { background: #1a2e1f; color: #fff; }
+.auth-row { display: flex; gap: 10px; }
+.auth-row .auth-field { flex: 1; }
+.auth-row .auth-field.small { flex: 0 0 130px; }
+
+/* Submit button */
+.auth-submit {
+  width: 100%; padding: 15px 0; border: none; border-radius: 12px;
+  font-size: 16px; font-weight: 800; cursor: pointer; transition: all 0.25s;
+  font-family: 'Outfit', sans-serif; letter-spacing: 0.5px; margin-top: 8px;
+  background: linear-gradient(135deg, var(--gold), #d4b53a);
+  color: var(--green-900); box-shadow: 0 4px 20px rgba(200,168,50,0.3);
+}
+.auth-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(200,168,50,0.4); }
+.auth-submit:active { transform: translateY(0); }
+.auth-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.auth-error {
+  background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.3);
+  color: #fca5a5; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px;
+  font-size: 13px; font-weight: 500; text-align: center;
+}
+.auth-link {
+  color: var(--gold-light); text-decoration: none; font-weight: 600; cursor: pointer;
+  transition: color 0.15s;
+}
+.auth-link:hover { color: var(--gold); text-decoration: underline; }
+.auth-forgot {
+  display: block; text-align: right; margin-top: 6px; font-size: 12px;
+  color: rgba(255,255,255,0.35); text-decoration: none; cursor: pointer; transition: color 0.15s;
+}
+.auth-forgot:hover { color: var(--gold-light); }
+.auth-divider {
+  text-align: center; font-size: 12px; color: rgba(255,255,255,0.25);
+  margin: 20px 0; position: relative;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ''; position: absolute; top: 50%; width: calc(50% - 20px);
+  height: 1px; background: rgba(255,255,255,0.08);
+}
+.auth-divider::before { left: 0; }
+.auth-divider::after { right: 0; }
+
+/* Footer */
+.auth-footer {
+  position: relative; z-index: 2; text-align: center; margin-top: 24px;
+  animation: authFadeIn 1s ease-out;
+}
+.auth-footer-season {
+  font-size: 11px; color: rgba(255,255,255,0.25); letter-spacing: 1px;
+}
+.auth-footer-secured {
+  font-size: 10px; color: rgba(255,255,255,0.15); margin-top: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+/* Floating particles */
+.auth-particle {
+  position: absolute; border-radius: 50%; pointer-events: none; opacity: 0;
+  animation: authFloat 12s ease-in-out infinite;
+}
+@keyframes authFloat {
+  0% { opacity: 0; transform: translateY(100vh) scale(0); }
+  10% { opacity: 0.6; }
+  90% { opacity: 0; }
+  100% { opacity: 0; transform: translateY(-20vh) scale(1); }
+}
+
+/* Loading splash */
+.auth-loading {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #080e0a 0%, #0d1f12 30%, #0f3d1a 60%, #0a1a0e 100%);
+}
+.auth-loading-logo {
+  width: 80px; height: 80px; border-radius: 50%;
+  animation: authPulse 2s ease-in-out infinite;
+}
+.auth-loading-text { color: rgba(255,255,255,0.4); font-size: 14px; margin-top: 16px; }
+
+/* ═══ OBJETS TROUVÉS ═══ */
+.lf-wrap { max-width: 700px; margin: 0 auto; }
+.lf-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  margin-bottom: 20px;
+}
+.lf-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px;
+  color: var(--green-900); display: flex; align-items: center; gap: 10px;
+}
+.lf-add-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px;
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif;
+  box-shadow: 0 4px 12px rgba(26,107,46,0.25);
+}
+.lf-add-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,107,46,0.3); }
+
+/* Filters */
+.lf-filters {
+  display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.lf-filter-btn {
+  padding: 7px 16px; border-radius: 100px; font-size: 13px; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text-dim);
+  cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif;
+}
+.lf-filter-btn.active {
+  background: var(--green-700); color: #fff; border-color: var(--green-700);
+  box-shadow: 0 2px 8px rgba(26,107,46,0.25);
+}
+.lf-filter-btn:not(.active):hover { border-color: var(--green-500); color: var(--text); }
+.lf-count {
+  font-size: 12px; color: var(--text-dim); margin-bottom: 16px;
+}
+
+/* Add form */
+.lf-form-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1000;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.lf-form-card {
+  background: var(--card); border-radius: 20px; padding: 28px; width: 100%; max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;
+}
+.lf-form-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px;
+  color: var(--green-900); margin-bottom: 20px; text-align: center;
+}
+.lf-form-field { margin-bottom: 14px; }
+.lf-form-label {
+  display: block; font-size: 12px; font-weight: 700; color: var(--text-dim);
+  margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.lf-form-input {
+  width: 100%; padding: 11px 14px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 14px; font-family: 'Outfit', sans-serif;
+  box-sizing: border-box; transition: border-color 0.2s;
+}
+.lf-form-input:focus { outline: none; border-color: var(--green-500); }
+.lf-form-textarea {
+  width: 100%; padding: 11px 14px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 14px; font-family: 'Outfit', sans-serif;
+  box-sizing: border-box; resize: vertical; min-height: 80px; transition: border-color 0.2s;
+}
+.lf-form-textarea:focus { outline: none; border-color: var(--green-500); }
+.lf-form-photo-zone {
+  border: 2px dashed var(--border); border-radius: 14px; padding: 24px 16px;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface);
+}
+.lf-form-photo-zone:hover { border-color: var(--green-500); background: rgba(26,107,46,0.02); }
+.lf-form-photo-zone.has-photo { border-style: solid; border-color: var(--green-500); }
+.lf-form-preview {
+  max-width: 100%; max-height: 200px; border-radius: 10px; object-fit: cover; margin-top: 8px;
+}
+.lf-form-row { display: flex; gap: 10px; }
+.lf-form-row .lf-form-field { flex: 1; }
+.lf-form-actions { display: flex; gap: 10px; margin-top: 8px; }
+.lf-form-submit {
+  flex: 1; padding: 13px 0; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
+  font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(26,107,46,0.25);
+}
+.lf-form-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(26,107,46,0.3); }
+.lf-form-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.lf-form-cancel {
+  padding: 13px 24px; border: 1.5px solid var(--border); border-radius: 12px;
+  background: transparent; color: var(--text-dim); font-size: 15px; font-weight: 600;
+  cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.2s;
+}
+.lf-form-cancel:hover { background: var(--surface2); }
+
+/* Item cards */
+.lf-grid { display: flex; flex-direction: column; gap: 12px; }
+.lf-item {
+  display: flex; gap: 16px; padding: 16px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
+  transition: all 0.15s; position: relative; overflow: hidden;
+}
+.lf-item:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.lf-item.claimed { opacity: 0.7; }
+.lf-item.returned { opacity: 0.5; }
+.lf-item-photo {
+  width: 110px; height: 110px; flex-shrink: 0; border-radius: 12px;
+  object-fit: cover; background: var(--surface2); cursor: pointer;
+}
+.lf-item-photo-placeholder {
+  width: 110px; height: 110px; flex-shrink: 0; border-radius: 12px;
+  background: var(--surface2); display: flex; align-items: center; justify-content: center;
+  font-size: 40px; opacity: 0.3;
+}
+.lf-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lf-item-desc {
+  font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4;
+  margin-bottom: 6px;
+}
+.lf-item-meta { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+.lf-item-meta-row { display: flex; align-items: center; gap: 6px; }
+.lf-item-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 10px; flex-wrap: wrap; }
+.lf-claim-btn {
+  padding: 8px 18px; border: none; border-radius: 10px;
+  background: var(--gold); color: var(--green-900); font-size: 13px; font-weight: 800;
+  cursor: pointer; transition: all 0.2s; font-family: 'Outfit', sans-serif;
+  box-shadow: 0 2px 8px rgba(200,168,50,0.3);
+}
+.lf-claim-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,168,50,0.4); }
+.lf-claim-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.lf-status-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px;
+  border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+}
+.lf-status-badge.claimed { background: rgba(234,179,8,0.12); color: #b45309; border: 1px solid rgba(234,179,8,0.25); }
+.lf-status-badge.returned { background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); }
+.lf-coach-btn {
+  padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; font-family: 'Outfit', sans-serif; border: none;
+}
+.lf-coach-btn.resolve { background: #16a34a; color: #fff; }
+.lf-coach-btn.reopen { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+.lf-coach-btn.delete { background: rgba(220,38,38,0.1); color: var(--red); border: 1px solid rgba(220,38,38,0.2); }
+.lf-coach-btn:hover { opacity: 0.85; }
+
+/* Empty state */
+.lf-empty { text-align: center; padding: 50px 20px; }
+.lf-empty-icon { font-size: 56px; margin-bottom: 12px; opacity: 0.3; }
+.lf-empty p { color: var(--text-dim); font-size: 15px; margin: 0; }
+.lf-empty .sub { font-size: 13px; opacity: 0.6; margin-top: 6px; }
+
+/* Photo lightbox */
+.lf-lightbox {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1001;
+  background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 20px;
+}
+.lf-lightbox img {
+  max-width: 90vw; max-height: 85vh; border-radius: 12px; object-fit: contain;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 600px) {
+  .lf-item { flex-direction: column; }
+  .lf-item-photo, .lf-item-photo-placeholder { width: 100%; height: 180px; }
+  .lf-form-row { flex-direction: column; gap: 0; }
+}
+
+/* ═══ STAGE INSCRIPTION ═══ */
+.stage-wrap { max-width: 640px; margin: 0 auto; }
+.stage-hero {
+  position: relative; overflow: hidden; border-radius: 20px; margin-bottom: 24px;
+  background: linear-gradient(135deg, var(--green-900) 0%, #1a5c2c 50%, var(--green-700) 100%);
+  padding: 36px 32px; color: #fff; text-align: center;
+}
+.stage-hero-glow {
+  position: absolute; top: -80px; right: -60px; width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(200,168,50,0.12) 0%, transparent 70%); pointer-events: none;
+}
+.stage-hero-emoji { font-size: 52px; margin-bottom: 10px; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); }
+.stage-hero-badge {
+  display: inline-block; padding: 4px 14px; background: rgba(200,168,50,0.15);
+  border: 1px solid rgba(200,168,50,0.25); border-radius: 100px;
+  font-size: 10px; font-weight: 600; color: var(--gold-light);
+  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;
+}
+.stage-hero h2 {
+  font-family: 'Bebas Neue', sans-serif; font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: 3px; line-height: 1.1; margin-bottom: 6px;
+}
+.stage-hero-dates {
+  font-size: 16px; font-weight: 700; color: var(--gold-light);
+  letter-spacing: 1px; margin-bottom: 6px;
+}
+.stage-hero p { font-size: 14px; opacity: 0.75; max-width: 400px; margin: 0 auto; line-height: 1.5; }
+
+/* Info cards */
+.stage-infos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.stage-info-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px; display: flex; align-items: flex-start; gap: 12px;
+  box-shadow: var(--shadow); transition: all 0.15s;
+}
+.stage-info-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.stage-info-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+.stage-info-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.stage-info-value { font-size: 14px; font-weight: 700; color: var(--text); margin-top: 2px; line-height: 1.3; }
+
+.stage-info-full { grid-column: 1 / -1; }
+
+/* Schedule */
+.stage-schedule {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.stage-schedule-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px;
+  color: var(--green-900); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.stage-schedule-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.stage-schedule-row:last-child { border-bottom: none; }
+.stage-schedule-day { font-weight: 700; color: var(--text); min-width: 130px; }
+.stage-schedule-detail { color: var(--text-dim); flex: 1; }
+.stage-schedule-tag {
+  display: inline-block; padding: 3px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; background: rgba(200,168,50,0.12);
+  color: var(--gold); border: 1px solid rgba(200,168,50,0.2);
+}
+
+/* Places counter */
+.stage-places {
+  display: flex; align-items: center; gap: 16px; padding: 16px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.stage-places-num {
+  font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--green-700); line-height: 1;
+}
+.stage-places-label { font-size: 13px; color: var(--text-dim); }
+.stage-places-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.stage-places-fill { height: 100%; background: linear-gradient(90deg, var(--green-700), var(--green-400)); border-radius: 4px; transition: width 0.5s ease; }
+.stage-places-full .stage-places-fill { background: linear-gradient(90deg, #dc2626, #ef4444); }
+
+/* CTA button */
+.stage-cta {
+  width: 100%; padding: 16px 0; border: none; border-radius: 14px;
+  font-size: 17px; font-weight: 800; cursor: pointer; transition: all 0.25s;
+  font-family: 'Outfit', sans-serif; letter-spacing: 0.5px;
+  background: linear-gradient(135deg, var(--gold), #d4b53a);
+  color: var(--green-900); box-shadow: 0 4px 20px rgba(200,168,50,0.3);
+  margin-bottom: 12px;
+}
+.stage-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(200,168,50,0.4); }
+.stage-cta:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.stage-cta-cancel {
+  width: 100%; padding: 12px 0; border: 1.5px solid var(--border); border-radius: 12px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  font-family: 'Outfit', sans-serif; background: transparent; color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.stage-cta-cancel:hover { border-color: var(--red); color: var(--red); background: rgba(220,38,38,0.04); }
+
+.stage-registered-msg {
+  text-align: center; padding: 16px 20px; background: rgba(22,163,74,0.08);
+  border: 1.5px solid rgba(22,163,74,0.2); border-radius: 14px;
+  margin-bottom: 12px;
+}
+.stage-registered-msg strong { color: var(--green-700); }
+
+/* Payment notice */
+.stage-payment {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: rgba(200,168,50,0.06); border: 1px solid rgba(200,168,50,0.15);
+  border-left: 4px solid var(--gold); border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 20px;
+}
+.stage-payment-icon { font-size: 22px; flex-shrink: 0; }
+.stage-payment-text { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.stage-payment-text strong { color: var(--text); }
+
+/* Coach list */
+.stage-list-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px;
+  color: var(--green-900); margin: 24px 0 12px; display: flex; align-items: center; gap: 8px;
+}
+.stage-registrant {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  margin-bottom: 6px; box-shadow: var(--shadow);
+}
+.stage-registrant-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--green-700); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0;
+}
+.stage-registrant-name { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+.stage-registrant-cat { font-size: 11px; color: var(--text-dim); background: var(--surface2); padding: 2px 10px; border-radius: 100px; }
+.stage-registrant-date { font-size: 11px; color: var(--text-dim); }
+.stage-registrant-del {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(220,38,38,0.2);
+  background: rgba(220,38,38,0.06); color: var(--red); font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.stage-registrant-del:hover { background: rgba(220,38,38,0.12); }
+
+@media (max-width: 600px) {
+  .stage-infos { grid-template-columns: 1fr; }
+  .stage-hero { padding: 28px 20px; }
+  .stage-schedule-row { flex-direction: column; gap: 4px; }
+  .stage-schedule-day { min-width: auto; }
+}
 `;
 // ============================================
 // COMPONENTS
@@ -2343,7 +2756,7 @@ function RegisterPage({ onLogin }) {
             // Username
             React.createElement("div", { style: { marginBottom: 16 } },
                 React.createElement("label", { style: labelStyle }, "Identifiant"),
-                React.createElement("input", { type: "text", value: username, onChange: e => setUsername(e.target.value), placeholder: "Identifiant", style: inputStyle })),
+                React.createElement("input", { type: "text", value: username, onChange: e => setUsername(e.target.value), placeholder: "Ex: papa.malone", style: inputStyle })),
             // Email
             React.createElement("div", { style: { marginBottom: 16 } },
                 React.createElement("label", { style: labelStyle }, "Email (pour recevoir les notifications)"),
@@ -2651,341 +3064,6 @@ function CoachPasswordPanel() {
                     React.createElement("input", { type: "email", value: testEmail, onChange: e => setTestEmail(e.target.value), onKeyDown: e => e.key === "Enter" && handleTestEmail(), placeholder: "Ton adresse email", style: inputS }),
                     React.createElement("button", { onClick: handleTestEmail, style: { ...btnS, background: "#1877F2" } }, "\uD83D\uDCE8 Tester")))));
 }
-// ── Panneau Absences (parents) avec calendrier custom ──
-function AbsenceCalendar({ dateFrom, dateTo, onSelect, onClear }) {
-    const [viewDate, setViewDate] = useState(() => new Date());
-    const MONTHS = ["Janvier","F\u00E9vrier","Mars","Avril","Mai","Juin","Juillet","Ao\u00FBt","Septembre","Octobre","Novembre","D\u00E9cembre"];
-    const DAYS_SHORT = ["L","M","M","J","V","S","D"];
-    const DAYS_FULL = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
-    const year = viewDate.getFullYear(), month = viewDate.getMonth();
-    let startWeekday = new Date(year, month, 1).getDay() - 1; if (startWeekday < 0) startWeekday = 6;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date(); today.setHours(0,0,0,0);
-    const pad = n => n < 10 ? "0" + n : "" + n;
-    const toIso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-    const toFr = iso => { if (!iso) return ""; const p = iso.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
-    const cells = [];
-    for (let i = 0; i < startWeekday; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
-    while (cells.length % 7 !== 0) cells.push(null);
-    const isInRange = (d) => { if (!d || !dateFrom) return false; const ds = toIso(d); if (!dateTo) return ds === dateFrom; return ds >= dateFrom && ds <= dateTo; };
-    const isStart = (d) => d && dateFrom && toIso(d) === dateFrom;
-    const isEnd = (d) => d && dateTo && toIso(d) === dateTo;
-    const isPast = (d) => d && d < today;
-    const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
-    const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
-    const goToday = () => setViewDate(new Date());
-    const rangeDays = () => { if (!dateFrom) return 0; if (!dateTo) return 1; return Math.round((new Date(dateTo) - new Date(dateFrom)) / 86400000) + 1; };
-    return React.createElement("div", { style: { background: "linear-gradient(145deg, #0b1f10 0%, #0d2a15 50%, #071a0b 100%)", border: "1px solid rgba(200,168,50,0.12)", borderRadius: 16, padding: "14px 10px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)", maxWidth: 320, margin: "0 auto", position: "relative", overflow: "hidden" } },
-        React.createElement("img", { src: "/images/logo-espe.png", alt: "", style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "65%", opacity: 0.06, pointerEvents: "none", filter: "grayscale(0.3)" } }),
-        React.createElement("div", { style: { position: "relative", zIndex: 1 } },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" } },
-            React.createElement("button", { onClick: prevMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2039"),
-            React.createElement("div", { style: { textAlign: "center" } },
-                React.createElement("div", { style: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1.5, color: "white", lineHeight: 1 } }, MONTHS[month]),
-                React.createElement("div", { style: { fontSize: 11, color: "var(--gold-light)", fontWeight: 600, marginTop: 1 } }, year)),
-            React.createElement("button", { onClick: nextMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u203A")),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 } },
-            DAYS_FULL.map((d, i) => React.createElement("div", { key: d + i, style: { textAlign: "center", fontSize: 10, fontWeight: 700, color: i >= 5 ? "rgba(200,168,50,0.6)" : "var(--text-dim)", padding: "4px 0", textTransform: "uppercase", letterSpacing: 0.3 } }, d))),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 } },
-            cells.map((d, i) => {
-                if (!d) return React.createElement("div", { key: "e" + i, style: { aspectRatio: "1", minHeight: 32 } });
-                const past = isPast(d);
-                const inR = isInRange(d);
-                const start = isStart(d);
-                const end = isEnd(d);
-                const isToday = toIso(d) === toIso(today);
-                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                let bg = "rgba(255,255,255,0.02)", clr = isWeekend ? "rgba(255,255,255,0.6)" : "var(--text-light)", brd = "1px solid transparent", fw = 400, shd = "none", scale = "scale(1)";
-                if (past) { clr = "rgba(255,255,255,0.15)"; bg = "transparent"; }
-                else if (start && end) { bg = "linear-gradient(135deg, var(--green-600), var(--green-700))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35), 0 4px 12px rgba(26,107,46,0.4)"; scale = "scale(1.08)"; }
-                else if (start) { bg = "linear-gradient(135deg, var(--green-600), var(--green-700))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35)"; scale = "scale(1.05)"; }
-                else if (end) { bg = "linear-gradient(135deg, var(--green-700), var(--green-600))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35)"; scale = "scale(1.05)"; }
-                else if (inR) { bg = "rgba(26,107,46,0.3)"; clr = "white"; fw = 600; brd = "1px solid rgba(26,107,46,0.4)"; }
-                if (isToday && !start && !end) { brd = "2px solid var(--green-400)"; }
-                const radius = start ? "12px 6px 6px 12px" : end ? "6px 12px 12px 6px" : (inR ? "4px" : "10px");
-                return React.createElement("button", { key: i, disabled: past,
-                    onClick: () => !past && onSelect(toIso(d)),
-                    style: { aspectRatio: "1", minHeight: 32, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", borderRadius: radius, background: bg, color: clr, border: brd, fontWeight: fw, fontSize: 13, fontFamily: "inherit", cursor: past ? "default" : "pointer", transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)", boxShadow: shd, position: "relative", transform: scale } },
-                    d.getDate(),
-                    isToday && React.createElement("div", { style: { position: "absolute", bottom: 3, width: 14, height: 2, borderRadius: 2, background: "var(--green-400)" } }));
-            })),
-        // Selection summary
-        React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.25)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)" } },
-            !dateFrom && React.createElement("div", { style: { textAlign: "center", fontSize: 12, color: "var(--text-dim)" } }, "\uD83D\uDC46 S\u00E9lectionne le premier jour"),
-            dateFrom && !dateTo && React.createElement("div", { style: { textAlign: "center", fontSize: 12, color: "var(--text-dim)" } }, "\uD83D\uDC46 Dernier jour, ou valide pour 1 jour"),
-            dateFrom && React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: dateFrom && !dateTo ? 8 : 0 } },
-                React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } },
-                    React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(dateFrom)),
-                    dateTo && React.createElement("span", { style: { color: "var(--gold-light)", fontSize: 13 } }, "\u2192"),
-                    dateTo && React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(dateTo)),
-                    dateTo && React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", marginLeft: 2 } }, rangeDays() + "j")),
-                React.createElement("div", { style: { display: "flex", gap: 4 } },
-                    React.createElement("button", { onClick: () => onClear("all"), title: "Tout effacer", style: { width: 24, height: 24, borderRadius: "50%", background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2715"))))));
-}
-
-// Calendrier une date (même style qu'AbsenceCalendar) pour choix date entraînement
-function TrainingCalendar({ selectedDate, onSelect, maxDate }) {
-    const [viewDate, setViewDate] = useState(() => selectedDate ? new Date(selectedDate + "T12:00:00") : new Date());
-    const MONTHS = ["Janvier","F\u00E9vrier","Mars","Avril","Mai","Juin","Juillet","Ao\u00FBt","Septembre","Octobre","Novembre","D\u00E9cembre"];
-    const DAYS_FULL = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
-    const year = viewDate.getFullYear(), month = viewDate.getMonth();
-    let startWeekday = new Date(year, month, 1).getDay() - 1; if (startWeekday < 0) startWeekday = 6;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date(); today.setHours(0,0,0,0);
-    const pad = n => n < 10 ? "0" + n : "" + n;
-    const toIso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-    const toFr = iso => { if (!iso) return ""; const p = iso.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
-    const cells = [];
-    for (let i = 0; i < startWeekday; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
-    while (cells.length % 7 !== 0) cells.push(null);
-    const isPast = (d) => d && (maxDate ? toIso(d) > maxDate : d < today);
-    const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
-    const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
-    return React.createElement("div", { style: { background: "linear-gradient(145deg, #0b1f10 0%, #0d2a15 50%, #071a0b 100%)", border: "1px solid rgba(200,168,50,0.12)", borderRadius: 16, padding: "14px 10px 10px", boxShadow: "0 8px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)", maxWidth: 320, margin: "0 auto", position: "relative", overflow: "hidden" } },
-        React.createElement("img", { src: "/images/logo-espe.png", alt: "", style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "65%", opacity: 0.06, pointerEvents: "none", filter: "grayscale(0.3)" } }),
-        React.createElement("div", { style: { position: "relative", zIndex: 1 } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" } },
-                React.createElement("button", { type: "button", onClick: prevMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u2039"),
-                React.createElement("div", { style: { textAlign: "center" } },
-                    React.createElement("div", { style: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1.5, color: "white", lineHeight: 1 } }, MONTHS[month]),
-                    React.createElement("div", { style: { fontSize: 11, color: "var(--gold-light)", fontWeight: 600, marginTop: 1 } }, year)),
-                React.createElement("button", { type: "button", onClick: nextMonth, style: { width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--gold-light)", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" } }, "\u203A")),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 } },
-                DAYS_FULL.map((d, i) => React.createElement("div", { key: "d"+i, style: { textAlign: "center", fontSize: 10, fontWeight: 700, color: i >= 5 ? "rgba(200,168,50,0.6)" : "var(--text-dim)", padding: "4px 0", textTransform: "uppercase", letterSpacing: 0.3 } }, d))),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 } },
-                cells.map((d, i) => {
-                    if (!d) return React.createElement("div", { key: "e"+i, style: { aspectRatio: "1", minHeight: 32 } });
-                    const past = isPast(d);
-                    const sel = toIso(d) === selectedDate;
-                    const isToday = toIso(d) === toIso(today);
-                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                    let bg = "rgba(255,255,255,0.02)", clr = isWeekend ? "rgba(255,255,255,0.6)" : "var(--text-light)", brd = "1px solid transparent", fw = 400, shd = "none";
-                    if (past) { clr = "rgba(255,255,255,0.15)"; bg = "transparent"; }
-                    else if (sel) { bg = "linear-gradient(135deg, var(--green-600), var(--green-700))"; clr = "white"; fw = 800; brd = "2px solid var(--gold-light)"; shd = "0 0 16px rgba(200,168,50,0.35)"; }
-                    if (isToday && !sel) brd = "2px solid var(--green-400)";
-                    return React.createElement("button", { key: i, type: "button", disabled: past,
-                        onClick: () => !past && onSelect(toIso(d)),
-                        style: { position: "relative", aspectRatio: "1", minHeight: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "10px", background: bg, color: clr, border: brd, fontWeight: fw, fontSize: 13, fontFamily: "inherit", cursor: past ? "default" : "pointer", transition: "all 0.2s", boxShadow: shd } },
-                        d.getDate(),
-                        isToday && !sel && React.createElement("div", { style: { position: "absolute", bottom: 3, width: 14, height: 2, borderRadius: 2, background: "var(--green-400)" } }));
-                })),
-            selectedDate && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", background: "rgba(0,0,0,0.25)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.04)", textAlign: "center" } },
-                React.createElement("span", { style: { background: "var(--green-700)", color: "white", padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11 } }, toFr(selectedDate)))));
-}
-
-function AbsencePanel({ user }) {
-    const [absences, setAbsences] = useState([]);
-    const [showForm, setShowForm] = useState(false);
-    const [dateFrom, setDateFrom] = useState("");
-    const [dateTo, setDateTo] = useState("");
-    const [reason, setReason] = useState("");
-    const [sending, setSending] = useState(false);
-    const [msg, setMsg] = useState("");
-    const playerId = user.player_id;
-    const loadAbsences = () => {
-        fetch(API_URL + "?action=get_absences", { credentials: "same-origin" })
-            .then(r => r.json()).then(d => { if (d.success) setAbsences(d.absences || []); });
-    };
-    useEffect(() => { loadAbsences(); }, []);
-    const handleDateSelect = (dateStr) => {
-        if (!dateFrom || (dateFrom && dateTo)) {
-            setDateFrom(dateStr); setDateTo("");
-        } else {
-            if (dateStr < dateFrom) { setDateFrom(dateStr); }
-            else if (dateStr === dateFrom) { setDateTo(""); }
-            else { setDateTo(dateStr); }
-        }
-    };
-    const handleClear = (which) => {
-        if (which === "from") { setDateFrom(dateTo || ""); setDateTo(""); }
-        else if (which === "to") { setDateTo(""); }
-        else { setDateFrom(""); setDateTo(""); }
-    };
-    const handleSubmit = () => {
-        if (!dateFrom) { setMsg("Clique sur un jour pour s\u00E9lectionner le d\u00E9but."); return; }
-        setSending(true); setMsg("");
-        fetch(API_URL + "?action=declare_absence", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player_id: playerId, date_from: dateFrom, date_to: dateTo || dateFrom, reason })
-        }).then(r => r.json()).then(d => {
-            setSending(false);
-            if (d.success) { setMsg("Absence enregistr\u00E9e et coach notifi\u00E9 !"); setDateFrom(""); setDateTo(""); setReason(""); setShowForm(false); loadAbsences(); }
-            else setMsg(d.error || "Erreur");
-        }).catch(() => { setSending(false); setMsg("Erreur r\u00E9seau."); });
-    };
-    const handleDelete = (id) => {
-        fetch(API_URL + "?action=delete_absence", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id })
-        }).then(r => r.json()).then(d => { if (d.success) loadAbsences(); });
-    };
-    const fmtDate = (d) => { const p = d.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
-    return React.createElement("div", { style: { marginBottom: 24 } },
-        React.createElement("div", { className: "section-title" }, "\uD83D\uDCC5 Absences / Indisponibilit\u00E9s"),
-        React.createElement("div", { className: "card", style: { padding: 20 } },
-            absences.length === 0 && !showForm && React.createElement("p", { style: { color: "var(--text-dim)", fontSize: 14, margin: 0 } }, "Aucune absence signal\u00E9e."),
-            absences.map(a => React.createElement("div", { key: a.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--border)" } },
-                React.createElement("div", null,
-                    React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, "\uD83D\uDCC5 ", a.date_from === a.date_to ? fmtDate(a.date_from) : fmtDate(a.date_from) + " \u2192 " + fmtDate(a.date_to)),
-                    a.reason && React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 2 } }, a.reason)),
-                React.createElement("button", { onClick: () => handleDelete(a.id), style: { background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 16 } }, "\u2715"))),
-            showForm && React.createElement("div", { style: { marginTop: 16 } },
-                React.createElement("div", { style: { marginBottom: 10, fontSize: 13, color: "var(--text-dim)", textAlign: "center", lineHeight: 1.5 } },
-                    !dateFrom ? "\uD83D\uDC46 Clique sur le 1er jour d'absence" : !dateTo ? "\uD83D\uDC46 Clique sur le dernier jour (ou valide pour 1 jour)" : "\u2705 P\u00E9riode s\u00E9lectionn\u00E9e !"),
-                React.createElement(AbsenceCalendar, { dateFrom: dateFrom, dateTo: dateTo, onSelect: handleDateSelect, onClear: handleClear }),
-                React.createElement("input", { type: "text", value: reason, onChange: e => setReason(e.target.value), placeholder: "Motif (optionnel)", maxLength: 500, style: { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card-bg)", color: "var(--text-light)", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", marginTop: 12 } }),
-                React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
-                    React.createElement("button", { onClick: handleSubmit, disabled: sending || !dateFrom, style: { flex: 1, padding: "10px 16px", background: dateFrom ? "#1a6b2e" : "#333", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: dateFrom ? "pointer" : "default", opacity: dateFrom ? 1 : 0.5 } }, sending ? "Envoi..." : "\u2705 Confirmer l'absence"),
-                    React.createElement("button", { onClick: () => { setShowForm(false); setDateFrom(""); setDateTo(""); setReason(""); }, style: { padding: "10px 16px", background: "none", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, cursor: "pointer", color: "var(--text-dim)" } }, "Annuler"))),
-            !showForm && React.createElement("button", { onClick: () => setShowForm(true), style: { marginTop: absences.length > 0 ? 12 : 0, padding: "10px 20px", background: "#1a6b2e", color: "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" } }, "+ Signaler une absence"),
-            msg && React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: msg.includes("Erreur") || msg.includes("Clique") ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)));
-}
-
-// ── Tableau Assiduité (coach) ──
-function AttendancePanel() {
-    const [stats, setStats] = useState(null);
-    const [convoked, setConvoked] = useState({});
-    const [trainingStats, setTrainingStats] = useState({});
-    const [absences, setAbsences] = useState([]);
-    const [loading, setLoading] = useState(true);
-    useEffect(() => {
-        Promise.all([
-            fetch(API_URL + "?action=get_attendance_stats", { credentials: "same-origin" }).then(r => r.json()),
-            fetch(API_URL + "?action=get_training_stats", { credentials: "same-origin" }).then(r => r.json()),
-            fetch(API_URL + "?action=get_absences", { credentials: "same-origin" }).then(r => r.json())
-        ]).then(([att, train, abs]) => {
-            if (att.success) { setStats(att.stats || {}); setConvoked(att.convocations || {}); }
-            if (train.success) setTrainingStats(train.stats || {});
-            if (abs.success) setAbsences(abs.absences || []);
-            setLoading(false);
-        }).catch(() => setLoading(false));
-    }, []);
-    if (loading) return React.createElement("div", { style: { textAlign: "center", padding: 20, color: "var(--text-dim)" } }, "Chargement...");
-    if (!stats) return null;
-    const thStyle = { padding: "8px 6px", textAlign: "center", fontSize: 12, color: "var(--text-dim)", fontWeight: 600, borderBottom: "2px solid var(--border)" };
-    const tdStyle = { padding: "8px 6px", textAlign: "center", fontSize: 13, borderBottom: "1px solid var(--border)" };
-    return React.createElement("div", { style: { marginBottom: 24 } },
-        React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Assiduit\u00E9 des joueurs"),
-        React.createElement("div", { className: "card", style: { padding: 16, overflow: "auto" } },
-            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", { style: { ...thStyle, textAlign: "left" } }, "Joueur"),
-                        React.createElement("th", { style: thStyle }, "Convoc."),
-                        React.createElement("th", { style: thStyle }, "\u2705"),
-                        React.createElement("th", { style: thStyle }, "\u274C"),
-                        React.createElement("th", { style: thStyle }, "\u23F3"),
-                        React.createElement("th", { style: thStyle }, "% Pr\u00E9s."),
-                        React.createElement("th", { style: thStyle }, "Entr."),
-                        React.createElement("th", { style: thStyle }, "Abs. \u00E0 venir"))),
-                React.createElement("tbody", null, PLAYERS.map(p => {
-                    const s = stats[p.id] || { present: 0, absent: 0, attente: 0, total: 0 };
-                    const ts = trainingStats[p.id] || { sessions: 0, present: 0 };
-                    const conv = convoked[p.id] || 0;
-                    const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
-                    const trainPct = ts.sessions > 0 ? Math.round((ts.present / ts.sessions) * 100) : 0;
-                    const trainLabel = ts.sessions > 0 ? ts.present + "/" + ts.sessions : "-";
-                    const futureAbs = absences.filter(a => a.player_id == p.id).length;
-                    const pctColor = pct >= 80 ? "#16a34a" : pct >= 50 ? "#f59e0b" : "#dc2626";
-                    const trainColor = ts.sessions === 0 ? "var(--text-dim)" : trainPct >= 80 ? "#16a34a" : trainPct >= 50 ? "#f59e0b" : "#dc2626";
-                    return React.createElement("tr", { key: p.id },
-                        React.createElement("td", { style: { ...tdStyle, textAlign: "left", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 } },
-                            React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
-                            React.createElement("span", null, "#" + p.num + " " + p.firstName)),
-                        React.createElement("td", { style: tdStyle }, conv),
-                        React.createElement("td", { style: { ...tdStyle, color: "#16a34a", fontWeight: 700 } }, s.present),
-                        React.createElement("td", { style: { ...tdStyle, color: "#dc2626", fontWeight: 700 } }, s.absent),
-                        React.createElement("td", { style: { ...tdStyle, color: "#f59e0b" } }, s.attente),
-                        React.createElement("td", { style: { ...tdStyle, fontWeight: 800, color: pctColor } }, pct + "%"),
-                        React.createElement("td", { style: { ...tdStyle, fontWeight: 700, color: trainColor } }, trainLabel),
-                        React.createElement("td", { style: { ...tdStyle, color: futureAbs > 0 ? "#dc2626" : "var(--text-dim)" } }, futureAbs > 0 ? futureAbs + " abs." : "-"));
-                })))));
-}
-
-// ── Présence à l'entraînement (coach) : calendrier + liste joueurs + cases à cocher ──
-function TrainingAttendancePanel() {
-    const [trainingDates, setTrainingDates] = useState([]);
-    const [selectedDate, setSelectedDate] = useState("");
-    const [attendance, setAttendance] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [msg, setMsg] = useState("");
-    const today = new Date().toISOString().slice(0, 10);
-    const loadDates = function() {
-        fetch(API_URL + "?action=get_training_dates", { credentials: "same-origin" })
-            .then(r => r.json())
-            .then(d => { if (d.success) setTrainingDates(d.dates || []); setLoading(false); })
-            .catch(() => setLoading(false));
-    };
-    useEffect(function() { loadDates(); }, []);
-    useEffect(function() {
-        if (!selectedDate) { setAttendance({}); return; }
-        fetch(API_URL + "?action=get_training_attendance&date=" + encodeURIComponent(selectedDate), { credentials: "same-origin" })
-            .then(r => r.json())
-            .then(function(d) {
-                var map = {};
-                if (d.success && d.players) d.players.forEach(function(p) { map[p.player_id] = !!p.present; });
-                PLAYERS.forEach(function(p) { if (map[p.id] === undefined) map[p.id] = true; });
-                setAttendance(map);
-            })
-            .catch(function() { setAttendance({}); });
-    }, [selectedDate]);
-    const togglePlayer = function(playerId) {
-        setAttendance(function(prev) { var next = { ...prev }; next[playerId] = !prev[playerId]; return next; });
-    };
-    const save = function() {
-        if (!selectedDate) return;
-        setSaving(true); setMsg("");
-        var payload = { date: selectedDate, attendance: PLAYERS.map(function(p) { return { player_id: p.id, present: attendance[p.id] !== false ? 1 : 0 }; }) };
-        fetch(API_URL + "?action=set_training_attendance", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        })
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-                setSaving(false);
-                if (d.success) { setMsg("Enregistr\u00E9."); loadDates(); } else setMsg(d.error || "Erreur");
-            })
-            .catch(function() { setSaving(false); setMsg("Erreur r\u00E9seau"); });
-    };
-    if (loading) return React.createElement("div", { style: { textAlign: "center", padding: 20, color: "var(--text-dim)" } }, "Chargement...");
-    var btnSaveStyle = { padding: "12px 24px", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: saving ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 8, transition: "all 0.2s", background: saving ? "#94a3b8" : "linear-gradient(135deg, var(--green-700) 0%, #145a28 100%)", color: "white", boxShadow: saving ? "none" : "0 4px 14px rgba(26,107,46,0.4)" };
-    return React.createElement("div", { style: { marginBottom: 24 } },
-        React.createElement("div", { className: "section-title" }, "\uD83C\uDFC0 Pr\u00E9sence \u00E0 l'entra\u00EEnement"),
-        React.createElement("div", { className: "card", style: { padding: 20 } },
-            React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12, textAlign: "center" } }, "Choisis la date de l'entra\u00EEnement sur le calendrier"),
-            React.createElement(TrainingCalendar, { selectedDate: selectedDate, onSelect: setSelectedDate, maxDate: today }),
-            trainingDates.length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } },
-                React.createElement("span", { style: { fontSize: 12, color: "var(--text-dim)", alignSelf: "center" } }, "R\u00E9cents :"),
-                trainingDates.slice(0, 5).map(function(d) {
-                    return React.createElement("button", {
-                        key: d, type: "button", onClick: function() { setSelectedDate(d); },
-                        style: { padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: selectedDate === d ? "var(--green-700)" : "var(--card-bg)", color: selectedDate === d ? "#fff" : "var(--text)", fontSize: 12, cursor: "pointer" }
-                    }, d);
-                })),
-            selectedDate && React.createElement("div", { style: { marginTop: 20 } },
-                React.createElement("div", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } }, "Cocher les pr\u00E9sents \u00E0 l'entra\u00EEnement du ", selectedDate),
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, PLAYERS.map(function(p) {
-                    var present = attendance[p.id] !== false;
-                    return React.createElement("label", {
-                        key: p.id,
-                        style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 8, background: present ? "rgba(26,107,46,0.08)" : "rgba(220,38,38,0.06)" }
-                    },
-                        React.createElement("input", { type: "checkbox", checked: present, onChange: function() { togglePlayer(p.id); } }),
-                        React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } }),
-                        React.createElement("span", { style: { fontWeight: 600 } }, "#" + p.num + " " + p.firstName + " " + p.lastName));
-                })),
-                React.createElement("div", { style: { marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" } },
-                    React.createElement("button", { type: "button", onClick: save, disabled: saving, style: btnSaveStyle },
-                        saving ? "\u23F3 Enregistrement..." : "\u2705 Enregistrer la pr\u00E9sence"),
-                    msg && React.createElement("span", { style: { fontSize: 14, color: msg.indexOf("Erreur") >= 0 ? "#dc2626" : "#16a34a", fontWeight: 600 } }, msg)))));
-}
-
 function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     if (!user) return null;
     const player = user.player_id ? PLAYERS.find(p => p.id === user.player_id) : null;
@@ -3011,8 +3089,6 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
                 React.createElement("div", { className: "player-name" }, p.lastName),
                 React.createElement("div", { className: "player-first" }, p.firstName),
                 p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))),
-            React.createElement(AttendancePanel),
-            React.createElement(TrainingAttendancePanel),
             React.createElement(CoachPushPanel),
             React.createElement(CoachPasswordPanel),
             React.createElement("div", { className: "section-title", style: { marginTop: 32 } }, "\uD83D\uDCF1 Mes notifications"),
@@ -3083,7 +3159,6 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
         note && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "section-title" }, "\uD83D\uDCCB Note du coach"),
             React.createElement("div", { className: "card", style: { padding: 20, whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 14 } }, note)),
-        React.createElement(AbsencePanel, { user: user }),
         React.createElement("div", { className: "section-title", style: { marginTop: 24 } }, "\uD83D\uDCF1 Notifications"),
         React.createElement("div", { className: "card", style: { padding: 20 } }, React.createElement(PushNotifToggle)));
 }
@@ -3568,16 +3643,6 @@ function ConvocationPanel({ upcoming, user }) {
             if(d.success){ setResponses(prev=>({...prev,[playerId]:{response:resp,date:new Date().toISOString()}})); setCoachEditing(null); }
         }).catch(()=>{});
     };
-    const [deletingResponse, setDeletingResponse] = useState(null);
-    const handleDeleteResponse = (playerId) => {
-        if(!confirm("Supprimer la r\u00E9ponse de ce joueur ? Il pourra r\u00E9pondre \u00E0 nouveau (utile pour retester la notif push).")) return;
-        setDeletingResponse(playerId);
-        fetch(API_URL+"?action=delete_convocation_response",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({match_id:upcoming.id,player_id:playerId})})
-        .then(r=>r.json()).then(d=>{
-            setDeletingResponse(null);
-            if(d.success){ setResponses(prev=>{ const next={...prev}; delete next[playerId]; return next; }); setCoachEditing(null); }
-        }).catch(()=>setDeletingResponse(null));
-    };
     const cbStyle = { width: 20, height: 20, cursor: isCoach?"pointer":"default", accentColor: "#1a6b2e" };
     const convokedPlayers = PLAYERS.filter(p => isConvoked(p.id));
     const gouterLabel = gouterPlayer === "coach" ? "Coach Alex" : gouterPlayer === "ext" ? "Ext\u00E9rieur \u2013 pas de go\u00FBter" : null;
@@ -3603,16 +3668,15 @@ function ConvocationPanel({ upcoming, user }) {
                     "#", p.num, " ", p.firstName,
                     isCoach && !isEditing && React.createElement("span", { style: { fontSize: 10, color: "var(--text-dim)", marginLeft: 6 } }, "\u270F\uFE0F")),
                 // Mini edit buttons when coach clicks on player
-                isEditing && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" } },
+                isEditing && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
                     pResp !== "present" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "present"), style: miniBtn("rgba(22,163,74,0.1)", "#16a34a", "#16a34a") }, "\u2705"),
                     pResp !== "attente" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "attente"), style: miniBtn("rgba(234,179,8,0.1)", "#d97706", "#d97706") }, "\u23F3"),
-                    pResp !== "absent" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "absent"), style: miniBtn("rgba(220,38,38,0.1)", "#dc2626", "#dc2626") }, "\u274C"),
-                    pResp && React.createElement("button", { onClick: () => handleDeleteResponse(p.id), disabled: deletingResponse === p.id, style: { ...miniBtn("rgba(100,100,100,0.1)", "#71717a", "#71717a"), fontSize: 10 }, title: "Supprimer la r\u00E9ponse (pour retester la notif push)" }, deletingResponse === p.id ? "..." : "\u232B Suppr.")));
+                    pResp !== "absent" && React.createElement("button", { onClick: () => handleCoachRespond(p.id, "absent"), style: miniBtn("rgba(220,38,38,0.1)", "#dc2626", "#dc2626") }, "\u274C")));
         };
 
         return React.createElement("div", { style: { marginTop: 20, borderTop: "1px solid var(--border)", paddingTop: 16 } },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 6 } }, "\uD83D\uDCCA R\u00E9ponses des joueurs"),
-            isCoach && React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 12 } }, "Clique sur un joueur pour modifier sa r\u00E9ponse, ou \u00AB Suppr. \u00BB pour la supprimer (retester la notif push) \u270F\uFE0F"),
+            isCoach && React.createElement("div", { style: { fontSize: 12, color: "var(--text-dim)", marginBottom: 12 } }, "Touche un joueur pour modifier sa r\u00E9ponse \u270F\uFE0F"),
             // Présents
             presentsIds.length > 0 && React.createElement("div", { style: { marginBottom: 12 } },
                 React.createElement("div", { style: { ...btnPresent, background: "rgba(22,163,74,0.12)", color: "#16a34a", marginBottom: 8, display: "inline-flex" } }, "\u2705 Pr\u00E9sents (", presentsIds.length, ")"),
@@ -4386,7 +4450,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
                 React.createElement("div", { className: "match-detail-vs", style: { textAlign: "center" } },
                     "J", u.journee, " \u2022 ", u.date, u.heure ? [" \u2022 ", u.heure] : null, " \u2022 ", u.lieu),
                 (displayGymnase || displayRdv) && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "var(--text-dim)", marginTop: 6, lineHeight: 1.6 } },
-                    displayGymnase && React.createElement("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(displayGymnase + " " + u.lieu), target: "_blank", rel: "noopener noreferrer", style: { color: "var(--green-700)", textDecoration: "none", cursor: "pointer" }, title: "Voir sur Google Maps" }, "\uD83C\uDFDF\uFE0F ", displayGymnase, " \uD83D\uDCCD"),
+                    displayGymnase && React.createElement("div", null, "\uD83C\uDFDF\uFE0F ", displayGymnase),
                     displayRdv && React.createElement("div", null, "\u23F0 RDV : ", displayRdv))),
             isHome ? advTeam : espeTeam),
         React.createElement("div", { style: { textAlign: "center", margin: "16px 0 24px", display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", alignItems: "center" } },
@@ -4636,6 +4700,504 @@ function VaultPage({ user }) {
                         React.createElement("button", { className: "vault-action-btn del", onClick: () => deleteFile(f), title: "Supprimer" }, "\uD83D\uDDD1\uFE0F"))))));
 }
 
+// ══════════════════════════════════════
+// AUTH GATE — Page de connexion plein écran
+// ══════════════════════════════════════
+// ══════════════════════════════════════
+// OBJETS TROUVÉS
+// ══════════════════════════════════════
+function LostFoundPage({ user }) {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('all');
+    const [showForm, setShowForm] = useState(false);
+    const [lightbox, setLightbox] = useState(null);
+    const isCoach = user && user.role === 'coach';
+
+    const loadItems = () => {
+        fetch(API_URL + '?action=lost_found_list', { credentials: 'same-origin' })
+            .then(r => r.json()).then(d => { if (d.success) setItems(d.items || []); setLoading(false); })
+            .catch(() => setLoading(false));
+    };
+    useEffect(() => { loadItems(); }, []);
+
+    const filtered = items.filter(i => {
+        if (filter === 'available') return i.status === 'available';
+        if (filter === 'claimed') return i.status === 'claimed';
+        if (filter === 'returned') return i.status === 'returned';
+        return true;
+    });
+
+    const handleClaim = (item) => {
+        if (!confirm('Tu reconnais cet objet ? Le coach sera prévenu par email et notification.')) return;
+        fetch(API_URL + '?action=lost_found_claim', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: item.id })
+        }).then(r => r.json()).then(d => {
+            if (d.success) { alert('\u2705 Objet réclamé ! Le coach a été prévenu.'); loadItems(); }
+            else alert(d.error || 'Erreur');
+        }).catch(() => alert('Erreur réseau'));
+    };
+
+    const handleResolve = (item, status) => {
+        const msg = status === 'returned' ? 'Marquer comme rendu ?' : 'Remettre en disponible ?';
+        if (!confirm(msg)) return;
+        fetch(API_URL + '?action=lost_found_resolve', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: item.id, status })
+        }).then(r => r.json()).then(d => { if (d.success) loadItems(); }).catch(() => {});
+    };
+
+    const handleDelete = (item) => {
+        if (!confirm('Supprimer définitivement cet objet ?')) return;
+        fetch(API_URL + '?action=lost_found_delete', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: item.id })
+        }).then(r => r.json()).then(d => { if (d.success) loadItems(); }).catch(() => {});
+    };
+
+    const fmtDate = (d) => { try { const dt = new Date(d); return dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch(e) { return d; } };
+
+    const counts = { all: items.length, available: items.filter(i=>i.status==='available').length, claimed: items.filter(i=>i.status==='claimed').length, returned: items.filter(i=>i.status==='returned').length };
+
+    const el = React.createElement;
+
+    if (loading) return el('div', { className: 'lf-wrap', style: { textAlign: 'center', padding: '60px 0' } }, '\u23F3 Chargement...');
+
+    return el('div', { className: 'lf-wrap' },
+        // Header
+        el('div', { className: 'lf-header' },
+            el('div', { className: 'lf-title' }, '\uD83D\uDCE6 OBJETS TROUV\u00C9S'),
+            isCoach && el('button', { className: 'lf-add-btn', onClick: () => setShowForm(true) }, '+ Ajouter un objet')),
+        // Filters
+        el('div', { className: 'lf-filters' },
+            [['all','Tous (' + counts.all + ')'], ['available','\uD83D\uDFE2 Disponibles (' + counts.available + ')'], ['claimed','\uD83D\uDFE1 R\u00E9clam\u00E9s (' + counts.claimed + ')']].concat(
+                isCoach ? [['returned','\u2705 Rendus (' + counts.returned + ')']] : []
+            ).map(([k,label]) => el('button', { key: k, className: 'lf-filter-btn' + (filter === k ? ' active' : ''), onClick: () => setFilter(k) }, label))),
+        // Items
+        filtered.length === 0
+            ? el('div', { className: 'lf-empty' },
+                el('div', { className: 'lf-empty-icon' }, '\uD83D\uDCE6'),
+                el('p', null, filter === 'all' ? 'Aucun objet trouv\u00E9 pour le moment' : 'Aucun objet dans cette cat\u00E9gorie'),
+                isCoach && filter === 'all' && el('p', { className: 'sub' }, 'Ajoutez un objet trouv\u00E9 avec le bouton ci-dessus'))
+            : el('div', { className: 'lf-grid' },
+                filtered.map(item => el('div', { key: item.id, className: 'lf-item' + (item.status !== 'available' ? ' ' + item.status : '') },
+                    // Photo
+                    item.photo_filename
+                        ? el('img', { className: 'lf-item-photo', src: 'uploads/lost_found/' + item.photo_filename, alt: 'Photo', onClick: () => setLightbox('uploads/lost_found/' + item.photo_filename) })
+                        : el('div', { className: 'lf-item-photo-placeholder' }, '\uD83D\uDCF7'),
+                    // Body
+                    el('div', { className: 'lf-item-body' },
+                        el('div', { className: 'lf-item-desc' }, item.description),
+                        el('div', { className: 'lf-item-meta' },
+                            el('div', { className: 'lf-item-meta-row' }, '\uD83D\uDCCD ', item.location),
+                            el('div', { className: 'lf-item-meta-row' }, '\uD83D\uDCC5 ', fmtDate(item.found_date)),
+                            item.status === 'claimed' && el('div', { className: 'lf-item-meta-row', style: { color: '#b45309', fontWeight: 600 } }, '\uD83D\uDE4B R\u00E9clam\u00E9 par ', item.claimed_by_name),
+                            item.status === 'returned' && el('div', { className: 'lf-item-meta-row', style: { color: '#16a34a', fontWeight: 600 } }, '\u2705 Rendu')),
+                        // Actions
+                        el('div', { className: 'lf-item-actions' },
+                            // Status badge
+                            item.status === 'claimed' && el('span', { className: 'lf-status-badge claimed' }, '\uD83D\uDFE1 R\u00E9clam\u00E9'),
+                            item.status === 'returned' && el('span', { className: 'lf-status-badge returned' }, '\u2705 Rendu'),
+                            // Claim button (parents only, available only)
+                            item.status === 'available' && el('button', { className: 'lf-claim-btn', onClick: () => handleClaim(item) }, '\u270B C\'est \u00E0 moi !'),
+                            // Coach actions
+                            isCoach && item.status === 'claimed' && el('button', { className: 'lf-coach-btn resolve', onClick: () => handleResolve(item, 'returned') }, '\u2705 Rendu'),
+                            isCoach && item.status === 'claimed' && el('button', { className: 'lf-coach-btn reopen', onClick: () => handleResolve(item, 'available') }, '\u21A9 Remettre'),
+                            isCoach && el('button', { className: 'lf-coach-btn delete', onClick: () => handleDelete(item) }, '\uD83D\uDDD1')))))),
+        // Add Form Modal
+        showForm && el(LostFoundForm, { onClose: () => setShowForm(false), onAdded: () => { setShowForm(false); loadItems(); } }),
+        // Lightbox
+        lightbox && el('div', { className: 'lf-lightbox', onClick: () => setLightbox(null) },
+            el('img', { src: lightbox, alt: 'Photo' })));
+}
+
+// ── Add Form Modal ──
+function LostFoundForm({ onClose, onAdded }) {
+    const [location, setLocation] = useState('');
+    const [foundDate, setFoundDate] = useState(new Date().toISOString().split('T')[0]);
+    const [description, setDescription] = useState('');
+    const [photo, setPhoto] = useState(null);
+    const [preview, setPreview] = useState(null);
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const fileRef = useRef(null);
+
+    const handlePhoto = (file) => {
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { setError('Photo trop volumineuse (max 5 Mo)'); return; }
+        setPhoto(file);
+        const reader = new FileReader();
+        reader.onload = (e) => setPreview(e.target.result);
+        reader.readAsDataURL(file);
+    };
+
+    const handleSubmit = () => {
+        if (!location.trim() || !foundDate || !description.trim()) { setError('Remplis tous les champs'); return; }
+        setLoading(true); setError('');
+        const fd = new FormData();
+        fd.append('location', location.trim());
+        fd.append('found_date', foundDate);
+        fd.append('description', description.trim());
+        if (photo) fd.append('photo', photo);
+        fetch(API_URL + '?action=lost_found_add', {
+            method: 'POST', credentials: 'same-origin', body: fd
+        }).then(r => r.json()).then(d => {
+            setLoading(false);
+            if (d.success) onAdded();
+            else setError(d.error || 'Erreur');
+        }).catch(() => { setLoading(false); setError('Erreur réseau'); });
+    };
+
+    const el = React.createElement;
+    return el('div', { className: 'lf-form-overlay', onClick: (e) => { if (e.target === e.currentTarget) onClose(); } },
+        el('div', { className: 'lf-form-card' },
+            el('div', { className: 'lf-form-title' }, '\uD83D\uDCE6 NOUVEL OBJET TROUV\u00C9'),
+            error && el('div', { style: { background: 'rgba(220,38,38,0.1)', border: '1px solid var(--red)', color: 'var(--red)', padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13 } }, error),
+            // Photo
+            el('div', { className: 'lf-form-field' },
+                el('label', { className: 'lf-form-label' }, 'Photo de l\'objet'),
+                el('div', {
+                    className: 'lf-form-photo-zone' + (preview ? ' has-photo' : ''),
+                    onClick: () => fileRef.current && fileRef.current.click()
+                },
+                    !preview && el('div', null,
+                        el('div', { style: { fontSize: 32, marginBottom: 6 } }, '\uD83D\uDCF7'),
+                        el('div', { style: { fontSize: 13, color: 'var(--text-dim)' } }, 'Cliquez pour ajouter une photo')),
+                    preview && el('img', { src: preview, className: 'lf-form-preview' })),
+                el('input', { ref: fileRef, type: 'file', accept: 'image/*', style: { display: 'none' }, onChange: e => handlePhoto(e.target.files[0]) })),
+            // Location + Date
+            el('div', { className: 'lf-form-row' },
+                el('div', { className: 'lf-form-field' },
+                    el('label', { className: 'lf-form-label' }, '\uD83D\uDCCD Lieu'),
+                    el('input', { type: 'text', className: 'lf-form-input', value: location, onChange: e => setLocation(e.target.value), placeholder: 'Ex: Gymnase, vestiaire...' })),
+                el('div', { className: 'lf-form-field' },
+                    el('label', { className: 'lf-form-label' }, '\uD83D\uDCC5 Date'),
+                    el('input', { type: 'date', className: 'lf-form-input', value: foundDate, onChange: e => setFoundDate(e.target.value) }))),
+            // Description
+            el('div', { className: 'lf-form-field' },
+                el('label', { className: 'lf-form-label' }, '\uD83D\uDCDD Description'),
+                el('textarea', { className: 'lf-form-textarea', value: description, onChange: e => setDescription(e.target.value), placeholder: 'D\u00E9cris l\'objet : couleur, marque, taille...', maxLength: 500 })),
+            // Actions
+            el('div', { className: 'lf-form-actions' },
+                el('button', { className: 'lf-form-cancel', onClick: onClose }, 'Annuler'),
+                el('button', { className: 'lf-form-submit', onClick: handleSubmit, disabled: loading }, loading ? '\u23F3 Ajout...' : '\uD83D\uDCE6 Ajouter l\'objet'))));
+}
+
+// ══════════════════════════════════════
+// STAGE INSCRIPTION PAGE
+// ══════════════════════════════════════
+function StagePage({ user }) {
+    const STAGE_KEY = 'stage-printemps-2026';
+    const MAX_PLACES = 25;
+    const [regs, setRegs] = useState([]);
+    const [myReg, setMyReg] = useState(false);
+    const [count, setCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [sending, setSending] = useState(false);
+    const isCoach = user && user.role === 'coach';
+
+    const loadRegs = () => {
+        fetch(API_URL + '?action=stage_list&stage_key=' + STAGE_KEY, { credentials: 'same-origin' })
+            .then(r => r.json()).then(d => {
+                if (d.success) { setRegs(d.registrations || []); setMyReg(d.my_registration); setCount(d.count || 0); }
+                setLoading(false);
+            }).catch(() => setLoading(false));
+    };
+    useEffect(() => { loadRegs(); }, []);
+
+    // Find player linked to user
+    const myPlayer = user && user.player_id ? PLAYERS.find(p => p.id === user.player_id) : null;
+
+    const handleRegister = () => {
+        if (!myPlayer) { alert('Aucun joueur li\u00E9 \u00E0 ton compte.'); return; }
+        if (!confirm(myPlayer.firstName + ' ' + myPlayer.lastName + ' sera inscrit(e) au stage.\\nLe paiement de 65 \u20AC sera \u00E0 remettre \u00E0 Alex ou Patrick.\\n\\nConfirmer ?')) return;
+        setSending(true);
+        fetch(API_URL + '?action=stage_register', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stage_key: STAGE_KEY, player_name: myPlayer.lastName, player_firstname: myPlayer.firstName, player_category: 'U9' })
+        }).then(r => r.json()).then(d => {
+            setSending(false);
+            if (d.success) { alert('\u2705 ' + myPlayer.firstName + ' est inscrit(e) au stage !\\nPensez \u00E0 remettre le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.'); loadRegs(); }
+            else alert(d.error || 'Erreur');
+        }).catch(() => { setSending(false); alert('Erreur r\u00E9seau'); });
+    };
+
+    const handleCancel = (userId) => {
+        if (!confirm('Annuler cette inscription ?')) return;
+        fetch(API_URL + '?action=stage_unregister', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stage_key: STAGE_KEY, user_id: userId || user.id })
+        }).then(r => r.json()).then(d => { if (d.success) loadRegs(); }).catch(() => {});
+    };
+
+    const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch(e) { return d; } };
+
+    const el = React.createElement;
+    const pct = Math.min(100, (count / MAX_PLACES) * 100);
+    const isFull = count >= MAX_PLACES;
+
+    if (loading) return el('div', { className: 'stage-wrap', style: { textAlign: 'center', padding: '60px 0' } }, '\u23F3 Chargement...');
+
+    return el('div', { className: 'stage-wrap' },
+        // Hero
+        el('div', { className: 'stage-hero' },
+            el('div', { className: 'stage-hero-glow' }),
+            el('span', { className: 'stage-hero-emoji' }, '\uD83C\uDFC0'),
+            el('div', { className: 'stage-hero-badge' }, 'Vacances de Printemps'),
+            el('h2', null, 'STAGE DE PERFECTIONNEMENT'),
+            el('div', { className: 'stage-hero-dates' }, '13 \u2192 17 Avril 2026'),
+            el('p', null, 'Cat\u00E9gories U9 \u2022 U11 \u2022 U13 \u2014 Sous forme ludique et comp\u00E9titif')),
+        // Info cards
+        el('div', { className: 'stage-infos' },
+            el('div', { className: 'stage-info-card' },
+                el('div', { className: 'stage-info-icon' }, '\uD83D\uDCCD'),
+                el('div', null,
+                    el('div', { className: 'stage-info-label' }, 'Lieu'),
+                    el('div', { className: 'stage-info-value' }, 'Gymnase Daniel Cabot'))),
+            el('div', { className: 'stage-info-card' },
+                el('div', { className: 'stage-info-icon' }, '\uD83D\uDCB0'),
+                el('div', null,
+                    el('div', { className: 'stage-info-label' }, 'Tarif'),
+                    el('div', { className: 'stage-info-value' }, '65 \u20AC'),
+                    el('div', { style: { fontSize: 11, color: 'var(--text-dim)', marginTop: 2 } }, 'Collation offerte chaque jour'))),
+            el('div', { className: 'stage-info-card' },
+                el('div', { className: 'stage-info-icon' }, '\u23F0'),
+                el('div', null,
+                    el('div', { className: 'stage-info-label' }, 'Horaires'),
+                    el('div', { className: 'stage-info-value' }, '9h00 \u2192 12h00'))),
+            el('div', { className: 'stage-info-card' },
+                el('div', { className: 'stage-info-icon' }, '\uD83C\uDFAF'),
+                el('div', null,
+                    el('div', { className: 'stage-info-label' }, 'Cat\u00E9gories'),
+                    el('div', { className: 'stage-info-value' }, 'U9 \u2022 U11 \u2022 U13')))),
+        // Schedule
+        el('div', { className: 'stage-schedule' },
+            el('div', { className: 'stage-schedule-title' }, '\uD83D\uDCC5 Programme de la semaine'),
+            el('div', { className: 'stage-schedule-row' },
+                el('div', { className: 'stage-schedule-day' }, 'Lun. 13 \u2192 Jeu. 16'),
+                el('div', { className: 'stage-schedule-detail' }, '9h00 \u2013 12h00 \u2022 Basket au gymnase Cabot')),
+            el('div', { className: 'stage-schedule-row' },
+                el('div', { className: 'stage-schedule-day' }, 'Vendredi 17 matin'),
+                el('div', { className: 'stage-schedule-detail' }, '9h00 \u2013 12h00 \u2022 Basket au gymnase Cabot')),
+            el('div', { className: 'stage-schedule-row' },
+                el('div', { className: 'stage-schedule-day' }, 'Vendredi 17 apr\u00E8s-midi'),
+                el('div', { className: 'stage-schedule-detail' }, 'Sortie surprise !'),
+                el('span', { className: 'stage-schedule-tag' }, '\u2728 Surprise'))),
+        // Places counter
+        el('div', { className: 'stage-places' + (isFull ? ' stage-places-full' : '') },
+            el('div', null,
+                el('div', { className: 'stage-places-num' }, count + '/' + MAX_PLACES),
+                el('div', { className: 'stage-places-label' }, isFull ? 'Complet !' : 'Places prises')),
+            el('div', { className: 'stage-places-bar' },
+                el('div', { className: 'stage-places-fill', style: { width: pct + '%' } }))),
+        // Payment notice
+        el('div', { className: 'stage-payment' },
+            el('div', { className: 'stage-payment-icon' }, '\uD83D\uDCB3'),
+            el('div', { className: 'stage-payment-text' },
+                el('strong', null, 'Paiement'), ' \u2014 Le r\u00E8glement de 65 \u20AC est \u00E0 remettre en main propre \u00E0 ',
+                el('strong', null, 'Alex ou Patrick'), ' lors des entra\u00EEnements ou au plus tard le jour du stage.',
+                el('br', null),
+                el('span', { style: { fontSize: 11, opacity: 0.7 } }, 'Coupon-r\u00E9ponse + r\u00E8glement avant le 3 avril.'))),
+        // CTA
+        !isCoach && (
+            myReg
+                ? el(React.Fragment, null,
+                    el('div', { className: 'stage-registered-msg' },
+                        el('div', { style: { fontSize: 28, marginBottom: 6 } }, '\u2705'),
+                        el('strong', null, myPlayer ? myPlayer.firstName + ' est inscrit(e) !' : 'Inscription confirm\u00E9e !'),
+                        el('div', { style: { fontSize: 13, color: 'var(--text-dim)', marginTop: 4 } }, 'N\'oubliez pas le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.')),
+                    el('button', { className: 'stage-cta-cancel', onClick: () => handleCancel() }, '\u274C Annuler l\'inscription'))
+                : el('button', { className: 'stage-cta', onClick: handleRegister, disabled: sending || isFull },
+                    sending ? '\u23F3 Inscription...' : isFull ? '\uD83D\uDEAB Complet \u2014 Plus de place' : '\uD83C\uDFC0 Inscrire ' + (myPlayer ? myPlayer.firstName : 'mon enfant') + ' au stage')),
+        // Coach: list of registrations
+        isCoach && el(React.Fragment, null,
+            el('div', { className: 'stage-list-title' }, '\uD83D\uDCCB Inscrits (' + count + '/' + MAX_PLACES + ')'),
+            regs.length === 0
+                ? el('div', { style: { textAlign: 'center', color: 'var(--text-dim)', padding: 20, fontSize: 14 } }, 'Aucune inscription pour le moment')
+                : regs.map((r, i) => el('div', { key: r.id, className: 'stage-registrant' },
+                    el('div', { className: 'stage-registrant-num' }, i + 1),
+                    el('div', { className: 'stage-registrant-name' }, r.player_firstname + ' ' + r.player_name),
+                    el('span', { className: 'stage-registrant-cat' }, r.player_category),
+                    el('span', { className: 'stage-registrant-date' }, fmtDate(r.registered_at)),
+                    el('button', { className: 'stage-registrant-del', onClick: () => handleCancel(r.user_id), title: 'Annuler' }, '\u2716')))));
+}
+
+function AuthGate({ onLogin, initialTab }) {
+    const [mode, setMode] = useState(initialTab || 'login');
+    // Login
+    const [lUser, setLUser] = useState('');
+    const [lPass, setLPass] = useState('');
+    // Register
+    const [rUser, setRUser] = useState('');
+    const [rPass, setRPass] = useState('');
+    const [rPass2, setRPass2] = useState('');
+    const [rParent, setRParent] = useState('papa');
+    const [rPlayer, setRPlayer] = useState('');
+    const [rEmail, setREmail] = useState('');
+    // Forgot
+    const [fIdent, setFIdent] = useState('');
+    const [fSent, setFSent] = useState(false);
+    // Common
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = () => {
+        if (!lUser || !lPass) { setError('Remplis tous les champs'); return; }
+        setLoading(true); setError('');
+        fetch(API_URL + '?action=login', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: lUser, password: lPass })
+        }).then(r => r.json()).then(data => {
+            setLoading(false);
+            if (data.success) onLogin(data.user);
+            else setError(data.error || 'Identifiants incorrects');
+        }).catch(() => { setLoading(false); setError('Erreur de connexion au serveur'); });
+    };
+
+    const handleRegister = () => {
+        if (!rUser || !rPass || !rPlayer) { setError('Remplis tous les champs obligatoires'); return; }
+        if (rPass !== rPass2) { setError('Les mots de passe ne correspondent pas'); return; }
+        if (rPass.length < 4) { setError('Mot de passe trop court (4 caract\u00E8res min.)'); return; }
+        const player = PLAYERS.find(p => String(p.id) === rPlayer);
+        if (!player) { setError('Joueur non trouv\u00E9'); return; }
+        setLoading(true); setError('');
+        fetch(API_URL + '?action=register', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: rUser, password: rPass, email: rEmail, player_id: player.id, parent_type: rParent, player_name: player.firstName })
+        }).then(r => r.json()).then(data => {
+            setLoading(false);
+            if (data.success) onLogin(data.user);
+            else setError(data.error || 'Erreur lors de l\'inscription');
+        }).catch(() => { setLoading(false); setError('Erreur de connexion au serveur'); });
+    };
+
+    const handleForgot = () => {
+        if (!fIdent.trim()) { setError('Entre ton identifiant ou email'); return; }
+        setLoading(true); setError('');
+        fetch(API_URL + '?action=forgot_password', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: fIdent.trim() })
+        }).then(r => r.json()).then(data => {
+            setLoading(false);
+            if (data.success) setFSent(true);
+            else setError(data.error || 'Erreur');
+        }).catch(() => { setLoading(false); setError('Erreur de connexion au serveur'); });
+    };
+
+    const switchMode = (m) => { setMode(m); setError(''); };
+
+    // Particles
+    const particles = Array.from({ length: 8 }, (_, i) => {
+        const s = 3 + Math.random() * 5;
+        const l = 5 + Math.random() * 90;
+        const d = 8 + Math.random() * 16;
+        const dl = Math.random() * 10;
+        const clr = i % 2 === 0 ? 'rgba(200,168,50,0.3)' : 'rgba(26,107,46,0.4)';
+        return React.createElement('div', {
+            key: i, className: 'auth-particle',
+            style: { width: s, height: s, left: l + '%', background: clr, animationDuration: d + 's', animationDelay: dl + 's' }
+        });
+    });
+
+    const el = React.createElement;
+
+    // ─── FORGOT MODE ───
+    if (mode === 'forgot') return el('div', { className: 'auth-gate' },
+        ...particles,
+        el('div', { className: 'auth-card' },
+            el('div', { className: 'auth-logo-wrap' },
+                el('div', { style: { fontSize: 48, marginBottom: 12 } }, '\uD83D\uDD11'),
+                el('div', { className: 'auth-team-name' }, 'MOT DE PASSE'),
+                el('div', { className: 'auth-team-sub' }, 'R\u00E9cup\u00E9ration de compte')),
+            // Option 1: contact coach
+            el('div', { style: { background: 'rgba(26,107,46,0.12)', border: '1px solid rgba(26,107,46,0.25)', borderRadius: 14, padding: 20, marginBottom: 20, textAlign: 'center' } },
+                el('div', { style: { fontSize: 28, marginBottom: 6 } }, '\uD83D\uDCF1'),
+                el('div', { style: { fontWeight: 700, fontSize: 15, color: '#4ade80', marginBottom: 4 } }, 'Contacte Coach Alex'),
+                el('div', { style: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 } }, 'Le plus simple : envoie un message au coach et il r\u00E9initialisera ton mot de passe.')),
+            // Option 2: email
+            !fSent && el(React.Fragment, null,
+                error && el('div', { className: 'auth-error' }, error),
+                el('div', { className: 'auth-divider' }, 'ou par email'),
+                el('div', { className: 'auth-field' },
+                    el('input', { type: 'text', className: 'auth-input', value: fIdent, onChange: e => setFIdent(e.target.value), onKeyDown: e => e.key === 'Enter' && handleForgot(), placeholder: 'Ton identifiant ou email' })),
+                el('button', { className: 'auth-submit', onClick: handleForgot, disabled: loading, style: { background: 'linear-gradient(135deg, var(--green-700), var(--green-500))', color: '#fff' } }, loading ? 'Envoi...' : 'Envoyer le lien')),
+            fSent && el('div', { style: { background: 'rgba(26,107,46,0.12)', border: '1px solid rgba(26,107,46,0.25)', borderRadius: 12, padding: 16, textAlign: 'center' } },
+                el('div', { style: { fontSize: 28, marginBottom: 6 } }, '\u2705'),
+                el('div', { style: { fontWeight: 700, color: '#4ade80', marginBottom: 4 } }, 'Email envoy\u00E9 !'),
+                el('div', { style: { fontSize: 13, color: 'rgba(255,255,255,0.5)' } }, 'V\u00E9rifie ta bo\u00EEte mail (et tes spams).')),
+            el('div', { style: { textAlign: 'center', marginTop: 20 } },
+                el('a', { className: 'auth-link', onClick: () => switchMode('login') }, '\u2190 Retour \u00E0 la connexion'))),
+        el('div', { className: 'auth-footer' },
+            el('div', { className: 'auth-footer-secured' }, '\uD83D\uDD12 Connexion s\u00E9curis\u00E9e')));
+
+    // ─── LOGIN / REGISTER ───
+    return el('div', { className: 'auth-gate' },
+        ...particles,
+        el('div', { className: 'auth-card' },
+            // Logo + Team name
+            el('div', { className: 'auth-logo-wrap' },
+                el('img', { src: LOGO, alt: 'ESPE', className: 'auth-logo' }),
+                el('div', { className: 'auth-team-name' }, TEAM_NAME),
+                el('div', { className: 'auth-team-sub' }, CATEGORY),
+                el('div', { className: 'auth-badge' }, 'Espace membres')),
+            // Tabs
+            el('div', { className: 'auth-tabs' },
+                el('button', { className: 'auth-tab' + (mode === 'login' ? ' active' : ''), onClick: () => switchMode('login') }, '\uD83D\uDD13 Connexion'),
+                el('button', { className: 'auth-tab' + (mode === 'register' ? ' active' : ''), onClick: () => switchMode('register') }, '\u270D\uFE0F Inscription')),
+            // Error
+            error && el('div', { className: 'auth-error' }, error),
+            // ─── LOGIN FORM ───
+            mode === 'login' && el(React.Fragment, null,
+                el('div', { className: 'auth-field' },
+                    el('label', { className: 'auth-label' }, 'Identifiant ou email'),
+                    el('input', { type: 'text', className: 'auth-input', value: lUser, onChange: e => setLUser(e.target.value), onKeyDown: e => e.key === 'Enter' && handleLogin(), placeholder: 'Ton identifiant', autoFocus: true })),
+                el('div', { className: 'auth-field' },
+                    el('label', { className: 'auth-label' }, 'Mot de passe'),
+                    el('input', { type: 'password', className: 'auth-input', value: lPass, onChange: e => setLPass(e.target.value), onKeyDown: e => e.key === 'Enter' && handleLogin(), placeholder: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' }),
+                    el('a', { className: 'auth-forgot', onClick: () => switchMode('forgot') }, 'Mot de passe oubli\u00E9 ?')),
+                el('button', { className: 'auth-submit', onClick: handleLogin, disabled: loading }, loading ? '\u23F3 Connexion...' : 'Se connecter')),
+            // ─── REGISTER FORM ───
+            mode === 'register' && el(React.Fragment, null,
+                el('div', { className: 'auth-row' },
+                    el('div', { className: 'auth-field small' },
+                        el('label', { className: 'auth-label' }, 'Je suis'),
+                        el('select', { className: 'auth-select', value: rParent, onChange: e => setRParent(e.target.value) },
+                            el('option', { value: 'papa' }, '\uD83D\uDC68 Papa'),
+                            el('option', { value: 'maman' }, '\uD83D\uDC69 Maman'))),
+                    el('div', { className: 'auth-field' },
+                        el('label', { className: 'auth-label' }, 'De'),
+                        el('select', { className: 'auth-select', value: rPlayer, onChange: e => setRPlayer(e.target.value) },
+                            el('option', { value: '' }, '-- Choisis ton enfant --'),
+                            PLAYERS.map(p => el('option', { key: p.id, value: String(p.id) }, '#' + p.num + ' ' + p.firstName + ' ' + p.lastName))))),
+                el('div', { className: 'auth-field' },
+                    el('label', { className: 'auth-label' }, 'Identifiant'),
+                    el('input', { type: 'text', className: 'auth-input', value: rUser, onChange: e => setRUser(e.target.value), placeholder: 'Ex: papa.malone' })),
+                el('div', { className: 'auth-field' },
+                    el('label', { className: 'auth-label' }, 'Email (notifications)'),
+                    el('input', { type: 'email', className: 'auth-input', value: rEmail, onChange: e => setREmail(e.target.value), placeholder: 'Ex: papa@mail.com' })),
+                el('div', { className: 'auth-row' },
+                    el('div', { className: 'auth-field' },
+                        el('label', { className: 'auth-label' }, 'Mot de passe'),
+                        el('input', { type: 'password', className: 'auth-input', value: rPass, onChange: e => setRPass(e.target.value), placeholder: 'Min. 4 car.' })),
+                    el('div', { className: 'auth-field' },
+                        el('label', { className: 'auth-label' }, 'Confirmer'),
+                        el('input', { type: 'password', className: 'auth-input', value: rPass2, onChange: e => setRPass2(e.target.value), onKeyDown: e => e.key === 'Enter' && handleRegister(), placeholder: 'Confirmer' }))),
+                el('button', { className: 'auth-submit', onClick: handleRegister, disabled: loading }, loading ? '\u23F3 Cr\u00E9ation...' : 'Cr\u00E9er mon compte'))),
+        // Footer
+        el('div', { className: 'auth-footer' },
+            el('div', { className: 'auth-footer-season' }, 'Saison ' + SEASON + ' \u2022 ' + TEAM_FULL),
+            el('div', { className: 'auth-footer-secured' }, '\uD83D\uDD12 Connexion s\u00E9curis\u00E9e')));
+}
+
 function App() {
     // ── MATCHES STATE (loaded from API) ──
     const [matches, setMatches] = useState(INITIAL_MATCHES);
@@ -4707,9 +5269,9 @@ function App() {
         return null; // custom matches will be resolved after API load
     });
     const [cookieAccepted, setCookieAccepted] = useState(() => {
-        try { return localStorage.getItem("espeu9_cookie_ok") === "1"; } catch(e) { return false; }
+        try { return sessionStorage.getItem("cookie_ok") === "1"; } catch(e) { return false; }
     });
-    useEffect(() => { if (cookieAccepted) { try { localStorage.setItem("espeu9_cookie_ok", "1"); } catch(e) {} } }, [cookieAccepted]);
+    useEffect(() => { if (cookieAccepted) { try { sessionStorage.setItem("cookie_ok", "1"); } catch(e) {} } }, [cookieAccepted]);
     // ── Écouter le bouton retour du navigateur ──
     useEffect(() => {
         const onHash = () => {
@@ -4758,7 +5320,7 @@ function App() {
     }, [user]);
     const handleLogout = () => {
         fetch(API_URL + "?action=logout", { credentials: "same-origin" })
-            .then(() => { window.location.href = "gate.html"; });
+            .then(() => { setUser(null); navigateTo("accueil"); });
     };
     // ── NOTES STATE ──
     const [coachNotes, setCoachNotes] = useState(() => {
@@ -4789,7 +5351,17 @@ function App() {
     const goHome = () => { setTab("accueil"); setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo("accueil"); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     return (React.createElement(React.Fragment, null,
         React.createElement("style", null, CSS),
-        React.createElement("div", { className: "app" },
+        // ── AUTH GATE : loading / login / app ──
+        authLoading
+            ? React.createElement("div", { className: "auth-loading" },
+                React.createElement("img", { src: LOGO, alt: "ESPE", className: "auth-loading-logo" }),
+                React.createElement("div", { className: "auth-loading-text" }, "Chargement..."))
+            : !user && tab !== "reset"
+                ? React.createElement(AuthGate, {
+                    onLogin: (u) => { setUser(u); setTab("accueil"); if (u.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } },
+                    initialTab: tab === "inscription" ? "register" : "login"
+                })
+                : React.createElement("div", { className: "app" },
             React.createElement("nav", { className: "nav" },
                 React.createElement("div", { className: "nav-inner" },
                     React.createElement("div", { className: "nav-logo", onClick: goHome },
@@ -4804,8 +5376,9 @@ function App() {
                                 React.createElement("span", { className: "nav-dropdown-num" }, "#", p.num),
                                 React.createElement("span", null, p.firstName, " ", p.lastName),
                                 p.cap && React.createElement("span", { className: "nav-dropdown-cap" }, "\u2605"))))))) : (React.createElement("button", { key: t, className: `nav-btn ${tab === t && !selectedPlayer && !selectedMatch ? "active" : ""}`, onClick: () => switchTab(t) }, TAB_LABELS[t])))),
-                        React.createElement("a", { href: "tchat.html", className: "nav-btn", style: { textDecoration: "none" } }, "\uD83D\uDCAC Tchat"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
+                        user && React.createElement("button", { className: `nav-btn ${tab === "objets-trouves" ? "active" : ""}`, onClick: () => switchTab("objets-trouves") }, "\uD83D\uDCE6 Objets"),
+                        user && React.createElement("button", { className: `nav-btn ${tab === "stage" ? "active" : ""}`, onClick: () => switchTab("stage") }, "\uD83C\uDFC0 Stage"),
                         user && user.role === "coach" && React.createElement("button", { className: `nav-btn ${tab === "coffre" ? "active" : ""}`, onClick: () => switchTab("coffre") }, "\uD83D\uDD10 Coffre"),
                         user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
                             user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
@@ -4863,9 +5436,7 @@ function App() {
                                 React.createElement("button", { className: "mob-btn" + (tab === "joueurs" ? " active" : ""), onClick: () => switchTab("joueurs") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC3"), "Joueurs"),
                                 React.createElement("button", { className: "mob-btn" + (tab === "matchs" ? " active" : ""), onClick: () => switchTab("matchs") },
-                                    React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Matchs"),
-                                React.createElement("a", { href: "tchat.html", className: "mob-btn", style: { textDecoration: "none", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", fontFamily: "inherit", fontSize: 15, color: "inherit", cursor: "pointer", textAlign: "left" }, onClick: () => setMobileMenuOpen(false) },
-                                    React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCAC"), "Tchat")),
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Matchs")),
                             // Account
                             user ? React.createElement("div", { className: "mob-section" },
                                 React.createElement("div", { className: "mob-label" }, "Espace membre"),
@@ -4886,6 +5457,10 @@ function App() {
                                     unreadCount > 0 && React.createElement("span", { style: { marginLeft: "auto", background: "var(--red)", color: "white", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "2px 8px" } }, unreadCount)),
                                 React.createElement("button", { className: "mob-btn" + (tab === "medias" ? " active" : ""), onClick: () => switchTab("medias") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCF7"), "M\u00E9dias"),
+                                React.createElement("button", { className: "mob-btn" + (tab === "objets-trouves" ? " active" : ""), onClick: () => switchTab("objets-trouves") },
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCE6"), "Objets trouv\u00E9s"),
+                                React.createElement("button", { className: "mob-btn" + (tab === "stage" ? " active" : ""), onClick: () => switchTab("stage") },
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Stage Printemps"),
                                 user.role === "coach" && React.createElement("button", { className: "mob-btn" + (tab === "coffre" ? " active" : ""), onClick: () => switchTab("coffre") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDD10"), "Coffre-fort"),
                                 React.createElement("hr", { className: "mob-divider" }),
@@ -4912,6 +5487,8 @@ function App() {
                 tab === "matchs" && selectedMatch && React.createElement(MatchDetail, { match: selectedMatch, onBack: goBack, coachUnlocked: coachUnlocked, matchNotes: matchNotes, setMatchNotes: setMatchNotes, user: user, onDelete: handleDeleteMatch }),
                 tab === "matchs" && selectedUpcoming && React.createElement(UpcomingDetail, { upcoming: selectedUpcoming, onBack: goBack, user: user, onMatchCreated: () => { fetch(API_URL + "?action=get_matches", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success && data.matches) { setMatches(data.matches); matchesRef.current = data.matches; } }).catch(() => {}); } }),
                 tab === "medias" && React.createElement(MediaPage, { user: user, matches: matches }),
+                tab === "objets-trouves" && user && React.createElement(LostFoundPage, { user: user }),
+                tab === "stage" && user && React.createElement(StagePage, { user: user }),
                 tab === "coffre" && user && user.role === "coach" && React.createElement(VaultPage, { user: user }),
                 tab === "messagerie" && user && React.createElement(MessagingPage, { user: user }),
                 tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { setUser(u); if (u.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
@@ -4920,35 +5497,8 @@ function App() {
                 tab === "reset" && resetToken && React.createElement(ResetPasswordPage, { token: resetToken }),
                 tab === "compte" && user && React.createElement(AccountPage, { user: user, coachNotes: coachNotes, onPlayerClick: goPlayer, matches: matches }),
                 tab === "mentions-legales" && React.createElement(MentionsLegalesPage),
-                tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage))),
-            React.createElement(FooterAnimated, { switchTab: switchTab, user: user }),
-            !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
-                React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
-                React.createElement("button", { onClick: () => setCookieAccepted(true) }, "Compris !"))));
-}
-function FooterAnimated({ switchTab, user }) {
-    const footerRef = useRef(null);
-    useEffect(() => {
-        const el = footerRef.current;
-        if (!el) return;
-        const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { el.classList.add("footer-visible"); obs.disconnect(); } }, { threshold: 0.1 });
-        obs.observe(el);
-        const colors = ["rgba(200,168,50,0.6)", "rgba(26,107,46,0.5)", "rgba(255,255,255,0.3)", "rgba(200,168,50,0.4)"];
-        for (let i = 0; i < 18; i++) {
-            const p = document.createElement("div");
-            p.className = "footer-particle";
-            const s = 2 + Math.random() * 4;
-            p.style.width = p.style.height = s + "px";
-            p.style.background = colors[Math.floor(Math.random() * colors.length)];
-            p.style.left = Math.random() * 100 + "%";
-            p.style.bottom = Math.random() * 40 + "%";
-            p.style.animationDuration = (4 + Math.random() * 6) + "s";
-            p.style.animationDelay = Math.random() * 5 + "s";
-            el.appendChild(p);
-        }
-        return () => { obs.disconnect(); el.querySelectorAll(".footer-particle").forEach(x => x.remove()); };
-    }, []);
-    return React.createElement("footer", { className: "footer", ref: footerRef },
+                tab === "confidentialite" && React.createElement(PolitiqueConfidentialitePage)),
+            React.createElement("footer", { className: "footer" },
                 React.createElement("div", { className: "footer-inner" },
                     React.createElement("div", { className: "footer-col footer-brand" },
                         React.createElement("img", { src: LOGO, alt: "ESPE Basket Ch\u00E2lons", className: "footer-logo" }),
@@ -5014,7 +5564,11 @@ function FooterAnimated({ switchTab, user }) {
                         " ESPE Basket Ch\u00E2lons en Champagne \u2014 U9 Mixte"),
                     React.createElement("span", { style: { display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" } },
                         React.createElement("a", { href: "#mentions-legales", onClick: (e) => { e.preventDefault(); switchTab("mentions-legales"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Mentions l\u00E9gales"),
-                        React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Politique de confidentialit\u00E9"))));
+                        React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); }, style: { color: "rgba(255,255,255,0.6)", fontSize: 12, textDecoration: "underline", cursor: "pointer" } }, "Politique de confidentialit\u00E9"))))),
+            // Cookie banner
+            !cookieAccepted && React.createElement("div", { className: "cookie-banner" },
+                React.createElement("span", null, "\uD83C\uDF6A Ce site utilise uniquement un cookie technique de session, strictement n\u00E9cessaire \u00E0 son fonctionnement. Aucun traceur publicitaire n\u2019est utilis\u00E9. ", React.createElement("a", { href: "#confidentialite", onClick: (e) => { e.preventDefault(); switchTab("confidentialite"); window.scrollTo(0, 0); } }, "En savoir plus")),
+                React.createElement("button", { onClick: () => setCookieAccepted(true) }, "Compris !"))));
 }
 // ═══ MENTIONS LÉGALES (LCEN) ═══
 function MentionsLegalesPage() {
@@ -5298,38 +5852,6 @@ function NewsSection({ user }) {
                 React.createElement("button", { onClick: () => deleteNews(n.id), style: { color: "#dc2626" } }, "\uD83D\uDDD1\uFE0F Supprimer")))));
 }
 
-// ── Anniversaires ──
-function BirthdaySection({ onPlayerClick }) {
-    const today = new Date();
-    const todayD = today.getDate(), todayM = today.getMonth() + 1;
-    const birthdays = PLAYERS.map(p => {
-        const parts = p.dob.split("/");
-        const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
-        const isToday = d === todayD && m === todayM;
-        let nextBday = new Date(today.getFullYear(), m - 1, d);
-        if (nextBday < new Date(today.getFullYear(), today.getMonth(), today.getDate())) nextBday.setFullYear(today.getFullYear() + 1);
-        const diff = Math.ceil((nextBday - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
-        const age = nextBday.getFullYear() - y;
-        return { ...p, isToday, diff, age, bdayStr: d + "/" + (m < 10 ? "0" : "") + m };
-    }).filter(p => p.diff <= 30 || p.isToday).sort((a, b) => a.diff - b.diff);
-    if (birthdays.length === 0) return null;
-    const MONTHS_SHORT = ["", "jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
-    return React.createElement("div", { style: { marginBottom: 32 } },
-        React.createElement("div", { className: "section-title" }, "\uD83C\uDF82 Anniversaires"),
-        React.createElement("div", { style: { display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 } },
-            birthdays.map(p => {
-                const parts = p.dob.split("/");
-                return React.createElement("div", { key: p.id, onClick: () => onPlayerClick && onPlayerClick(p),
-                    style: { minWidth: 120, background: p.isToday ? "linear-gradient(135deg, var(--green-800), var(--green-700))" : "var(--card-bg)", border: p.isToday ? "2px solid var(--green-500)" : "1px solid var(--border)", borderRadius: 14, padding: "14px 12px", textAlign: "center", cursor: "pointer", position: "relative", overflow: "hidden" } },
-                    p.isToday && React.createElement("div", { style: { position: "absolute", top: -4, right: -4, fontSize: 28, transform: "rotate(15deg)" } }, "\uD83C\uDF89"),
-                    React.createElement("div", { style: { width: 44, height: 44, borderRadius: "50%", overflow: "hidden", margin: "0 auto 8px", border: p.isToday ? "2px solid var(--green-400)" : "2px solid var(--border)" } },
-                        React.createElement("img", { src: "/images/players/" + p.photoKey + ".jpg", alt: p.firstName, style: { width: "100%", height: "100%", objectFit: "cover" }, onError: function(e) { e.target.style.display = "none"; } })),
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 13, color: "var(--text-light)" } }, p.firstName),
-                    React.createElement("div", { style: { fontSize: 11, color: "var(--text-dim)", marginTop: 2 } }, p.isToday ? "\uD83C\uDF82 " + p.age + " ans aujourd'hui !" : parseInt(parts[0]) + " " + MONTHS_SHORT[parseInt(parts[1])] + " • " + p.age + " ans"),
-                    !p.isToday && React.createElement("div", { style: { fontSize: 10, color: "var(--green-500)", marginTop: 4, fontWeight: 600 } }, "dans " + p.diff + " jour" + (p.diff > 1 ? "s" : "")));
-            })));
-}
-
 // ── Upcoming List (merged UPCOMING + custom from DB) ──
 function UpcomingList({ onUpcomingClick, customUpcoming }) {
     const all = [...UPCOMING, ...(customUpcoming || [])].sort((a, b) => {
@@ -5393,7 +5915,6 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                     React.createElement("div", { className: "hero-stat-label" }, "Points encaiss\u00E9s")))),
         // Actualités
         React.createElement(NewsSection, { user: user }),
-        React.createElement(BirthdaySection, { onPlayerClick: onPlayerClick }),
         React.createElement("div", { className: "grid-2", style: { marginBottom: 40 } },
             React.createElement("div", null,
                 React.createElement("div", { className: "section-title" }, "Prochains matchs"),
@@ -5486,20 +6007,10 @@ function PlayersPage({ onSelect }) {
             React.createElement("div", { className: "player-first" }, p.firstName),
             p.cap && React.createElement("div", { className: "player-cap-badge" }, "\u2605 Capitaine")))))));
 }
-// PLAYER DETAIL — with coach notes + graphique présence
+// PLAYER DETAIL — with coach notes
 function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes, user, matches }) {
     const stats = getPlayerTotalStats(player.num, matches);
     const [saveStatus, setSaveStatus] = useState("");
-    const [presence, setPresence] = useState(null);
-    useEffect(function() {
-        fetch(API_URL + "?action=get_player_presence&player_id=" + player.id, { credentials: "same-origin" })
-            .then(function(r) { return r.json(); })
-            .then(function(d) { if (d.success) setPresence(d); })
-            .catch(function() {});
-    }, [player.id]);
-    var matchPct = presence && presence.match_total > 0 ? Math.round((presence.match_present / presence.match_total) * 100) : null;
-    var trainPct = presence && presence.training_sessions > 0 ? Math.round((presence.training_present / presence.training_sessions) * 100) : null;
-    var hasPresence = (matchPct !== null || trainPct !== null);
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour"),
         React.createElement("div", { className: "detail-header" },
@@ -5546,22 +6057,6 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
             React.createElement("div", { className: "detail-stat-box" },
                 React.createElement("div", { className: "detail-stat-val" }, stats.totalFautes),
                 React.createElement("div", { className: "detail-stat-label" }, "Fautes"))),
-        hasPresence && React.createElement(React.Fragment, null,
-            React.createElement("div", { className: "section-title" }, "\uD83D\uDCCA Pr\u00E9sence match / entra\u00EEnement"),
-            React.createElement("div", { className: "card", style: { padding: 20, marginBottom: 24 } },
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
-                    matchPct !== null && React.createElement("div", null,
-                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, fontWeight: 600 } },
-                            React.createElement("span", null, "\uD83C\uDFC0 Matchs (convocations)"),
-                            React.createElement("span", { style: { color: "var(--green-700)" } }, matchPct + "%")),
-                        React.createElement("div", { style: { height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 10, overflow: "hidden" } },
-                            React.createElement("div", { style: { width: matchPct + "%", height: "100%", background: "linear-gradient(90deg, var(--green-500), var(--green-700))", borderRadius: 10, transition: "width 0.4s ease" } }))),
-                    trainPct !== null && React.createElement("div", null,
-                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, fontWeight: 600 } },
-                            React.createElement("span", null, "\uD83C\uDFC0 Entra\u00EEnements"),
-                            React.createElement("span", { style: { color: "var(--green-700)" } }, trainPct + "%")),
-                        React.createElement("div", { style: { height: 10, background: "rgba(0,0,0,0.08)", borderRadius: 10, overflow: "hidden" } },
-                            React.createElement("div", { style: { width: trainPct + "%", height: "100%", background: "linear-gradient(90deg, var(--gold), var(--green-700))", borderRadius: 10, transition: "width 0.4s ease" } })))))),
         React.createElement("div", { className: "section-title" }, "Match par match"),
         React.createElement("div", { className: "card", style: { marginBottom: 24, overflow: "auto" } },
             React.createElement("table", { className: "match-hist-table" },
@@ -6322,25 +6817,7 @@ function MediaPage({ user, matches }) {
     );
 }
 
-    // ═══ Blocage accès : redirection vers la page de connexion si non connecté ═══
-    (function initGate() {
-      var root = document.getElementById("root");
-      root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a1f0d;color:#9cb5a4;font-family:Outfit,sans-serif;font-size:14px;">Chargement…</div>';
-      fetch(API_URL + "?action=check_session", { credentials: "same-origin" })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (!d.logged_in) {
-            window.location.href = "gate.html";
-            return;
-          }
-          root.innerHTML = "";
-          ReactDOM.createRoot(root).render(React.createElement(App));
-        })
-        .catch(function() {
-          window.location.href = "gate.html";
-        });
-    })();
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
   </script>
-  <script src="feedback-widget.js"></script>
 </body>
 </html>
