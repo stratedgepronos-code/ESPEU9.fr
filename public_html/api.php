@@ -2748,7 +2748,6 @@ case 'vault_delete':
 
 // ═══ STAGE INSCRIPTION ═══
 case 'stage_list':
-    if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
     try {
         $db = getDB();
         $db->exec("CREATE TABLE IF NOT EXISTS stage_registrations (
@@ -2763,6 +2762,14 @@ case 'stage_list':
             UNIQUE KEY unique_reg (stage_key, user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $sk = trim($_GET['stage_key'] ?? 'stage-printemps-2026');
+        $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
+        $ct->execute([':sk' => $sk]);
+        $count = (int)$ct->fetch()['c'];
+        // Visiteurs non connectés : seulement le nombre (bannière accueil), pas la liste des inscrits
+        if (!isset($_SESSION['user_id'])) {
+            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => null, 'count' => $count]);
+            break;
+        }
         $st = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' ORDER BY registered_at ASC");
         $st->execute([':sk' => $sk]);
         $regs = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -2770,9 +2777,6 @@ case 'stage_list':
         foreach ($regs as $r) {
             if ((int)$r['user_id'] === (int)$_SESSION['user_id']) { $my = $r; break; }
         }
-        $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
-        $ct->execute([':sk' => $sk]);
-        $count = (int)$ct->fetch()['c'];
         echo json_encode(['success' => true, 'registrations' => $regs, 'my_registration' => $my, 'count' => $count]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
