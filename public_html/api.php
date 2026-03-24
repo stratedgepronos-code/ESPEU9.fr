@@ -99,6 +99,16 @@ function buildUserResponse($user) {
     ];
 }
 
+/** Ajoute coach_preview_parent (aperçu site « comme un parent », session coach uniquement). */
+function appendCoachPreviewToUser(array $u) {
+    if (($u['role'] ?? '') === 'coach') {
+        $u['coach_preview_parent'] = !empty($_SESSION['coach_preview_parent']);
+    } else {
+        $u['coach_preview_parent'] = false;
+    }
+    return $u;
+}
+
 /*
  * ═══ CONFIGURATION EMAIL (définie dans config.php) ═══
  */
@@ -440,7 +450,7 @@ case 'login':
             if (($user['role'] ?? '') === 'coach') {
                 setcookie('espeu9_coach', '1', ['path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax', 'expires' => time() + 86400 * 30]);
             }
-            echo json_encode(['success'=>true,'user'=>buildUserResponse($user)]);
+            echo json_encode(['success'=>true,'user'=>appendCoachPreviewToUser(buildUserResponse($user))]);
         } else { recordAttempt($clientIp, 'login'); http_response_code(401); echo json_encode(['error'=>'Identifiant ou mot de passe incorrect']); }
     } catch(Exception $e){http_response_code(500);echo json_encode(['error'=>'Erreur serveur']);}
     break;
@@ -456,12 +466,26 @@ case 'check_session':
         if (($_SESSION['role'] ?? '') === 'coach') {
             setcookie('espeu9_coach', '1', ['path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax', 'expires' => time() + 86400 * 30]);
         }
-        echo json_encode(['logged_in'=>true,'user'=>[
+        $sessUser = [
             'id'=>(int)$_SESSION['user_id'],'username'=>$_SESSION['username'],'role'=>$_SESSION['role'],
             'display_name'=>$_SESSION['display_name'],'email'=>$_SESSION['email']??null,
             'player_id'=>$_SESSION['player_id']?(int)$_SESSION['player_id']:null,'parent_type'=>$_SESSION['parent_type']??null
-        ]]);
+        ];
+        echo json_encode(['logged_in'=>true,'user'=>appendCoachPreviewToUser($sessUser)]);
     } else { echo json_encode(['logged_in'=>false]); }
+    break;
+
+case 'set_coach_view_mode':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé au coach']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $preview = !empty($in['preview_parent']);
+    if ($preview) {
+        $_SESSION['coach_preview_parent'] = true;
+    } else {
+        unset($_SESSION['coach_preview_parent']);
+    }
+    echo json_encode(['success' => true, 'coach_preview_parent' => $preview]);
     break;
 
 case 'save_note':
@@ -2781,11 +2805,19 @@ case 'stage_list':
             echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => null, 'count' => $count, 'max_places' => $maxPlaces]);
             break;
         }
+        $sid = (int)$_SESSION['user_id'];
+        // Coach en « aperçu parent » : même visibilité qu'un parent (pas de liste complète).
+        if (($role === 'coach') && !empty($_SESSION['coach_preview_parent'])) {
+            $stMy = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' AND user_id = :uid LIMIT 1");
+            $stMy->execute([':sk' => $sk, ':uid' => $sid]);
+            $my = $stMy->fetch(PDO::FETCH_ASSOC) ?: null;
+            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => $my, 'count' => $count, 'max_places' => $maxPlaces]);
+            break;
+        }
         $st = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' ORDER BY registered_at ASC");
         $st->execute([':sk' => $sk]);
         $regs = $st->fetchAll(PDO::FETCH_ASSOC);
         $my = null;
-        $sid = (int)$_SESSION['user_id'];
         foreach ($regs as $r) {
             if ($r['user_id'] !== null && (int)$r['user_id'] === $sid) { $my = $r; break; }
         }
@@ -2796,7 +2828,7 @@ case 'stage_list':
 case 'stage_register':
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
     if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
-    if ($role === 'coach') { http_response_code(403); echo json_encode(['error' => 'Les coachs gèrent les inscriptions depuis l’onglet Stage (admin).']); break; }
+    if ($role === 'coach' && empty($_SESSION['coach_preview_parent'])) { http_response_code(403); echo json_encode(['error' => 'Les coachs gèrent les inscriptions depuis l’onglet Stage (admin).']); break; }
     $in = json_decode(file_get_contents('php://input'), true) ?: [];
     $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
     $playerName = trim($in['player_name'] ?? '');
@@ -2859,7 +2891,8 @@ case 'stage_unregister':
     $in = json_decode(file_get_contents('php://input'), true) ?: [];
     $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
     $targetUserId = isset($in['user_id']) ? (int)$in['user_id'] : (int)$_SESSION['user_id'];
-    if ($role !== 'coach' && $targetUserId !== (int)$_SESSION['user_id']) { http_response_code(403); echo json_encode(['error' => 'Non autorisé']); break; }
+    $coachFull = ($role === 'coach' && empty($_SESSION['coach_preview_parent']));
+    if (!$coachFull && $targetUserId !== (int)$_SESSION['user_id']) { http_response_code(403); echo json_encode(['error' => 'Non autorisé']); break; }
     try {
         $db = getDB();
         $st = $db->prepare("UPDATE stage_registrations SET status = 'cancelled' WHERE stage_key = :sk AND user_id = :uid");

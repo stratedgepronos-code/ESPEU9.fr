@@ -33,6 +33,10 @@ const COACH = "Alexandre GARRIDO";
 // Coach PIN removed for security — authentication handled server-side
 // ── URL de l'API backend (à modifier si ton dossier est différent) ──
 const API_URL = "api.php";
+/** Coach avec droits complets (pas le mode aper\u00e7u \u00ab comme un parent \u00bb). */
+function hasCoachPrivileges(user) {
+    return !!(user && user.role === "coach" && !user.coach_preview_parent);
+}
 const VAPID_PUBLIC_KEY = "BKux74q_3ayYXtGDcNlZUN0qwZMkcPX93qxNY9hpngeH2Mpk-oLytRRfzIfyy2V8TM1cmc9CyrqNmGrtgvHtVuA";
 
 // ═══ PUSH NOTIFICATIONS ═══
@@ -1842,6 +1846,36 @@ body {
   background: #d4d4d4;
   color: #333;
 }
+.nav-view-arrow {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(26, 107, 46, 0.12);
+  color: var(--green-800);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+}
+.nav-view-arrow:hover {
+  background: rgba(26, 107, 46, 0.22);
+  transform: scale(1.08);
+}
+.nav-view-arrow-on {
+  background: linear-gradient(135deg, rgba(232, 185, 48, 0.35), rgba(26, 107, 46, 0.25));
+  box-shadow: 0 0 0 2px rgba(232, 185, 48, 0.5);
+  color: var(--green-900);
+  font-weight: 800;
+}
+@media (max-width: 900px) {
+  .nav-view-arrow { width: 24px; height: 24px; font-size: 10px; }
+}
 
 /* MATCH TEAM LOGOS */
 .match-team-logo {
@@ -3378,7 +3412,7 @@ function AccountPage({ user, coachNotes, onPlayerClick, matches }) {
     }, [player && player.id]);
     useEffect(function() { window.scrollTo(0, 0); }, []);
     // Coach account
-    if (user.role === "coach") {
+    if (hasCoachPrivileges(user)) {
         return React.createElement("div", { style: cardStyle },
             React.createElement("div", { className: "section-title" }, "\uD83D\uDC64 Mon compte"),
             React.createElement("div", { className: "card", style: { padding: 24, marginBottom: 24 } },
@@ -3730,7 +3764,7 @@ function MessagingPage({ user }) {
                 React.createElement("label", { style: { display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 } }, "Destinataire"),
                 React.createElement("select", { value: compTo, onChange: e=>setCompTo(e.target.value), style: { width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 15, boxSizing: "border-box" } },
                     React.createElement("option", { value: "" }, "-- Choisir --"),
-                    user.role === "coach" && React.createElement("optgroup", { label: "\uD83C\uDFC0 Envoyer au parent de..." },
+                    hasCoachPrivileges(user) && React.createElement("optgroup", { label: "\uD83C\uDFC0 Envoyer au parent de..." },
                         PLAYERS.map(p => React.createElement("option", { key: "p"+p.id, value: "player_"+p.id }, "#"+p.num+" "+p.firstName+" "+p.lastName))),
                     users.length > 0 && React.createElement("optgroup", { label: "\uD83D\uDC64 Utilisateurs inscrits" },
                         users.map(u => React.createElement("option", { key: "u"+u.id, value: "user_"+u.id }, u.display_name + (u.role === "coach" ? " (Coach)" : "")))),
@@ -3938,7 +3972,7 @@ function MatchExtrasPanel({ matchId, isCoach, initialDate, initialHeure, initial
 }
 // ── Convocation Panel (in UpcomingDetail) ──
 function ConvocationPanel({ upcoming, user }) {
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
     const [convocations, setConvocations] = useState({});
     const [gouterPlayer, setGouterPlayer] = useState("");
     const [lavagePlayer, setLavagePlayer] = useState("");
@@ -4351,7 +4385,7 @@ function MatchChatPanel({ matchId, user }) {
     const [expanded, setExpanded] = useState(true);
     const chatEndRef = useRef(null);
     const prevCountRef = useRef(-1);
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
 
     const load = () => {
         fetch(API_URL + "?action=get_match_chat&match_id=" + matchId, { credentials: "same-origin" })
@@ -4807,7 +4841,7 @@ function QuickConvocationResponse({ matchId, user }) {
 function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const u = upcoming;
     const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
-    const isCoach = !!(user && user.role === "coach");
+    const isCoach = hasCoachPrivileges(user);
     const isHome = u.domExt === "dom";
     const [extras, setExtras] = useState({ date: u.date || "", heure: u.heure || "", gymnase: u.gymnase || "", heure_rdv: u.heureRdv || "" });
     useEffect(function() {
@@ -4926,7 +4960,7 @@ function StagePage({ user }) {
     const [formFirst, setFormFirst] = useState("");
     const [formLast, setFormLast] = useState("");
     const [formCat, setFormCat] = useState("U9");
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
 
     const loadRegs = function() {
         fetch(API_URL + "?action=stage_list&stage_key=" + encodeURIComponent(STAGE_KEY), { credentials: "same-origin" })
@@ -5443,17 +5477,27 @@ function App() {
     useEffect(() => {
         fetch(API_URL + "?action=check_session", { credentials: "same-origin" })
             .then(r => r.json())
-            .then(data => { if (data.logged_in) { setUser(data.user); if (data.user.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } setAuthLoading(false); })
+            .then(data => {
+                if (data.logged_in && data.user) {
+                    if (data.user.role === "coach" && data.user.coach_preview_parent === undefined) data.user.coach_preview_parent = false;
+                    setUser(data.user);
+                    if (data.user.role === "coach") {
+                        fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {});
+                    }
+                }
+                setAuthLoading(false);
+            })
             .catch(() => setAuthLoading(false));
         // Register service worker for push notifications
         registerServiceWorker();
     }, []);
-    const coachUnlocked = !!(user && user.role === "coach");
+    const coachUnlocked = hasCoachPrivileges(user);
     // ── Demande automatique des notifications push (parent, non abonn\u00E9)
     const [showPushPrompt, setShowPushPrompt] = useState(false);
     const [pushPromptLoading, setPushPromptLoading] = useState(false);
     useEffect(() => {
-        if (!user || user.role !== "parent") return;
+        const actAsParent = user && (user.role === "parent" || (user.role === "coach" && user.coach_preview_parent));
+        if (!actAsParent) return;
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
         if ("Notification" in window && Notification.permission === "denied") return;
         var dismissed = 0;
@@ -5489,6 +5533,15 @@ function App() {
     const [matchNotes, setMatchNotes] = useState({});
     const [notesLoaded, setNotesLoaded] = useState(false);
     useEffect(() => {
+        if (!user) {
+            setNotesLoaded(true);
+            return;
+        }
+        if (!hasCoachPrivileges(user)) {
+            setNotesLoaded(true);
+            return;
+        }
+        setNotesLoaded(false);
         fetch(API_URL + "?action=get_all")
             .then(r => r.json())
             .then(data => {
@@ -5501,7 +5554,7 @@ function App() {
                 setNotesLoaded(true);
             })
             .catch(() => { setNotesLoaded(true); });
-    }, []);
+    }, [user]);
     // ── NAVIGATION HELPERS ──
     const goPlayer = (p) => { setSelectedPlayer(p); setSelectedMatch(null); setTab("joueurs"); navigateTo("joueurs", p.id); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     const goMatch = (m) => { setSelectedMatch(m); setSelectedPlayer(null); setSelectedUpcoming(null); setTab("matchs"); navigateTo("matchs", m.id); window.scrollTo(0, 0); setMobileMenuOpen(false); };
@@ -5510,6 +5563,23 @@ function App() {
     const goBack = () => { setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo(tab); window.scrollTo(0, 0); setExtrasRefresh(function(r){ return r + 1; }); };
     const switchTab = (t) => { setTab(t); setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo(t); window.scrollTo(0, 0); setMobileMenuOpen(false); };
     const goHome = () => { setTab("accueil"); setSelectedPlayer(null); setSelectedMatch(null); setSelectedUpcoming(null); navigateTo("accueil"); window.scrollTo(0, 0); setMobileMenuOpen(false); };
+    const setCoachViewMode = function(previewParent) {
+        if (!user || user.role !== "coach") return;
+        fetch(API_URL + "?action=set_coach_view_mode", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ preview_parent: !!previewParent })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) {
+                setUser(function(prev) {
+                    if (!prev) return prev;
+                    return Object.assign({}, prev, { coach_preview_parent: !!d.coach_preview_parent });
+                });
+                if (previewParent && tab === "coffre") switchTab("accueil");
+            }
+        }).catch(function() {});
+    };
     return (React.createElement(React.Fragment, null,
         React.createElement("style", null, CSS),
         React.createElement("div", { className: "app" },
@@ -5530,14 +5600,21 @@ function App() {
                         React.createElement("a", { href: "tchat.html", className: "nav-btn", style: { textDecoration: "none" } }, "\uD83D\uDCAC Tchat"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "stage" ? "active" : ""}`, onClick: () => switchTab("stage") }, "\uD83C\uDFC0 Stage"),
-                        user && user.role === "coach" && React.createElement("a", { href: "admin.html", className: "nav-btn", style: { textDecoration: "none", color: "var(--gold)" } }, "\u2699\uFE0F Admin"),
-                        user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
-                            user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
-                                React.createElement("img", { src: PLAYER_PHOTOS[PLAYERS.find(p => p.id === user.player_id).photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-light)" } }) :
-                                React.createElement("div", { style: { position: "relative" } },
-                                    React.createElement("img", { src: COACH_PHOTO, alt: "Coach", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid #f59e0b", boxShadow: "0 0 6px rgba(245,158,11,0.3)" } }),
-                                    React.createElement("span", { style: { position: "absolute", top: -4, left: -4, transform: "rotate(-25deg)", fontSize: 10, lineHeight: 1, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))", zIndex: 1 } }, "\uD83D\uDC51")),
-                            React.createElement("span", { className: "nav-auth-name" }, user.player_id && PLAYERS.find(p => p.id === user.player_id) ? PLAYERS.find(p => p.id === user.player_id).firstName : user.display_name),
+                        user && hasCoachPrivileges(user) && React.createElement("a", { href: "admin.html", className: "nav-btn", style: { textDecoration: "none", color: "var(--gold)" } }, "\u2699\uFE0F Admin"),
+                        user ? React.createElement("div", { className: "nav-auth", style: { cursor: "default" } },
+                            user.role === "coach" ? React.createElement(React.Fragment, null,
+                                React.createElement("button", { type: "button", className: "nav-view-arrow" + (user.coach_preview_parent ? " nav-view-arrow-on" : ""), title: "Voir le site comme un parent (aper\u00e7u)", "aria-label": "Aper\u00e7u parent", onClick: function(e) { e.stopPropagation(); setCoachViewMode(true); } }, "\u25C0"),
+                                React.createElement("div", { onClick: function() { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer", position: "relative", flexShrink: 0 } },
+                                    React.createElement("img", { src: COACH_PHOTO, alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: user.coach_preview_parent ? "2px solid var(--green-700)" : "2px solid #f59e0b", boxShadow: user.coach_preview_parent ? "none" : "0 0 6px rgba(245,158,11,0.3)" } }),
+                                    hasCoachPrivileges(user) && React.createElement("span", { style: { position: "absolute", top: -4, left: -4, transform: "rotate(-25deg)", fontSize: 10, lineHeight: 1, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))", zIndex: 1 } }, "\uD83D\uDC51")),
+                                React.createElement("button", { type: "button", className: "nav-view-arrow" + (!user.coach_preview_parent ? " nav-view-arrow-on" : ""), title: "Vue coach (droits complets)", "aria-label": "Vue coach", onClick: function(e) { e.stopPropagation(); setCoachViewMode(false); } }, "\u25B6"))
+                            : (user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
+                                React.createElement("div", { onClick: function() { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer", flexShrink: 0 } },
+                                    React.createElement("img", { src: PLAYER_PHOTOS[PLAYERS.find(p => p.id === user.player_id).photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-light)" } }))
+                                : React.createElement("div", { onClick: function() { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer", position: "relative", flexShrink: 0 } },
+                                    React.createElement("img", { src: COACH_PHOTO, alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid #f59e0b", boxShadow: "0 0 6px rgba(245,158,11,0.3)" } }),
+                                    React.createElement("span", { style: { position: "absolute", top: -4, left: -4, transform: "rotate(-25deg)", fontSize: 10, lineHeight: 1, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))", zIndex: 1 } }, "\uD83D\uDC51"))),
+                            React.createElement("span", { className: "nav-auth-name", onClick: function() { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } }, user.player_id && PLAYERS.find(p => p.id === user.player_id) ? PLAYERS.find(p => p.id === user.player_id).firstName : user.display_name),
                             React.createElement("div", { onClick: (e) => { e.stopPropagation(); switchTab("messagerie"); }, style: { position: "relative", cursor: "pointer", padding: "4px 6px" }, title: "Messagerie" },
                                 unreadCount > 0
                                 ? React.createElement("svg", { width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" },
@@ -5573,11 +5650,14 @@ function App() {
                                 user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
                                     React.createElement("img", { src: PLAYER_PHOTOS[PLAYERS.find(p => p.id === user.player_id).photoKey], alt: "" }) :
                                     React.createElement("div", { className: "coach-avatar-wrap", style: { position: "relative" } },
-                                        React.createElement("img", { src: COACH_PHOTO, alt: "Coach" }),
-                                        React.createElement("span", { style: { position: "absolute", top: -5, left: -5, transform: "rotate(-25deg)", fontSize: 14, lineHeight: 1, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))", zIndex: 1 } }, "\uD83D\uDC51")),
+                                        React.createElement("img", { src: COACH_PHOTO, alt: "Coach", style: user.role === "coach" && user.coach_preview_parent ? { border: "2px solid var(--green-700)", borderRadius: "50%" } : {} }),
+                                        user.role === "coach" && !user.coach_preview_parent && React.createElement("span", { style: { position: "absolute", top: -5, left: -5, transform: "rotate(-25deg)", fontSize: 14, lineHeight: 1, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))", zIndex: 1 } }, "\uD83D\uDC51")),
                                 React.createElement("div", null,
                                     React.createElement("div", { className: "mob-user-name" }, user.display_name),
-                                    React.createElement("div", { className: "mob-user-role" }, user.role === "coach" ? "Coach \uD83D\uDC51" : "Parent")))
+                                    React.createElement("div", { className: "mob-user-role" }, user.role === "coach" ? (user.coach_preview_parent ? "Aper\u00e7u parent \uD83D\uDC40" : "Coach \uD83D\uDC51") : "Parent"),
+                                    user.role === "coach" && React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10, justifyContent: "center", flexWrap: "wrap" } },
+                                        React.createElement("button", { type: "button", className: "nav-view-arrow" + (user.coach_preview_parent ? " nav-view-arrow-on" : ""), style: { minWidth: 44, minHeight: 44 }, onClick: function() { setCoachViewMode(true); setMobileMenuOpen(false); } }, "\u25C0 Parent"),
+                                        React.createElement("button", { type: "button", className: "nav-view-arrow" + (!user.coach_preview_parent ? " nav-view-arrow-on" : ""), style: { minWidth: 44, minHeight: 44 }, onClick: function() { setCoachViewMode(false); setMobileMenuOpen(false); } }, "Coach \u25B6"))))
                             : null,
                             // Navigation
                             React.createElement("div", { className: "mob-section" },
@@ -5612,7 +5692,7 @@ function App() {
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCF7"), "M\u00E9dias"),
                                 React.createElement("button", { className: "mob-btn" + (tab === "stage" ? " active" : ""), onClick: () => switchTab("stage") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Stage printemps"),
-                                user.role === "coach" && React.createElement("a", { href: "admin.html", className: "mob-btn", style: { textDecoration: "none", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", fontFamily: "inherit", fontSize: 15, color: "var(--gold)", cursor: "pointer", textAlign: "left" }, onClick: () => setMobileMenuOpen(false) },
+                                hasCoachPrivileges(user) && React.createElement("a", { href: "admin.html", className: "mob-btn", style: { textDecoration: "none", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", fontFamily: "inherit", fontSize: 15, color: "var(--gold)", cursor: "pointer", textAlign: "left" }, onClick: () => setMobileMenuOpen(false) },
                                     React.createElement("span", { className: "mob-icon" }, "\u2699\uFE0F"), "Espace Admin"),
                                 React.createElement("hr", { className: "mob-divider" }),
                                 React.createElement("button", { className: "mob-btn", onClick: () => { handleLogout(); setMobileMenuOpen(false); }, style: { color: "var(--red)" } },
@@ -5650,10 +5730,10 @@ function App() {
                 } }),
                 tab === "medias" && React.createElement(MediaPage, { user: user, matches: matches }),
                 tab === "stage" && React.createElement(StagePage, { user: user }),
-                tab === "coffre" && user && user.role === "coach" && React.createElement(VaultPage, { user: user }),
+                tab === "coffre" && user && hasCoachPrivileges(user) && React.createElement(VaultPage, { user: user }),
                 tab === "messagerie" && user && React.createElement(MessagingPage, { user: user }),
-                tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { setUser(u); if (u.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
-                tab === "inscription" && React.createElement(RegisterPage, { onLogin: (u) => { setUser(u); } }),
+                tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { var nu = Object.assign({}, u); if (nu.role === "coach" && nu.coach_preview_parent === undefined) nu.coach_preview_parent = false; setUser(nu); if (nu.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
+                tab === "inscription" && React.createElement(RegisterPage, { onLogin: (u) => { var ru = Object.assign({}, u); if (ru.role === "coach" && ru.coach_preview_parent === undefined) ru.coach_preview_parent = false; setUser(ru); } }),
                 tab === "mdp-oublie" && React.createElement(ForgotPasswordPage),
                 tab === "reset" && resetToken && React.createElement(ResetPasswordPage, { token: resetToken }),
                 tab === "compte" && user && React.createElement(AccountPage, { user: user, coachNotes: coachNotes, onPlayerClick: goPlayer, matches: matches }),
@@ -5940,7 +6020,7 @@ function NewsSection({ user }) {
     const [newsImage, setNewsImage] = useState(null);
     const [newsImagePreview, setNewsImagePreview] = useState(null);
     const newsFileRef = useRef(null);
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
 
     useEffect(() => {
         fetch(API_URL + "?action=get_news", { credentials: "same-origin" }).then(r => r.json()).then(d => {
@@ -6127,7 +6207,7 @@ function LostObjectsPanel({ user }) {
     const [desc, setDesc] = useState("");
     const [showForm, setShowForm] = useState(false);
     const fileRef = useRef(null);
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
 
     useEffect(() => {
         fetch(API_URL + "?action=get_lost_objects", { credentials: "same-origin" })
@@ -6600,7 +6680,7 @@ function PlayerDetail({ player, onBack, coachUnlocked, coachNotes, setCoachNotes
 }
 // MATCHES PAGE
 function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user, customUpcoming, extrasRefresh, reloadCustom, onMatchAdded }) {
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
     const customMatches = customUpcoming || [];
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({ journee: "", date: "", heure: "", heureRdv: "", lieu: "", gymnase: "", domExt: "dom", adversaire: "", logoUrl: "", edit_id: 0 });
@@ -7089,7 +7169,7 @@ function MediaPage({ user, matches }) {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [deleting, setDeleting] = useState(null);
     const fileRef = useRef(null);
-    const isCoach = user && user.role === "coach";
+    const isCoach = hasCoachPrivileges(user);
     // Chat states
     const [chatMsgs, setChatMsgs] = useState([]);
     const [chatInput, setChatInput] = useState("");
