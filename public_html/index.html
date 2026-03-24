@@ -309,6 +309,12 @@ function getMatchSideLogo(short, nom) {
     if (short === "ESPE") return LOGO;
     return getAdvLogo(short) || getAdvLogo(nom);
 }
+/** Ligne classement FFBB = notre club (libellés variables sur le site fédéral). */
+function isEspeStandingsTeam(teamName) {
+    if (!teamName || typeof teamName !== "string") return false;
+    var u = teamName.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return u.indexOf("ESPE") >= 0 && u.indexOf("CHALON") >= 0;
+}
 const CLUB_INFO = {
     adresse: "13, rue René LEMOINE",
     ville: "51000 Châlons en Champagne",
@@ -5786,6 +5792,33 @@ function LostObjectsPanel({ user }) {
 }
 
 function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user, customUpcoming }) {
+    const [standingsRows, setStandingsRows] = useState(STANDINGS);
+    useEffect(function() {
+        function loadFfbbStandings() {
+            fetch(API_URL + "?action=ffbb_standings", { credentials: "same-origin" })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.success || !Array.isArray(data.standings) || data.standings.length === 0) return;
+                    setStandingsRows(data.standings.map(function(row) {
+                        return {
+                            rank: parseInt(row.rank_pos, 10) || 0,
+                            team: row.team_name || "",
+                            pts: parseInt(row.points, 10) || 0,
+                            v: parseInt(row.wins, 10) || 0,
+                            d: parseInt(row.losses, 10) || 0,
+                            isUs: isEspeStandingsTeam(row.team_name || ""),
+                        };
+                    }));
+                })
+                .catch(function() {});
+        }
+        loadFfbbStandings();
+        function onVis() {
+            if (document.visibilityState === "visible") loadFfbbStandings();
+        }
+        document.addEventListener("visibilitychange", onVis);
+        return function() { document.removeEventListener("visibilitychange", onVis); };
+    }, []);
     const totalPts = matches.reduce((a, m) => a + m.espeScore, 0);
     const totalOpp = matches.reduce((a, m) => a + m.advScore, 0);
     const wins = matches.filter((m) => m.win).length;
@@ -5840,7 +5873,7 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                                 React.createElement("th", null, "Pts"),
                                 React.createElement("th", null, "V"),
                                 React.createElement("th", null, "D"))),
-                        React.createElement("tbody", null, STANDINGS.map((s) => (React.createElement("tr", { key: s.rank, className: s.isUs ? "is-us" : "" },
+                        React.createElement("tbody", null, standingsRows.map((s, idx) => (React.createElement("tr", { key: s.rank + "-" + idx + "-" + (s.team || "").slice(0, 12), className: s.isUs ? "is-us" : "" },
                             React.createElement("td", null, s.rank),
                             React.createElement("td", { style: { display: "flex", alignItems: "center", gap: 8 } },
                                 s.isUs ? React.createElement("img", { src: LOGO, alt: "ESPE", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }) : (getAdvLogo(s.team) && React.createElement("img", { src: getAdvLogo(s.team), alt: s.team, style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } })),
