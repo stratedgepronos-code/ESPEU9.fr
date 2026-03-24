@@ -260,6 +260,79 @@ function sendPushToAll($title, $body, $url = '#accueil') {
     } catch (Exception $e) { return 0; }
 }
 
+/** GET HTTP pour scraping FFBB. */
+function espe_ffbb_http_get($url) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 40,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $body = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    return ['body' => ($body === false ? '' : $body), 'code' => $code, 'err' => $err];
+}
+
+/**
+ * URL de la page « classement officiel » (données à jour). Option site_config ffbb_classement_url,
+ * sinon …/equipes/ID/classement à partir de l’URL équipe.
+ */
+function espe_ffbb_resolve_classement_url($db, $ffbbUrl) {
+    try {
+        $st = $db->prepare("SELECT config_value FROM site_config WHERE config_key = 'ffbb_classement_url'");
+        $st->execute();
+        $r = $st->fetch();
+        if ($r && trim($r['config_value']) !== '') {
+            $u = trim($r['config_value']);
+            if (stripos($u, 'competitions.ffbb.com') !== false) {
+                return rtrim($u, '/');
+            }
+        }
+    } catch (Exception $e) {}
+    $ffbbUrl = trim((string)$ffbbUrl);
+    if ($ffbbUrl === '') return $ffbbUrl;
+    if (preg_match('#/classement/?(\?|$)#i', $ffbbUrl)) {
+        return rtrim($ffbbUrl, '/');
+    }
+    if (preg_match('#/equipes/\d+#i', $ffbbUrl) && !preg_match('#/classement\b#i', $ffbbUrl)) {
+        return rtrim(preg_replace('#(/equipes/\d+)(?:/[^?#]*)?(\?[^#]*)?(#.*)?$#i', '$1/classement$2$3', $ffbbUrl), '/');
+    }
+    return $ffbbUrl;
+}
+
+/** Une ligne de classement depuis le JSON Next.js / API embarquée FFBB. */
+function espe_ffbb_json_row_to_standing($row, $index0) {
+    $nom = trim((string)($row['nomEquipe'] ?? $row['equipe'] ?? $row['nomClub'] ?? $row['libelleEquipe'] ?? $row['nom'] ?? $row['libelle'] ?? ''));
+    $pts = (int)($row['points'] ?? $row['pts'] ?? 0);
+    $w = (int)($row['victoires'] ?? $row['wins'] ?? $row['gagnees'] ?? $row['G'] ?? 0);
+    $l = (int)($row['defaites'] ?? $row['losses'] ?? $row['perdues'] ?? $row['P'] ?? 0);
+    $j = (int)($row['matchsJoues'] ?? $row['matchs_joues'] ?? $row['played'] ?? $row['rencontresJouees'] ?? $row['J'] ?? 0);
+    $ren = $row['rencontres'] ?? $row['statsRencontres'] ?? null;
+    if (is_array($ren)) {
+        if ($j === 0) {
+            $j = (int)($ren['jouees'] ?? $ren['joues'] ?? $ren['total'] ?? $ren['J'] ?? 0);
+        }
+        if ($w === 0) {
+            $w = (int)($ren['gagnees'] ?? $ren['gagnees'] ?? $ren['gagne'] ?? $ren['G'] ?? 0);
+        }
+        if ($l === 0) {
+            $l = (int)($ren['perdues'] ?? $ren['perdues'] ?? $ren['perdu'] ?? $ren['P'] ?? 0);
+        }
+    }
+    return [
+        'rank' => (int)($row['rang'] ?? $row['position'] ?? $row['ordre'] ?? ($index0 + 1)),
+        'team' => $nom,
+        'points' => $pts,
+        'wins' => $w,
+        'losses' => $l,
+        'played' => $j,
+    ];
+}
+
 switch ($action) {
 
 // ═══ FAILLE 1 — Données personnelles côté serveur uniquement ═══
@@ -3099,6 +3172,18 @@ case 'ffbb_set_url':
         $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
         $st = $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_url', :v) ON DUPLICATE KEY UPDATE config_value = :v2");
         $st->execute([':v' => $ffbbUrl, ':v2' => $ffbbUrl]);
+        if (array_key_exists('ffbb_classement_url', $in)) {
+            $cl = trim((string)$in['ffbb_classement_url']);
+            if ($cl !== '' && stripos($cl, 'competitions.ffbb.com') === false) {
+                http_response_code(400); echo json_encode(['error' => 'URL page classement FFBB invalide (domaine competitions.ffbb.com requis)']); break;
+            }
+            if ($cl === '') {
+                $db->prepare("DELETE FROM site_config WHERE config_key = 'ffbb_classement_url'")->execute();
+            } else {
+                $stc = $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_classement_url', :v) ON DUPLICATE KEY UPDATE config_value = :v2");
+                $stc->execute([':v' => $cl, ':v2' => $cl]);
+            }
+        }
         echo json_encode(['success' => true]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
@@ -3111,7 +3196,10 @@ case 'ffbb_get_url':
         $st = $db->prepare("SELECT config_value FROM site_config WHERE config_key = 'ffbb_url'");
         $st->execute();
         $r = $st->fetch();
-        echo json_encode(['success' => true, 'ffbb_url' => $r ? $r['config_value'] : '']);
+        $stc = $db->prepare("SELECT config_value FROM site_config WHERE config_key = 'ffbb_classement_url'");
+        $stc->execute();
+        $rc = $stc->fetch();
+        echo json_encode(['success' => true, 'ffbb_url' => $r ? $r['config_value'] : '', 'ffbb_classement_url' => $rc ? $rc['config_value'] : '']);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
@@ -3126,31 +3214,30 @@ case 'ffbb_sync':
         $ffbbUrl = $r ? $r['config_value'] : '';
         if (!$ffbbUrl) { http_response_code(400); echo json_encode(['error' => 'URL FFBB non configurée']); break; }
 
-        $ch = curl_init($ffbbUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            CURLOPT_SSL_VERIFYPEER => true,
-        ]);
-        $html = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
-        curl_close($ch);
-
-        if ($curlErr || $httpCode !== 200) {
+        $mainRes = espe_ffbb_http_get($ffbbUrl);
+        if ($mainRes['err'] || $mainRes['code'] !== 200) {
             http_response_code(502);
-            echo json_encode(['error' => 'Impossible de contacter la FFBB: ' . ($curlErr ?: "HTTP $httpCode")]);
+            echo json_encode(['error' => 'Impossible de contacter la FFBB: ' . ($mainRes['err'] ?: 'HTTP ' . $mainRes['code'])]);
             break;
         }
+        $html = $mainRes['body'];
 
         /** Par défaut : classement seulement (évite doublons match_results / IDs FFBB ≠ IDs locaux). Import matchs : &full_sync=1 */
         $fullSync = (isset($_GET['full_sync']) && $_GET['full_sync'] === '1');
 
+        // Classement officiel = page /classement (pas la page équipe / calendrier : données souvent obsolètes ou différentes)
+        $classementUrl = espe_ffbb_resolve_classement_url($db, $ffbbUrl);
+        $standingsHtml = $html;
+        if (strcasecmp(rtrim($classementUrl, '/'), rtrim($ffbbUrl, '/')) !== 0) {
+            $clRes = espe_ffbb_http_get($classementUrl);
+            if ($clRes['code'] === 200 && strlen($clRes['body']) > 800) {
+                $standingsHtml = $clRes['body'];
+            }
+        }
+
         $standings = [];
         // Parse standings — Méthode 1 : liens avec href equipes
-        if (preg_match_all('/<a[^>]*href="[^"]*equipes\/\d+"[^>]*>\s*(\d)\s*([^<]+?)\s*(\d{1,2})\s*<\/a>/u', $html, $standM, PREG_SET_ORDER)) {
+        if (preg_match_all('/<a[^>]*href="[^"]*equipes\/\d+"[^>]*>\s*(\d+)\s*([^<]+?)\s*(\d{1,3})\s*<\/a>/u', $standingsHtml, $standM, PREG_SET_ORDER)) {
             foreach ($standM as $s) {
                 $team = trim($s[2]);
                 if (preg_match('/^(.+?\s-\s\d)\s*$/u', $team, $fixTeam)) $team = $fixTeam[1];
@@ -3160,23 +3247,17 @@ case 'ffbb_sync':
         // Méthode 2 : Next.js __next_f.push
         if (empty($standings)) {
             $chunks = '';
-            if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $html, $chunkM)) {
+            if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $standingsHtml, $chunkM)) {
                 foreach ($chunkM[1] as $c) $chunks .= stripcslashes($c);
             }
             if (preg_match('/"classement"\s*:\s*\[(\{.+?\})\s*\]/su', $chunks, $cMatch)) {
                 $arr = json_decode('[' . $cMatch[1] . ']', true);
                 if ($arr) foreach ($arr as $i => $row) {
-                    $standings[] = [
-                        'rank' => (int)($row['rang'] ?? ($i + 1)),
-                        'team' => $row['nomEquipe'] ?? $row['equipe'] ?? '',
-                        'points' => (int)($row['points'] ?? 0),
-                        'wins' => (int)($row['victoires'] ?? $row['nombreVictoires'] ?? $row['wins'] ?? 0),
-                        'losses' => (int)($row['defaites'] ?? $row['nombreDefaites'] ?? $row['losses'] ?? 0),
-                        'played' => (int)($row['matchsJoues'] ?? $row['matchs_joues'] ?? $row['played'] ?? 0),
-                    ];
+                    if (!is_array($row)) continue;
+                    $standings[] = espe_ffbb_json_row_to_standing($row, $i);
                 }
             }
-            if (empty($standings) && preg_match_all('/(\d)((?:[A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F} \-\'\.\d]{3,}?))(\d{1,2})(?=[,\]\"\<\n])/u', $chunks, $standC, PREG_SET_ORDER)) {
+            if (empty($standings) && preg_match_all('/(\d+)((?:[A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F} \-\'\.\d]{3,}?))(\d{1,3})(?=[,\]\"\<\n])/u', $chunks, $standC, PREG_SET_ORDER)) {
                 foreach ($standC as $s) {
                     $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
                 }
@@ -3184,7 +3265,7 @@ case 'ffbb_sync':
         }
         // Méthode 3 : fallback regex large
         if (empty($standings)) {
-            if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,2})<\/(?:div|a|span)>/u', $html, $standM, PREG_SET_ORDER)) {
+            if (preg_match_all('/>(\d+)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,3})<\/(?:div|a|span)>/u', $standingsHtml, $standM, PREG_SET_ORDER)) {
                 foreach ($standM as $s) {
                     $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
                 }
@@ -3192,8 +3273,9 @@ case 'ffbb_sync':
         }
 
         if (!$fullSync) {
-            $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+            $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(255), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
             try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch (Exception $e) {}
+            try { $db->exec("ALTER TABLE ffbb_standings MODIFY team_name VARCHAR(255) NOT NULL"); } catch (Exception $e) {}
             if (!empty($standings)) {
                 $db->exec("DELETE FROM ffbb_standings");
                 $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points, played, wins, losses) VALUES (:r,:t,:p,:j,:w,:l)");
@@ -3211,6 +3293,7 @@ case 'ffbb_sync':
             echo json_encode([
                 'success' => true,
                 'standings_only' => true,
+                'classement_source_url' => $classementUrl,
                 'standings' => $standings,
                 'standings_count' => count($standings),
                 'matches_synced' => 0,
@@ -3428,8 +3511,9 @@ case 'ffbb_sync':
         } catch(Exception $e) {}
 
         // Store standings (ne pas vider la table si le parsing a échoué)
-        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(255), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
         try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch(Exception $e) {}
+        try { $db->exec("ALTER TABLE ffbb_standings MODIFY team_name VARCHAR(255) NOT NULL"); } catch(Exception $e) {}
         if (!empty($standings)) {
             $db->exec("DELETE FROM ffbb_standings");
             $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points, played, wins, losses) VALUES (:r,:t,:p,:j,:w,:l)");
@@ -3454,6 +3538,7 @@ case 'ffbb_sync':
 
         echo json_encode([
             'success' => true,
+            'classement_source_url' => $classementUrl,
             'matches_synced' => $synced,
             'matches_total' => count($matches),
             'played_count' => $playedCount,
@@ -3468,8 +3553,9 @@ case 'ffbb_sync':
 case 'ffbb_standings':
     try {
         $db = getDB();
-        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(255), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
         try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch(Exception $e) {}
+        try { $db->exec("ALTER TABLE ffbb_standings MODIFY team_name VARCHAR(255) NOT NULL"); } catch(Exception $e) {}
         $st = $db->query("SELECT rank_pos, team_name, points, played, wins, losses FROM ffbb_standings ORDER BY rank_pos ASC");
         $standings = $st->fetchAll(PDO::FETCH_ASSOC);
         $lastSync = '';
@@ -3647,25 +3733,25 @@ case 'cron_ffbb_sync':
         $ffbbUrl = $r ? $r['config_value'] : '';
         if (!$ffbbUrl) { echo json_encode(['success' => false, 'error' => 'URL FFBB non configurée']); break; }
 
-        $ch = curl_init($ffbbUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30, CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            CURLOPT_SSL_VERIFYPEER => true,
-        ]);
-        $html = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
-        curl_close($ch);
-        if ($curlErr || $httpCode !== 200) { echo json_encode(['success' => false, 'error' => 'FFBB injoignable: ' . ($curlErr ?: "HTTP $httpCode")]); break; }
+        $mainRes = espe_ffbb_http_get($ffbbUrl);
+        if ($mainRes['err'] || $mainRes['code'] !== 200) { echo json_encode(['success' => false, 'error' => 'FFBB injoignable: ' . ($mainRes['err'] ?: 'HTTP ' . $mainRes['code'])]); break; }
+        $html = $mainRes['body'];
+
+        $classementUrl = espe_ffbb_resolve_classement_url($db, $ffbbUrl);
+        $standingsHtml = $html;
+        if (strcasecmp(rtrim($classementUrl, '/'), rtrim($ffbbUrl, '/')) !== 0) {
+            $clRes = espe_ffbb_http_get($classementUrl);
+            if ($clRes['code'] === 200 && strlen($clRes['body']) > 800) {
+                $standingsHtml = $clRes['body'];
+            }
+        }
 
         $standings = [];
 
         // Méthode 1 : regex HTML classique (liens classement avec href equipes)
-        if (preg_match_all('/<a[^>]*href="[^"]*equipes\/\d+"[^>]*>\s*(\d)\s*([^<]+?)\s*(\d{1,2})\s*<\/a>/u', $html, $standM, PREG_SET_ORDER)) {
+        if (preg_match_all('/<a[^>]*href="[^"]*equipes\/\d+"[^>]*>\s*(\d+)\s*([^<]+?)\s*(\d{1,3})\s*<\/a>/u', $standingsHtml, $standM, PREG_SET_ORDER)) {
             foreach ($standM as $s) {
                 $team = trim($s[2]);
-                // Si le nom finit par " - X" suivi du score, on sépare mieux
                 if (preg_match('/^(.+?\s-\s\d)\s*$/u', $team, $fixTeam)) $team = $fixTeam[1];
                 $standings[] = ['rank' => (int)$s[1], 'team' => $team, 'points' => (int)$s[3]];
             }
@@ -3674,25 +3760,17 @@ case 'cron_ffbb_sync':
         // Méthode 2 : parsing Next.js __next_f.push (site FFBB v2)
         if (empty($standings)) {
             $chunks = '';
-            if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $html, $chunkM)) {
+            if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $standingsHtml, $chunkM)) {
                 foreach ($chunkM[1] as $c) $chunks .= stripcslashes($c);
             }
-            // Chercher classement JSON : [{"rang":1,"nomEquipe":"...","points":10}, ...]
             if (preg_match('/"classement"\s*:\s*\[(\{.+?\})\s*\]/su', $chunks, $cMatch)) {
                 $arr = json_decode('[' . $cMatch[1] . ']', true);
                 if ($arr) foreach ($arr as $i => $row) {
-                    $standings[] = [
-                        'rank' => (int)($row['rang'] ?? ($i + 1)),
-                        'team' => $row['nomEquipe'] ?? $row['equipe'] ?? '',
-                        'points' => (int)($row['points'] ?? 0),
-                        'wins' => (int)($row['victoires'] ?? $row['nombreVictoires'] ?? $row['wins'] ?? 0),
-                        'losses' => (int)($row['defaites'] ?? $row['nombreDefaites'] ?? $row['losses'] ?? 0),
-                        'played' => (int)($row['matchsJoues'] ?? $row['matchs_joues'] ?? $row['played'] ?? 0),
-                    ];
+                    if (!is_array($row)) continue;
+                    $standings[] = espe_ffbb_json_row_to_standing($row, $i);
                 }
             }
-            // Alternative : chercher les lignes "rangEquipePoints" dans les chunks
-            if (empty($standings) && preg_match_all('/(\d)((?:[A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F} \-\'\.\d]{3,}?))(\d{1,2})(?=[,\]\"\<\n])/u', $chunks, $standC, PREG_SET_ORDER)) {
+            if (empty($standings) && preg_match_all('/(\d+)((?:[A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F} \-\'\.\d]{3,}?))(\d{1,3})(?=[,\]\"\<\n])/u', $chunks, $standC, PREG_SET_ORDER)) {
                 foreach ($standC as $s) {
                     $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
                 }
@@ -3701,15 +3779,16 @@ case 'cron_ffbb_sync':
 
         // Méthode 3 : fallback regex large
         if (empty($standings)) {
-            if (preg_match_all('/>(\d)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,2})<\/(?:div|a|span)>/u', $html, $standM, PREG_SET_ORDER)) {
+            if (preg_match_all('/>(\d+)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,3})<\/(?:div|a|span)>/u', $standingsHtml, $standM, PREG_SET_ORDER)) {
                 foreach ($standM as $s) {
                     $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
                 }
             }
         }
 
-        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(150), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("CREATE TABLE IF NOT EXISTS ffbb_standings (id INT AUTO_INCREMENT PRIMARY KEY, rank_pos INT, team_name VARCHAR(255), points INT, played INT DEFAULT 0, wins INT DEFAULT 0, losses INT DEFAULT 0, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
         try { $db->exec("ALTER TABLE ffbb_standings ADD COLUMN played INT DEFAULT 0, ADD COLUMN wins INT DEFAULT 0, ADD COLUMN losses INT DEFAULT 0"); } catch(Exception $e) {}
+        try { $db->exec("ALTER TABLE ffbb_standings MODIFY team_name VARCHAR(255) NOT NULL"); } catch (Exception $e) {}
         if (!empty($standings)) {
             $db->exec("DELETE FROM ffbb_standings");
             $stIns = $db->prepare("INSERT INTO ffbb_standings (rank_pos, team_name, points, played, wins, losses) VALUES (:r,:t,:p,:j,:w,:l)");
@@ -3724,7 +3803,7 @@ case 'cron_ffbb_sync':
         }
         $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES ('ffbb_last_sync', :v) ON DUPLICATE KEY UPDATE config_value = :v2")
            ->execute([':v' => date('Y-m-d H:i:s'), ':v2' => date('Y-m-d H:i:s')]);
-        echo json_encode(['success' => true, 'standings_count' => count($standings), 'synced_at' => date('Y-m-d H:i:s'), 'standings_only' => true]);
+        echo json_encode(['success' => true, 'standings_count' => count($standings), 'synced_at' => date('Y-m-d H:i:s'), 'standings_only' => true, 'classement_source_url' => $classementUrl]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur: ' . $e->getMessage()]); }
     break;
 

@@ -1042,6 +1042,7 @@ function PlayersTab({ showToast }) {
 // ═══════════════════════════════════════════
 function FFBBTab({ showToast }) {
   const [url, setUrl] = useState("");
+  const [classementUrl, setClassementUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -1051,7 +1052,13 @@ function FFBBTab({ showToast }) {
   useEffect(function() {
     fetch(API + "?action=ffbb_get_url", { credentials: "same-origin" })
       .then(function(r) { return r.json(); })
-      .then(function(d) { if (d.success && d.ffbb_url) setUrl(d.ffbb_url); setLoading(false); })
+      .then(function(d) {
+        if (d.success) {
+          if (d.ffbb_url) setUrl(d.ffbb_url);
+          if (d.ffbb_classement_url != null) setClassementUrl(d.ffbb_classement_url);
+        }
+        setLoading(false);
+      })
       .catch(function() { setLoading(false); });
     fetch(API + "?action=ffbb_standings", { credentials: "same-origin" })
       .then(function(r) { return r.json(); })
@@ -1061,7 +1068,7 @@ function FFBBTab({ showToast }) {
 
   var handleSaveUrl = function() {
     setSaving(true);
-    fetch(API + "?action=ffbb_set_url", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ffbb_set_url", ffbb_url: url }) })
+    fetch(API + "?action=ffbb_set_url", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ffbb_set_url", ffbb_url: url, ffbb_classement_url: classementUrl }) })
       .then(function(r) { return r.json(); })
       .then(function(d) { setSaving(false); if (d.success) showToast("URL FFBB enregistr\u00E9e"); else showToast(d.error, "error"); })
       .catch(function() { setSaving(false); showToast("Erreur r\u00E9seau", "error"); });
@@ -1105,10 +1112,16 @@ function FFBBTab({ showToast }) {
     h("div", { className: "section-title" }, "\uD83D\uDD04 SYNCHRONISATION FFBB"),
     h("div", { className: "card" },
       h("h3", { style: { fontSize: 16, fontWeight: 700, marginBottom: 12 } }, "\uD83C\uDF10 URL du championnat FFBB"),
-      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "Collez ici le lien de votre \u00E9quipe sur competitions.ffbb.com. La synchro par d\u00e9faut ne met \u00e0 jour que le classement (pas de recr\u00e9ation des matchs)."),
-      h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
-        h("input", { className: "form-input", style: { flex: 1, minWidth: 250 }, value: url, onChange: function(e) { setUrl(e.target.value); }, placeholder: "https://competitions.ffbb.com/ligues/..." }),
-        h("button", { className: "btn btn-primary", onClick: handleSaveUrl, disabled: saving }, saving ? "..." : "\uD83D\uDCBE Enregistrer")),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "Collez ici le lien de votre \u00E9quipe sur competitions.ffbb.com. La synchro lit le classement sur la page officielle /classement (d\u00E9duite de l\u2019URL \u00E9quipe si besoin). Optionnel : URL exacte du classement si la d\u00E9duction \u00E9choue."),
+      h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+        h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" } },
+          h("label", { style: { fontSize: 12, fontWeight: 600, minWidth: 120 } }, "\u00C9quipe / calendrier"),
+          h("input", { className: "form-input", style: { flex: 1, minWidth: 250 }, value: url, onChange: function(e) { setUrl(e.target.value); }, placeholder: "https://competitions.ffbb.com/ligues/.../equipes/..." })),
+        h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" } },
+          h("label", { style: { fontSize: 12, fontWeight: 600, minWidth: 120 } }, "Page classement (opt.)"),
+          h("input", { className: "form-input", style: { flex: 1, minWidth: 250 }, value: classementUrl, onChange: function(e) { setClassementUrl(e.target.value); }, placeholder: ".../equipes/XXXX/classement (laisser vide = auto)" })),
+        h("div", null,
+          h("button", { className: "btn btn-primary", onClick: handleSaveUrl, disabled: saving }, saving ? "..." : "\uD83D\uDCBE Enregistrer les URLs"))),
       lastSync && h("div", { style: { marginTop: 10, fontSize: 12, color: "var(--text-dim)" } }, "\u23F0 Derni\u00E8re synchronisation : ", lastSync)),
     h("div", { className: "card", style: { marginTop: 16 } },
       h("h3", { style: { fontSize: 16, fontWeight: 700, marginBottom: 12 } }, "\u26A1 Synchroniser maintenant"),
@@ -1123,6 +1136,7 @@ function FFBBTab({ showToast }) {
         syncResult.standings_only
           ? h("div", { style: { fontSize: 13, color: "var(--text-dim)" } }, syncResult.message || ("Classement : " + (syncResult.standings_count || 0) + " \u00e9quipe(s)"))
           : h("div", { style: { fontSize: 13, color: "var(--text-dim)" } }, syncResult.matches_total, " matchs trouv\u00E9s, ", syncResult.matches_synced, " synchronis\u00E9(s)"),
+        syncResult.classement_source_url && h("div", { style: { marginTop: 8, fontSize: 11, color: "var(--text-dim)", wordBreak: "break-all" } }, "Source : ", syncResult.classement_source_url),
         syncResult.standings && syncResult.standings.length > 0 && h("div", { style: { marginTop: 12 } },
           h("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFC6 Classement import\u00E9 :"),
           syncResult.standings.map(function(s, i) {
