@@ -2304,7 +2304,10 @@ body {
   background: radial-gradient(circle, rgba(26,107,46,0.15) 0%, transparent 70%); pointer-events: none;
 }
 .stage-banner-inner { position: relative; z-index: 1; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
-.stage-banner-emoji { font-size: 52px; flex-shrink: 0; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); animation: stageBounce 2s ease-in-out infinite; }
+.stage-banner-logo {
+  width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.35)); animation: stageBounce 2s ease-in-out infinite;
+}
 @keyframes stageBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 .stage-banner-content { flex: 1; min-width: 0; color: #fff; }
 .stage-banner-tag {
@@ -2334,7 +2337,7 @@ body {
 .stage-banner-places.full { background: rgba(220,38,38,0.2); color: #f87171; border-color: rgba(220,38,38,0.3); }
 @media (max-width: 600px) {
   .stage-banner-inner { flex-direction: column; text-align: center; padding: 20px; }
-  .stage-banner-emoji { font-size: 44px; }
+  .stage-banner-logo { width: 48px; height: 48px; }
   .stage-banner-cta { width: 100%; }
   .stage-banner-places { top: 10px; right: 12px; }
 }
@@ -2350,7 +2353,27 @@ body {
   position: absolute; top: -80px; right: -60px; width: 280px; height: 280px;
   background: radial-gradient(circle, rgba(200,168,50,0.12) 0%, transparent 70%); pointer-events: none;
 }
-.stage-hero-emoji { font-size: 52px; margin-bottom: 10px; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); }
+.stage-hero-logo {
+  width: 88px; height: 88px; object-fit: contain; display: block; margin: 0 auto 14px;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
+}
+.stage-stage-form {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.stage-stage-form-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--green-900); margin-bottom: 14px; }
+.stage-form-row { margin-bottom: 12px; }
+.stage-form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; }
+.stage-form-row input, .stage-form-row select {
+  width: 100%; max-width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 15px; font-family: 'Outfit', sans-serif;
+}
+.stage-form-hint { font-size: 12px; color: var(--text-dim); margin-top: 10px; line-height: 1.4; }
+.stage-coach-admin-hint {
+  padding: 14px 18px; background: rgba(232,185,48,0.08); border: 1px solid rgba(232,185,48,0.2);
+  border-radius: 12px; font-size: 13px; color: var(--text-dim); margin-bottom: 16px;
+}
+.stage-coach-admin-hint a { color: var(--green-700); font-weight: 600; }
 .stage-hero-badge {
   display: inline-block; padding: 4px 14px; background: rgba(200,168,50,0.15);
   border: 1px solid rgba(200,168,50,0.25); border-radius: 100px;
@@ -4859,14 +4882,19 @@ async function vaultDecrypt(buf, pwd) {
 // ═══ STAGE BANNER (accueil) ═══
 function StageBanner() {
     const [count, setCount] = useState(0);
-    const MAX = 25;
+    const [maxPlaces, setMaxPlaces] = useState(25);
     useEffect(function() {
         fetch(API_URL + "?action=stage_list&stage_key=stage-printemps-2026", { credentials: "same-origin" })
             .then(function(r) { return r.json(); })
-            .then(function(d) { if (d.success) setCount(d.count || 0); })
+            .then(function(d) {
+                if (d.success) {
+                    setCount(d.count || 0);
+                    if (d.max_places != null) setMaxPlaces(d.max_places);
+                }
+            })
             .catch(function() {});
     }, []);
-    const remaining = MAX - count;
+    const remaining = maxPlaces - count;
     const isFull = remaining <= 0;
     const isFew = remaining > 0 && remaining <= 8;
     const el = React.createElement;
@@ -4877,7 +4905,7 @@ function StageBanner() {
         el("span", { className: "stage-banner-places" + (isFull ? " full" : isFew ? " few" : "") },
             isFull ? "\uD83D\uDEAB Complet" : remaining + " place" + (remaining > 1 ? "s" : "") + " restante" + (remaining > 1 ? "s" : "")),
         el("div", { className: "stage-banner-inner" },
-            el("div", { className: "stage-banner-emoji" }, "\uD83C\uDFC0"),
+            el("img", { src: LOGO, alt: "ESPE", className: "stage-banner-logo" }),
             el("div", { className: "stage-banner-content" },
                 el("div", { className: "stage-banner-tag" }, "Vacances de Printemps"),
                 el("div", { className: "stage-banner-title" }, "STAGE DE PERFECTIONNEMENT"),
@@ -4889,12 +4917,15 @@ function StageBanner() {
 // ═══ STAGE INSCRIPTION ═══
 function StagePage({ user }) {
     const STAGE_KEY = "stage-printemps-2026";
-    const MAX_PLACES = 25;
     const [regs, setRegs] = useState([]);
-    const [myReg, setMyReg] = useState(false);
+    const [myRegRow, setMyRegRow] = useState(null);
     const [count, setCount] = useState(0);
+    const [maxPlaces, setMaxPlaces] = useState(25);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [formFirst, setFormFirst] = useState("");
+    const [formLast, setFormLast] = useState("");
+    const [formCat, setFormCat] = useState("U9");
     const isCoach = user && user.role === "coach";
 
     const loadRegs = function() {
@@ -4903,41 +4934,70 @@ function StagePage({ user }) {
             .then(function(d) {
                 if (d.success) {
                     setRegs(d.registrations || []);
-                    setMyReg(!!d.my_registration);
+                    setMyRegRow(d.my_registration || null);
                     setCount(d.count || 0);
+                    if (d.max_places != null) setMaxPlaces(d.max_places);
+                    if (d.my_registration) {
+                        setFormFirst(d.my_registration.player_firstname || "");
+                        setFormLast(d.my_registration.player_name || "");
+                        setFormCat(d.my_registration.player_category || "U9");
+                    } else if (user && user.player_id) {
+                        var pl = PLAYERS.find(function(p) { return p.id === user.player_id; });
+                        if (pl) {
+                            setFormFirst(pl.firstName || "");
+                            setFormLast(pl.lastName || "");
+                        }
+                    }
                 }
                 setLoading(false);
             })
             .catch(function() { setLoading(false); });
     };
-    useEffect(function() { loadRegs(); }, []);
+    var uid = user ? user.id : null;
+    useEffect(function() { loadRegs(); }, [uid]);
 
     const myPlayer = user && user.player_id ? PLAYERS.find(function(p) { return p.id === user.player_id; }) : null;
 
     const handleRegister = function() {
-        if (!myPlayer) { alert("Aucun joueur li\u00E9 \u00E0 ton compte."); return; }
-        if (!confirm(myPlayer.firstName + " " + myPlayer.lastName + " sera inscrit(e) au stage.\nLe paiement de 65 \u20AC sera \u00E0 remettre \u00E0 Alex ou Patrick.\n\nConfirmer ?")) return;
+        if (!user) { navigateTo("connexion"); return; }
+        var fn = (formFirst || "").trim();
+        var ln = (formLast || "").trim();
+        if (!fn || !ln) { alert("Indique le pr\u00E9nom et le nom de l'enfant."); return; }
+        if (!confirm(fn + " " + ln + " sera inscrit(e) au stage.\nLe paiement de 65 \u20AC sera \u00E0 remettre \u00E0 Alex ou Patrick.\n\nConfirmer ?")) return;
         setSending(true);
         fetch(API_URL + "?action=stage_register", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ stage_key: STAGE_KEY, player_name: myPlayer.lastName, player_firstname: myPlayer.firstName, player_category: "U9" })
+            body: JSON.stringify({ stage_key: STAGE_KEY, player_name: ln, player_firstname: fn, player_category: formCat })
         }).then(function(r) { return r.json(); }).then(function(d) {
             setSending(false);
             if (d.success) {
-                alert("\u2705 " + myPlayer.firstName + " est inscrit(e) au stage !\nPensez \u00E0 remettre le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.");
+                alert("\u2705 " + fn + " est inscrit(e) au stage !\nPensez \u00E0 remettre le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.");
                 loadRegs();
             } else alert(d.error || "Erreur");
         }).catch(function() { setSending(false); alert("Erreur r\u00E9seau"); });
     };
 
-    const handleCancel = function(userId) {
+    const handleCancel = function() {
+        if (!user) return;
         if (!confirm("Annuler cette inscription ?")) return;
         fetch(API_URL + "?action=stage_unregister", {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ stage_key: STAGE_KEY, user_id: userId || user.id })
-        }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadRegs(); }).catch(function() {});
+            body: JSON.stringify({ stage_key: STAGE_KEY, user_id: user.id })
+        }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadRegs(); else alert(d.error || "Erreur"); }).catch(function() {});
+    };
+
+    const handleCoachRemove = function(reg) {
+        if (!confirm("Retirer " + reg.player_firstname + " " + reg.player_name + " de la liste ?")) return;
+        fetch(API_URL + "?action=stage_admin_delete", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: reg.id })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) loadRegs();
+            else alert(d.error || "Erreur");
+        }).catch(function() { alert("Erreur r\u00E9seau"); });
     };
 
     const fmtDate = function(d) {
@@ -4945,15 +5005,15 @@ function StagePage({ user }) {
     };
 
     const el = React.createElement;
-    const pct = Math.min(100, (count / MAX_PLACES) * 100);
-    const isFull = count >= MAX_PLACES;
+    const pct = Math.min(100, (count / (maxPlaces || 25)) * 100);
+    const isFull = count >= maxPlaces;
 
     if (loading) return el("div", { className: "stage-wrap", style: { textAlign: "center", padding: "60px 0" } }, "\u23F3 Chargement...");
 
     return el("div", { className: "stage-wrap" },
         el("div", { className: "stage-hero" },
             el("div", { className: "stage-hero-glow" }),
-            el("span", { className: "stage-hero-emoji" }, "\uD83C\uDFC0"),
+            el("img", { src: LOGO, alt: "ESPE", className: "stage-hero-logo" }),
             el("div", { className: "stage-hero-badge" }, "Vacances de Printemps"),
             el("h2", null, "STAGE DE PERFECTIONNEMENT"),
             el("div", { className: "stage-hero-dates" }, "13 \u2192 17 Avril 2026"),
@@ -4994,7 +5054,7 @@ function StagePage({ user }) {
                 el("span", { className: "stage-schedule-tag" }, "\u2728 Surprise"))),
         el("div", { className: "stage-places" + (isFull ? " stage-places-full" : "") },
             el("div", null,
-                el("div", { className: "stage-places-num" }, count + "/" + MAX_PLACES),
+                el("div", { className: "stage-places-num" }, count + "/" + maxPlaces),
                 el("div", { className: "stage-places-label" }, isFull ? "Complet !" : "Places prises")),
             el("div", { className: "stage-places-bar" },
                 el("div", { className: "stage-places-fill", style: { width: pct + "%" } }))),
@@ -5005,26 +5065,53 @@ function StagePage({ user }) {
                 el("strong", null, "Alex ou Patrick"), " lors des entra\u00EEnements ou au plus tard le jour du stage.",
                 el("br", null),
                 el("span", { style: { fontSize: 11, opacity: 0.7 } }, "Coupon-r\u00E9ponse + r\u00E8glement avant le 3 avril."))),
-        !isCoach && (myReg
-            ? el(React.Fragment, null,
-                el("div", { className: "stage-registered-msg" },
-                    el("div", { style: { fontSize: 28, marginBottom: 6 } }, "\u2705"),
-                    el("strong", null, myPlayer ? myPlayer.firstName + " est inscrit(e) !" : "Inscription confirm\u00E9e !"),
-                    el("div", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 4 } }, "N'oubliez pas le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.")),
-                el("button", { className: "stage-cta-cancel", onClick: function() { handleCancel(); } }, "\u274C Annuler l'inscription"))
-            : el("button", { className: "stage-cta", onClick: handleRegister, disabled: sending || isFull },
-                sending ? "\u23F3 Inscription..." : isFull ? "\uD83D\uDEAB Complet \u2014 Plus de place" : "\uD83C\uDFC0 Inscrire " + (myPlayer ? myPlayer.firstName : "mon enfant") + " au stage")),
+        !user && el("div", { className: "stage-stage-form" },
+            el("div", { className: "stage-stage-form-title" }, "Inscription"),
+            el("p", { className: "stage-form-hint" }, "Connecte-toi avec ton compte parent pour renseigner le pr\u00E9nom, le nom et la cat\u00E9gorie de ton enfant, puis valider l'inscription."),
+            el("button", { type: "button", className: "stage-cta", onClick: function() { navigateTo("connexion"); } }, "\uD83D\uDD12 Connexion"),
+            el("div", { className: "stage-form-hint", style: { marginTop: 12 } },
+                "Pas encore de compte ? ",
+                el("a", { href: "#", onClick: function(e) { e.preventDefault(); navigateTo("inscription"); }, style: { color: "var(--green-700)", fontWeight: 600 } }, "Cr\u00E9er un compte"))),
+        user && !isCoach && myRegRow && el(React.Fragment, null,
+            el("div", { className: "stage-registered-msg" },
+                el("div", { style: { fontSize: 28, marginBottom: 6 } }, "\u2705"),
+                el("strong", null, (myRegRow.player_firstname || "Votre enfant") + " est inscrit(e) !"),
+                el("div", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 4 } }, "N'oubliez pas le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.")),
+            el("button", { className: "stage-cta-cancel", onClick: handleCancel }, "\u274C Annuler l'inscription")),
+        user && !isCoach && !myRegRow && el("div", { className: "stage-stage-form" },
+            el("div", { className: "stage-stage-form-title" }, "Inscrire mon enfant"),
+            el("div", { className: "stage-form-row" },
+                el("label", { htmlFor: "stage-fn" }, "Pr\u00E9nom"),
+                el("input", { id: "stage-fn", type: "text", value: formFirst, onChange: function(e) { setFormFirst(e.target.value); }, placeholder: "Pr\u00E9nom", autoComplete: "given-name" })),
+            el("div", { className: "stage-form-row" },
+                el("label", { htmlFor: "stage-ln" }, "Nom"),
+                el("input", { id: "stage-ln", type: "text", value: formLast, onChange: function(e) { setFormLast(e.target.value); }, placeholder: "Nom", autoComplete: "family-name" })),
+            el("div", { className: "stage-form-row" },
+                el("label", { htmlFor: "stage-cat" }, "Cat\u00E9gorie"),
+                el("select", { id: "stage-cat", value: formCat, onChange: function(e) { setFormCat(e.target.value); } },
+                    el("option", { value: "U9" }, "U9"),
+                    el("option", { value: "U11" }, "U11"),
+                    el("option", { value: "U13" }, "U13"))),
+            el("p", { className: "stage-form-hint" },
+                myPlayer ? "Pr\u00E9rempli depuis le joueur li\u00E9 \u00E0 ton compte \u2014 tu peux corriger si besoin." : "Si ton enfant est dans l'\u00E9quipe U9, lie son profil dans Mon compte pour pr\u00E9remplir automatiquement."),
+            el("button", { type: "button", className: "stage-cta", onClick: handleRegister, disabled: sending || isFull },
+                sending ? "\u23F3 Inscription..." : isFull ? "\uD83D\uDEAB Complet \u2014 Plus de place" : "\u270D\uFE0F Valider l'inscription")),
         isCoach && el(React.Fragment, null,
-            el("div", { className: "stage-list-title" }, "\uD83D\uDCCB Inscrits (" + count + "/" + MAX_PLACES + ")"),
+            el("div", { className: "stage-coach-admin-hint" },
+                "Pour ajouter ou retirer des inscrits, ou modifier la capacit\u00E9 max, utilise l'onglet ",
+                el("a", { href: "admin.html" }, "Stage dans l'admin")),
+            el("div", { className: "stage-list-title" }, "\uD83D\uDCCB Inscrits (" + count + "/" + maxPlaces + ")"),
             regs.length === 0
                 ? el("div", { style: { textAlign: "center", color: "var(--text-dim)", padding: 20, fontSize: 14 } }, "Aucune inscription pour le moment")
                 : regs.map(function(r, i) {
                     return el("div", { key: r.id, className: "stage-registrant" },
                         el("div", { className: "stage-registrant-num" }, i + 1),
-                        el("div", { className: "stage-registrant-name" }, r.player_firstname + " " + r.player_name),
+                        el("div", { className: "stage-registrant-name" },
+                            r.player_firstname + " " + r.player_name,
+                            (r.source === "manual" || !r.user_id) ? el("span", { style: { fontSize: 11, color: "var(--text-dim)", marginLeft: 6 } }, "\u00B7 manuel") : null),
                         el("span", { className: "stage-registrant-cat" }, r.player_category),
                         el("span", { className: "stage-registrant-date" }, fmtDate(r.registered_at)),
-                        el("button", { className: "stage-registrant-del", onClick: function() { handleCancel(r.user_id); }, title: "Annuler" }, "\u2716"));
+                        el("button", { type: "button", className: "stage-registrant-del", onClick: function() { handleCoachRemove(r); }, title: "Retirer de la liste" }, "\u2716"));
                 }))
     );
 }
@@ -5562,7 +5649,7 @@ function App() {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success) { setCustomUpcoming(data.matches || []); customUpcomingRef.current = data.matches || []; } }).catch(() => {});
                 } }),
                 tab === "medias" && React.createElement(MediaPage, { user: user, matches: matches }),
-                tab === "stage" && user && React.createElement(StagePage, { user: user }),
+                tab === "stage" && React.createElement(StagePage, { user: user }),
                 tab === "coffre" && user && user.role === "coach" && React.createElement(VaultPage, { user: user }),
                 tab === "messagerie" && user && React.createElement(MessagingPage, { user: user }),
                 tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { setUser(u); if (u.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
@@ -6181,7 +6268,7 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "hero" },
             React.createElement("div", { className: "hero-glow" }),
-            React.createElement("img", { src: LOGO_HERO, alt: "ESPE Basket", className: "hero-logo" }),
+            React.createElement("img", { src: LOGO, alt: "ESPE Basket", className: "hero-logo" }),
             React.createElement("div", { className: "hero-badge" },
                 "Saison ",
                 SEASON),

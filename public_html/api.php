@@ -2750,76 +2750,106 @@ case 'vault_delete':
 case 'stage_list':
     try {
         $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
         $db->exec("CREATE TABLE IF NOT EXISTS stage_registrations (
             id INT AUTO_INCREMENT PRIMARY KEY,
             stage_key VARCHAR(50) NOT NULL,
-            user_id INT NOT NULL,
+            user_id INT NULL,
             player_name VARCHAR(120) NOT NULL,
             player_firstname VARCHAR(120) NOT NULL,
             player_category VARCHAR(20) NOT NULL DEFAULT 'U9',
             status VARCHAR(20) NOT NULL DEFAULT 'registered',
+            source VARCHAR(20) NOT NULL DEFAULT 'online',
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_reg (stage_key, user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try { $db->exec("ALTER TABLE stage_registrations MODIFY user_id INT NULL"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'online'"); } catch (Exception $e) {}
         $sk = trim($_GET['stage_key'] ?? 'stage-printemps-2026');
+        $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $sk);
+        $stMax = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
+        $stMax->execute([':k' => $maxK]);
+        $rowMax = $stMax->fetch();
+        $maxPlaces = 25;
+        if ($rowMax && $rowMax['config_value'] !== '' && is_numeric($rowMax['config_value'])) {
+            $maxPlaces = max(1, min(500, (int)$rowMax['config_value']));
+        }
         $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
         $ct->execute([':sk' => $sk]);
         $count = (int)$ct->fetch()['c'];
-        // Visiteurs non connectés : seulement le nombre (bannière accueil), pas la liste des inscrits
         if (!isset($_SESSION['user_id'])) {
-            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => null, 'count' => $count]);
+            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => null, 'count' => $count, 'max_places' => $maxPlaces]);
             break;
         }
         $st = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' ORDER BY registered_at ASC");
         $st->execute([':sk' => $sk]);
         $regs = $st->fetchAll(PDO::FETCH_ASSOC);
         $my = null;
+        $sid = (int)$_SESSION['user_id'];
         foreach ($regs as $r) {
-            if ((int)$r['user_id'] === (int)$_SESSION['user_id']) { $my = $r; break; }
+            if ($r['user_id'] !== null && (int)$r['user_id'] === $sid) { $my = $r; break; }
         }
-        echo json_encode(['success' => true, 'registrations' => $regs, 'my_registration' => $my, 'count' => $count]);
+        echo json_encode(['success' => true, 'registrations' => $regs, 'my_registration' => $my, 'count' => $count, 'max_places' => $maxPlaces]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
 case 'stage_register':
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
     if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    if ($role === 'coach') { http_response_code(403); echo json_encode(['error' => 'Les coachs gèrent les inscriptions depuis l’onglet Stage (admin).']); break; }
     $in = json_decode(file_get_contents('php://input'), true) ?: [];
     $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
     $playerName = trim($in['player_name'] ?? '');
     $playerFirst = trim($in['player_firstname'] ?? '');
     $playerCat = trim($in['player_category'] ?? 'U9');
-    if ($playerName === '' || $playerFirst === '') { http_response_code(400); echo json_encode(['error' => 'Nom et prénom requis']); break; }
-    if ($role === 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé aux comptes parents']); break; }
+    if (!in_array($playerCat, ['U9', 'U11', 'U13'], true)) $playerCat = 'U9';
+    if ($playerName === '' || $playerFirst === '') { http_response_code(400); echo json_encode(['error' => 'Nom et prénom de l’enfant requis']); break; }
+    if (mb_strlen($playerName) > 120 || mb_strlen($playerFirst) > 120) { http_response_code(400); echo json_encode(['error' => 'Nom ou prénom trop long']); break; }
     try {
         $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
         $db->exec("CREATE TABLE IF NOT EXISTS stage_registrations (
             id INT AUTO_INCREMENT PRIMARY KEY,
             stage_key VARCHAR(50) NOT NULL,
-            user_id INT NOT NULL,
+            user_id INT NULL,
             player_name VARCHAR(120) NOT NULL,
             player_firstname VARCHAR(120) NOT NULL,
             player_category VARCHAR(20) NOT NULL DEFAULT 'U9',
             status VARCHAR(20) NOT NULL DEFAULT 'registered',
+            source VARCHAR(20) NOT NULL DEFAULT 'online',
             registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_reg (stage_key, user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try { $db->exec("ALTER TABLE stage_registrations MODIFY user_id INT NULL"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'online'"); } catch (Exception $e) {}
+        $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $stageKey);
+        $stMax = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
+        $stMax->execute([':k' => $maxK]);
+        $rowMax = $stMax->fetch();
+        $maxPlaces = 25;
+        if ($rowMax && $rowMax['config_value'] !== '' && is_numeric($rowMax['config_value'])) {
+            $maxPlaces = max(1, min(500, (int)$rowMax['config_value']));
+        }
         $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
         $ct->execute([':sk' => $stageKey]);
-        if ((int)$ct->fetch()['c'] >= 25) { echo json_encode(['error' => 'Plus de place disponible']); break; }
-        $st = $db->prepare("INSERT INTO stage_registrations (stage_key, user_id, player_name, player_firstname, player_category) VALUES (:sk, :uid, :pn, :pf, :pc) ON DUPLICATE KEY UPDATE status = 'registered', player_name = :pn2, player_firstname = :pf2, player_category = :pc2, registered_at = NOW()");
-        $st->execute([':sk' => $stageKey, ':uid' => $_SESSION['user_id'], ':pn' => $playerName, ':pf' => $playerFirst, ':pc' => $playerCat, ':pn2' => $playerName, ':pf2' => $playerFirst, ':pc2' => $playerCat]);
+        $cur = (int)$ct->fetch()['c'];
+        $chk = $db->prepare("SELECT id FROM stage_registrations WHERE stage_key = :sk AND user_id = :uid AND status = 'registered'");
+        $chk->execute([':sk' => $stageKey, ':uid' => (int)$_SESSION['user_id']]);
+        $already = $chk->fetch();
+        if (!$already && $cur >= $maxPlaces) { echo json_encode(['error' => 'Plus de place disponible']); break; }
+        $st = $db->prepare("INSERT INTO stage_registrations (stage_key, user_id, player_name, player_firstname, player_category, source) VALUES (:sk, :uid, :pn, :pf, :pc, 'online') ON DUPLICATE KEY UPDATE status = 'registered', player_name = :pn2, player_firstname = :pf2, player_category = :pc2, source = 'online', registered_at = NOW()");
+        $st->execute([':sk' => $stageKey, ':uid' => (int)$_SESSION['user_id'], ':pn' => $playerName, ':pf' => $playerFirst, ':pc' => $playerCat, ':pn2' => $playerName, ':pf2' => $playerFirst, ':pc2' => $playerCat]);
         $ct->execute([':sk' => $stageKey]);
         $newCount = (int)$ct->fetch()['c'];
-        $emailBody = '<div style="font-family:sans-serif;padding:16px;"><h2>Inscription stage</h2><p><strong>' . htmlspecialchars($playerFirst . ' ' . $playerName) . '</strong> (' . htmlspecialchars($playerCat) . ') — ' . $newCount . '/25</p></div>';
-        $coaches = $db->query("SELECT id, email, display_name FROM users WHERE role = 'coach' AND email IS NOT NULL AND email != ''")->fetchAll(PDO::FETCH_ASSOC);
+        $emailBody = '<div style="font-family:sans-serif;padding:16px;"><h2>Inscription stage</h2><p><strong>' . htmlspecialchars($playerFirst . ' ' . $playerName) . '</strong> (' . htmlspecialchars($playerCat) . ') — ' . $newCount . '/' . $maxPlaces . '</p></div>';
+        $coaches = $db->query("SELECT id, email, display_name FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($coaches as $c) {
             if (!empty($c['email'])) {
                 sendEmailNotif($c['email'], '🏀 Stage — Inscription ' . $playerFirst . ' ' . $playerName, $emailBody);
             }
-            sendPushToUser((int)$c['id'], '🏀 Inscription stage', $playerFirst . ' ' . $playerName . ' (' . $playerCat . ') — ' . $newCount . '/25', '#stage');
+            sendPushToUser((int)$c['id'], '🏀 Inscription stage', $playerFirst . ' ' . $playerName . ' (' . $playerCat . ') — ' . $newCount . '/' . $maxPlaces, '#stage');
         }
-        echo json_encode(['success' => true, 'count' => $newCount]);
+        echo json_encode(['success' => true, 'count' => $newCount, 'max_places' => $maxPlaces]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
@@ -2835,6 +2865,80 @@ case 'stage_unregister':
         $st = $db->prepare("UPDATE stage_registrations SET status = 'cancelled' WHERE stage_key = :sk AND user_id = :uid");
         $st->execute([':sk' => $stageKey, ':uid' => $targetUserId]);
         echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'stage_admin_add':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
+    $playerName = trim($in['player_name'] ?? '');
+    $playerFirst = trim($in['player_firstname'] ?? '');
+    $playerCat = trim($in['player_category'] ?? 'U9');
+    if (!in_array($playerCat, ['U9', 'U11', 'U13'], true)) $playerCat = 'U9';
+    if ($playerName === '' || $playerFirst === '') { http_response_code(400); echo json_encode(['error' => 'Nom et prénom requis']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $db->exec("CREATE TABLE IF NOT EXISTS stage_registrations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            stage_key VARCHAR(50) NOT NULL,
+            user_id INT NULL,
+            player_name VARCHAR(120) NOT NULL,
+            player_firstname VARCHAR(120) NOT NULL,
+            player_category VARCHAR(20) NOT NULL DEFAULT 'U9',
+            status VARCHAR(20) NOT NULL DEFAULT 'registered',
+            source VARCHAR(20) NOT NULL DEFAULT 'online',
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_reg (stage_key, user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try { $db->exec("ALTER TABLE stage_registrations MODIFY user_id INT NULL"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'online'"); } catch (Exception $e) {}
+        $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $stageKey);
+        $stMax = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
+        $stMax->execute([':k' => $maxK]);
+        $rowMax = $stMax->fetch();
+        $maxPlaces = 25;
+        if ($rowMax && $rowMax['config_value'] !== '' && is_numeric($rowMax['config_value'])) {
+            $maxPlaces = max(1, min(500, (int)$rowMax['config_value']));
+        }
+        $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
+        $ct->execute([':sk' => $stageKey]);
+        if ((int)$ct->fetch()['c'] >= $maxPlaces) { echo json_encode(['error' => 'Capacité atteinte (' . $maxPlaces . '). Augmente la limite ou retire un inscrit.']); break; }
+        $ins = $db->prepare("INSERT INTO stage_registrations (stage_key, user_id, player_name, player_firstname, player_category, source, status) VALUES (:sk, NULL, :pn, :pf, :pc, 'manual', 'registered')");
+        $ins->execute([':sk' => $stageKey, ':pn' => $playerName, ':pf' => $playerFirst, ':pc' => $playerCat]);
+        echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'stage_admin_delete':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $regId = (int)($in['id'] ?? 0);
+    if ($regId <= 0) { http_response_code(400); echo json_encode(['error' => 'ID invalide']); break; }
+    try {
+        $db = getDB();
+        $db->prepare("DELETE FROM stage_registrations WHERE id = :id")->execute([':id' => $regId]);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'stage_admin_set_max':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
+    $maxPlaces = (int)($in['max_places'] ?? 25);
+    $maxPlaces = max(1, min(500, $maxPlaces));
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $stageKey);
+        $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES (:k, :v) ON DUPLICATE KEY UPDATE config_value = :v2")
+            ->execute([':k' => $maxK, ':v' => (string)$maxPlaces, ':v2' => (string)$maxPlaces]);
+        echo json_encode(['success' => true, 'max_places' => $maxPlaces]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 

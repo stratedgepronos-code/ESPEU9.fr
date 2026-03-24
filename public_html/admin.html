@@ -599,6 +599,7 @@ function App() {
     { id: "dashboard", label: "Tableau de bord", icon: "\uD83D\uDCCA" },
     { id: "matches", label: "Matchs", icon: "\uD83C\uDFC0" },
     { id: "players", label: "Joueurs", icon: "\uD83D\uDC65" },
+    { id: "stage", label: "Stage", icon: "\uD83D\uDCC5" },
     { id: "ffbb", label: "FFBB Sync", icon: "\uD83D\uDD04" },
   ];
 
@@ -618,8 +619,170 @@ function App() {
       tab === "dashboard" && h(DashboardTab, { showToast: showToast }),
       tab === "matches" && h(MatchesTab, { showToast: showToast }),
       tab === "players" && h(PlayersTab, { showToast: showToast }),
+      tab === "stage" && h(StageTab, { showToast: showToast }),
       tab === "ffbb" && h(FFBBTab, { showToast: showToast })),
     toast && h(Toast, { message: toast.message, type: toast.type, onClose: function() { setToast(null); } }));
+}
+
+// ═══════════════════════════════════════════
+// STAGE TAB (inscriptions + capacité)
+// ═══════════════════════════════════════════
+function StageTab({ showToast }) {
+  var h = React.createElement;
+  var STAGE_KEY = "stage-printemps-2026";
+  var [regs, setRegs] = useState([]);
+  var [count, setCount] = useState(0);
+  var [maxPlaces, setMaxPlaces] = useState(25);
+  var [maxInput, setMaxInput] = useState("25");
+  var [loading, setLoading] = useState(true);
+  var [addFirst, setAddFirst] = useState("");
+  var [addLast, setAddLast] = useState("");
+  var [addCat, setAddCat] = useState("U9");
+  var [adding, setAdding] = useState(false);
+  var [savingMax, setSavingMax] = useState(false);
+
+  var load = function() {
+    setLoading(true);
+    fetch(API + "?action=stage_list&stage_key=" + encodeURIComponent(STAGE_KEY), { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setLoading(false);
+        if (d.success) {
+          setRegs(d.registrations || []);
+          setCount(d.count || 0);
+          var mp = d.max_places != null ? d.max_places : 25;
+          setMaxPlaces(mp);
+          setMaxInput(String(mp));
+        } else showToast(d.error || "Erreur chargement", "error");
+      })
+      .catch(function() { setLoading(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+  useEffect(load, []);
+
+  var saveMax = function() {
+    var n = parseInt(maxInput, 10);
+    if (isNaN(n) || n < 1) { showToast("Nombre invalide (1\u2013500)", "error"); return; }
+    setSavingMax(true);
+    fetch(API + "?action=stage_admin_set_max", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage_key: STAGE_KEY, max_places: n })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setSavingMax(false);
+        if (d.success) {
+          setMaxPlaces(d.max_places);
+          showToast("Capacit\u00E9 max : " + d.max_places);
+          load();
+        } else showToast(d.error || "Erreur", "error");
+      })
+      .catch(function() { setSavingMax(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+
+  var addManual = function() {
+    var fn = addFirst.trim();
+    var ln = addLast.trim();
+    if (!fn || !ln) { showToast("Pr\u00E9nom et nom requis", "error"); return; }
+    setAdding(true);
+    fetch(API + "?action=stage_admin_add", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage_key: STAGE_KEY, player_firstname: fn, player_name: ln, player_category: addCat })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setAdding(false);
+        if (d.success) {
+          showToast("Inscription manuelle ajout\u00E9e");
+          setAddFirst("");
+          setAddLast("");
+          load();
+        } else showToast(d.error || "Erreur", "error");
+      })
+      .catch(function() { setAdding(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+
+  var delRow = function(id, label) {
+    if (!confirm("Supprimer l'inscription : " + label + " ?")) return;
+    fetch(API + "?action=stage_admin_delete", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.success) { showToast("Ligne supprim\u00E9e"); load(); }
+        else showToast(d.error || "Erreur", "error");
+      })
+      .catch(function() { showToast("Erreur r\u00E9seau", "error"); });
+  };
+
+  var fmtDate = function(d) {
+    try { return new Date(d).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }); } catch (e) { return d; }
+  };
+
+  if (loading) return h("div", { style: { textAlign: "center", padding: 40 } }, h("div", { className: "loader" }));
+
+  return h("div", null,
+    h("div", { className: "section-title" }, "\uD83D\uDCC5 Stage printemps 2026"),
+    h("div", { className: "card", style: { marginBottom: 16 } },
+      h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 17, marginBottom: 12, color: "var(--gold)" } }, "Capacit\u00E9"),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 14 } },
+        "Places occup\u00E9es : ", h("strong", null, count), " / ", h("strong", null, maxPlaces), ". Modifie le plafond si besoin."),
+      h("div", { className: "form-row", style: { alignItems: "flex-end" } },
+        h("div", { className: "form-group", style: { marginBottom: 0 } },
+          h("label", null, "Nombre max de places"),
+          h("input", { type: "number", className: "form-input", min: 1, max: 500, value: maxInput, onChange: function(e) { setMaxInput(e.target.value); } })),
+        h("button", { type: "button", className: "btn btn-gold", disabled: savingMax, onClick: saveMax }, savingMax ? "..." : "Enregistrer"))),
+    h("div", { className: "card", style: { marginBottom: 16 } },
+      h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 17, marginBottom: 12, color: "var(--gold)" } }, "Ajouter un inscrit (manuel)"),
+      h("div", { className: "form-row" },
+        h("div", { className: "form-group", style: { marginBottom: 0 } },
+          h("label", null, "Pr\u00E9nom"),
+          h("input", { type: "text", className: "form-input", value: addFirst, onChange: function(e) { setAddFirst(e.target.value); } })),
+        h("div", { className: "form-group", style: { marginBottom: 0 } },
+          h("label", null, "Nom"),
+          h("input", { type: "text", className: "form-input", value: addLast, onChange: function(e) { setAddLast(e.target.value); } })),
+        h("div", { className: "form-group", style: { marginBottom: 0 } },
+          h("label", null, "Cat\u00E9gorie"),
+          h("select", { className: "form-input", value: addCat, onChange: function(e) { setAddCat(e.target.value); } },
+            h("option", { value: "U9" }, "U9"),
+            h("option", { value: "U11" }, "U11"),
+            h("option", { value: "U13" }, "U13")))),
+      h("button", { type: "button", className: "btn btn-blue", style: { marginTop: 12 }, disabled: adding, onClick: addManual }, adding ? "Ajout..." : "Ajouter \u00E0 la liste")),
+    h("div", { className: "card" },
+      h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 17, marginBottom: 12 } }, "Liste des inscrits"),
+      regs.length === 0
+        ? h("p", { style: { color: "var(--text-dim)", fontSize: 14 } }, "Aucun inscrit pour ce stage.")
+        : h("div", { className: "table-scroll-wrap", style: { overflowX: "auto" } },
+            h("table", { className: "data-table" },
+              h("thead", null,
+                h("tr", null,
+                  h("th", null, "#"),
+                  h("th", null, "Pr\u00E9nom"),
+                  h("th", null, "Nom"),
+                  h("th", null, "Cat."),
+                  h("th", null, "Source"),
+                  h("th", null, "Date"),
+                  h("th", null, ""))),
+              h("tbody", null,
+                regs.map(function(r, i) {
+                  return h("tr", { key: r.id },
+                    h("td", null, i + 1),
+                    h("td", null, r.player_firstname),
+                    h("td", null, r.player_name),
+                    h("td", null, r.player_category),
+                    h("td", null, (r.source === "manual" || !r.user_id) ? h("span", { className: "badge badge-dom" }, "Manuel") : h("span", { className: "badge badge-win" }, "Ligne")),
+                    h("td", null, fmtDate(r.registered_at)),
+                    h("td", null,
+                      h("button", { type: "button", className: "btn btn-ghost", style: { padding: "6px 10px", fontSize: 12, color: "var(--red)" }, onClick: function() { delRow(r.id, r.player_firstname + " " + r.player_name); } }, "Suppr.")));
+                })
+              )
+            )
+          )
+    )
+  );
 }
 
 // ═══════════════════════════════════════════
