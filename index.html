@@ -2410,6 +2410,62 @@ body {
   .lf-form-row { flex-direction: column; gap: 0; }
 }
 
+/* ═══ STAGE BANNER (Homepage) ═══ */
+.stage-banner {
+  position: relative; overflow: hidden; border-radius: 20px; margin-bottom: 28px;
+  background: linear-gradient(135deg, #0f3d1a 0%, #1a5c2c 40%, #0f3d1a 100%);
+  border: 1px solid rgba(200,168,50,0.15); cursor: pointer;
+  transition: all 0.3s; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+}
+.stage-banner:hover { transform: translateY(-3px); box-shadow: 0 8px 36px rgba(0,0,0,0.25); border-color: rgba(200,168,50,0.3); }
+.stage-banner-glow {
+  position: absolute; top: -60px; right: -40px; width: 220px; height: 220px;
+  background: radial-gradient(circle, rgba(200,168,50,0.12) 0%, transparent 70%); pointer-events: none;
+}
+.stage-banner-glow2 {
+  position: absolute; bottom: -40px; left: -30px; width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(26,107,46,0.15) 0%, transparent 70%); pointer-events: none;
+}
+.stage-banner-inner { position: relative; z-index: 1; display: flex; align-items: center; gap: 20px; padding: 24px 28px; }
+.stage-banner-emoji { font-size: 52px; flex-shrink: 0; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); animation: stageBounce 2s ease-in-out infinite; }
+@keyframes stageBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.stage-banner-content { flex: 1; min-width: 0; color: #fff; }
+.stage-banner-tag {
+  display: inline-block; padding: 3px 12px; background: rgba(200,168,50,0.15);
+  border: 1px solid rgba(200,168,50,0.25); border-radius: 100px;
+  font-size: 10px; font-weight: 700; color: var(--gold-light);
+  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;
+}
+.stage-banner-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: clamp(22px, 4vw, 30px);
+  letter-spacing: 2px; line-height: 1.1; margin-bottom: 4px;
+}
+.stage-banner-dates { font-size: 15px; font-weight: 700; color: var(--gold-light); margin-bottom: 6px; }
+.stage-banner-desc { font-size: 13px; opacity: 0.7; line-height: 1.4; }
+.stage-banner-cta {
+  flex-shrink: 0; padding: 14px 28px; border: none; border-radius: 14px;
+  background: linear-gradient(135deg, var(--gold), #d4b53a);
+  color: var(--green-900); font-size: 14px; font-weight: 800; cursor: pointer;
+  font-family: 'Outfit', sans-serif; letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(200,168,50,0.3); transition: all 0.2s;
+  white-space: nowrap;
+}
+.stage-banner-cta:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(200,168,50,0.4); }
+.stage-banner-places {
+  position: absolute; top: 14px; right: 20px; z-index: 2;
+  padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 700;
+  background: rgba(22,163,74,0.2); color: #4ade80; border: 1px solid rgba(22,163,74,0.3);
+}
+.stage-banner-places.few { background: rgba(234,179,8,0.2); color: #fbbf24; border-color: rgba(234,179,8,0.3); }
+.stage-banner-places.full { background: rgba(220,38,38,0.2); color: #f87171; border-color: rgba(220,38,38,0.3); }
+
+@media (max-width: 600px) {
+  .stage-banner-inner { flex-direction: column; text-align: center; padding: 20px; }
+  .stage-banner-emoji { font-size: 44px; }
+  .stage-banner-cta { width: 100%; }
+  .stage-banner-places { top: 10px; right: 12px; }
+}
+
 /* ═══ STAGE INSCRIPTION ═══ */
 .stage-wrap { max-width: 640px; margin: 0 auto; }
 .stage-hero {
@@ -4888,6 +4944,35 @@ function LostFoundForm({ onClose, onAdded }) {
 }
 
 // ══════════════════════════════════════
+// STAGE BANNER (Homepage pinned)
+// ══════════════════════════════════════
+function StageBanner() {
+    const [count, setCount] = useState(0);
+    const MAX = 25;
+    useEffect(() => {
+        fetch(API_URL + '?action=stage_list&stage_key=stage-printemps-2026', { credentials: 'same-origin' })
+            .then(r => r.json()).then(d => { if (d.success) setCount(d.count || 0); }).catch(() => {});
+    }, []);
+    const remaining = MAX - count;
+    const isFull = remaining <= 0;
+    const isFew = remaining > 0 && remaining <= 8;
+    const el = React.createElement;
+    return el('div', { className: 'stage-banner', onClick: () => { window.location.hash = '#stage'; window.scrollTo(0, 0); } },
+        el('div', { className: 'stage-banner-glow' }),
+        el('div', { className: 'stage-banner-glow2' }),
+        el('span', { className: 'stage-banner-places' + (isFull ? ' full' : isFew ? ' few' : '') },
+            isFull ? '\uD83D\uDEAB Complet' : remaining + ' place' + (remaining > 1 ? 's' : '') + ' restante' + (remaining > 1 ? 's' : '')),
+        el('div', { className: 'stage-banner-inner' },
+            el('div', { className: 'stage-banner-emoji' }, '\uD83C\uDFC0'),
+            el('div', { className: 'stage-banner-content' },
+                el('div', { className: 'stage-banner-tag' }, 'Vacances de Printemps'),
+                el('div', { className: 'stage-banner-title' }, 'STAGE DE PERFECTIONNEMENT'),
+                el('div', { className: 'stage-banner-dates' }, '13 \u2192 17 Avril 2026 \u2022 Gymnase Cabot'),
+                el('div', { className: 'stage-banner-desc' }, 'U9 \u2022 U11 \u2022 U13 \u2014 65 \u20AC \u2022 9h-12h + sortie surprise vendredi \u2728')),
+            el('button', { className: 'stage-banner-cta', onClick: (e) => { e.stopPropagation(); window.location.hash = '#stage'; window.scrollTo(0, 0); } }, "\u270D\uFE0F S'inscrire")));
+}
+
+// ══════════════════════════════════════
 // STAGE INSCRIPTION PAGE
 // ══════════════════════════════════════
 function StagePage({ user }) {
@@ -5379,6 +5464,7 @@ function App() {
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "objets-trouves" ? "active" : ""}`, onClick: () => switchTab("objets-trouves") }, "\uD83D\uDCE6 Objets"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "stage" ? "active" : ""}`, onClick: () => switchTab("stage") }, "\uD83C\uDFC0 Stage"),
+                        user && user.role === "coach" && React.createElement("button", { className: `nav-btn ${tab === "coffre" ? "active" : ""}`, onClick: () => switchTab("coffre") }, "\uD83D\uDD10 Coffre"),
                         user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
                             user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
                                 React.createElement("img", { src: PLAYER_PHOTOS[PLAYERS.find(p => p.id === user.player_id).photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-light)" } }) :
@@ -5460,6 +5546,8 @@ function App() {
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCE6"), "Objets trouv\u00E9s"),
                                 React.createElement("button", { className: "mob-btn" + (tab === "stage" ? " active" : ""), onClick: () => switchTab("stage") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Stage Printemps"),
+                                user.role === "coach" && React.createElement("button", { className: "mob-btn" + (tab === "coffre" ? " active" : ""), onClick: () => switchTab("coffre") },
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83D\uDD10"), "Coffre-fort"),
                                 React.createElement("hr", { className: "mob-divider" }),
                                 React.createElement("button", { className: "mob-btn", onClick: () => { handleLogout(); setMobileMenuOpen(false); }, style: { color: "var(--red)" } },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDEAA"), "D\u00E9connexion"))
@@ -5910,6 +5998,8 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                 React.createElement("div", { className: "hero-stat" },
                     React.createElement("div", { className: "hero-stat-val" }, totalOpp),
                     React.createElement("div", { className: "hero-stat-label" }, "Points encaiss\u00E9s")))),
+        // Bannière Stage
+        React.createElement(StageBanner),
         // Actualités
         React.createElement(NewsSection, { user: user }),
         React.createElement("div", { className: "grid-2", style: { marginBottom: 40 } },
