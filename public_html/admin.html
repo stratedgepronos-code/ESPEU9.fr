@@ -661,6 +661,11 @@ function DashboardTab({ showToast }) {
 
   return h("div", null,
     h("div", { className: "section-title" }, "\uD83D\uDCCA TABLEAU DE BORD"),
+    h("div", { className: "card", style: { marginBottom: 16, borderColor: "rgba(232,185,48,0.25)" } },
+      h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 17, color: "var(--gold)", letterSpacing: 1, marginBottom: 8 } }, "\uD83D\uDD10 Coffre-fort coach"),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 14, lineHeight: 1.5 } },
+        "Documents chiffr\u00E9s (feuilles de match, licences, notes). Acc\u00E8s uniquement depuis le site principal, plus dans le menu public."),
+      h("a", { href: "index.html#coffre", className: "btn btn-gold", style: { textDecoration: "none", display: "inline-flex" } }, "\uD83D\uDD13 Ouvrir le coffre-fort")),
     h("div", { className: "sync-bar" },
       h("div", { className: "sync-dot" }),
       h("span", { className: "sync-text" }, data.last_sync ? "Derni\u00E8re synchro FFBB : " + data.last_sync : "Jamais synchronis\u00E9 avec la FFBB"),

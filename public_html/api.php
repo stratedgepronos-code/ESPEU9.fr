@@ -2746,6 +2746,94 @@ case 'vault_delete':
     echo json_encode(['success'=>true]);
     break;
 
+// ═══ STAGE INSCRIPTION ═══
+case 'stage_list':
+    if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS stage_registrations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            stage_key VARCHAR(50) NOT NULL,
+            user_id INT NOT NULL,
+            player_name VARCHAR(120) NOT NULL,
+            player_firstname VARCHAR(120) NOT NULL,
+            player_category VARCHAR(20) NOT NULL DEFAULT 'U9',
+            status VARCHAR(20) NOT NULL DEFAULT 'registered',
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_reg (stage_key, user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $sk = trim($_GET['stage_key'] ?? 'stage-printemps-2026');
+        $st = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' ORDER BY registered_at ASC");
+        $st->execute([':sk' => $sk]);
+        $regs = $st->fetchAll(PDO::FETCH_ASSOC);
+        $my = null;
+        foreach ($regs as $r) {
+            if ((int)$r['user_id'] === (int)$_SESSION['user_id']) { $my = $r; break; }
+        }
+        $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
+        $ct->execute([':sk' => $sk]);
+        $count = (int)$ct->fetch()['c'];
+        echo json_encode(['success' => true, 'registrations' => $regs, 'my_registration' => $my, 'count' => $count]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'stage_register':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
+    $playerName = trim($in['player_name'] ?? '');
+    $playerFirst = trim($in['player_firstname'] ?? '');
+    $playerCat = trim($in['player_category'] ?? 'U9');
+    if ($playerName === '' || $playerFirst === '') { http_response_code(400); echo json_encode(['error' => 'Nom et prénom requis']); break; }
+    if ($role === 'coach') { http_response_code(403); echo json_encode(['error' => 'Réservé aux comptes parents']); break; }
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS stage_registrations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            stage_key VARCHAR(50) NOT NULL,
+            user_id INT NOT NULL,
+            player_name VARCHAR(120) NOT NULL,
+            player_firstname VARCHAR(120) NOT NULL,
+            player_category VARCHAR(20) NOT NULL DEFAULT 'U9',
+            status VARCHAR(20) NOT NULL DEFAULT 'registered',
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_reg (stage_key, user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
+        $ct->execute([':sk' => $stageKey]);
+        if ((int)$ct->fetch()['c'] >= 25) { echo json_encode(['error' => 'Plus de place disponible']); break; }
+        $st = $db->prepare("INSERT INTO stage_registrations (stage_key, user_id, player_name, player_firstname, player_category) VALUES (:sk, :uid, :pn, :pf, :pc) ON DUPLICATE KEY UPDATE status = 'registered', player_name = :pn2, player_firstname = :pf2, player_category = :pc2, registered_at = NOW()");
+        $st->execute([':sk' => $stageKey, ':uid' => $_SESSION['user_id'], ':pn' => $playerName, ':pf' => $playerFirst, ':pc' => $playerCat, ':pn2' => $playerName, ':pf2' => $playerFirst, ':pc2' => $playerCat]);
+        $ct->execute([':sk' => $stageKey]);
+        $newCount = (int)$ct->fetch()['c'];
+        $emailBody = '<div style="font-family:sans-serif;padding:16px;"><h2>Inscription stage</h2><p><strong>' . htmlspecialchars($playerFirst . ' ' . $playerName) . '</strong> (' . htmlspecialchars($playerCat) . ') — ' . $newCount . '/25</p></div>';
+        $coaches = $db->query("SELECT id, email, display_name FROM users WHERE role = 'coach' AND email IS NOT NULL AND email != ''")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($coaches as $c) {
+            if (!empty($c['email'])) {
+                sendEmailNotif($c['email'], '🏀 Stage — Inscription ' . $playerFirst . ' ' . $playerName, $emailBody);
+            }
+            sendPushToUser((int)$c['id'], '🏀 Inscription stage', $playerFirst . ' ' . $playerName . ' (' . $playerCat . ') — ' . $newCount . '/25', '#stage');
+        }
+        echo json_encode(['success' => true, 'count' => $newCount]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'stage_unregister':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!isset($_SESSION['user_id'])) { http_response_code(401); echo json_encode(['error' => 'Non connecté']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
+    $targetUserId = isset($in['user_id']) ? (int)$in['user_id'] : (int)$_SESSION['user_id'];
+    if ($role !== 'coach' && $targetUserId !== (int)$_SESSION['user_id']) { http_response_code(403); echo json_encode(['error' => 'Non autorisé']); break; }
+    try {
+        $db = getDB();
+        $st = $db->prepare("UPDATE stage_registrations SET status = 'cancelled' WHERE stage_key = :sk AND user_id = :uid");
+        $st->execute([':sk' => $stageKey, ':uid' => $targetUserId]);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
 // ═══ TCHAT PUBLIC (connectés : post + suppr propre ; coach : suppr tout) ═══
 case 'chat_list':
     $db = getDB();

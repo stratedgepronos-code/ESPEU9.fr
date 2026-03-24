@@ -5379,7 +5379,6 @@ function App() {
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "objets-trouves" ? "active" : ""}`, onClick: () => switchTab("objets-trouves") }, "\uD83D\uDCE6 Objets"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "stage" ? "active" : ""}`, onClick: () => switchTab("stage") }, "\uD83C\uDFC0 Stage"),
-                        user && user.role === "coach" && React.createElement("button", { className: `nav-btn ${tab === "coffre" ? "active" : ""}`, onClick: () => switchTab("coffre") }, "\uD83D\uDD10 Coffre"),
                         user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
                             user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
                                 React.createElement("img", { src: PLAYER_PHOTOS[PLAYERS.find(p => p.id === user.player_id).photoKey], alt: "", style: { width: 32, height: 32, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold-light)" } }) :
@@ -5461,8 +5460,6 @@ function App() {
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCE6"), "Objets trouv\u00E9s"),
                                 React.createElement("button", { className: "mob-btn" + (tab === "stage" ? " active" : ""), onClick: () => switchTab("stage") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Stage Printemps"),
-                                user.role === "coach" && React.createElement("button", { className: "mob-btn" + (tab === "coffre" ? " active" : ""), onClick: () => switchTab("coffre") },
-                                    React.createElement("span", { className: "mob-icon" }, "\uD83D\uDD10"), "Coffre-fort"),
                                 React.createElement("hr", { className: "mob-divider" }),
                                 React.createElement("button", { className: "mob-btn", onClick: () => { handleLogout(); setMobileMenuOpen(false); }, style: { color: "var(--red)" } },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDEAA"), "D\u00E9connexion"))

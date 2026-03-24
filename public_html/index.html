@@ -2286,6 +2286,136 @@ body {
 .vault-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
 .vault-empty p { color: var(--text-dim); font-size: 14px; margin: 0; }
 .vault-empty .sub { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+/* ═══ STAGE INSCRIPTION ═══ */
+.stage-wrap { max-width: 640px; margin: 0 auto; }
+.stage-hero {
+  position: relative; overflow: hidden; border-radius: 20px; margin-bottom: 24px;
+  background: linear-gradient(135deg, var(--green-900) 0%, #1a5c2c 50%, var(--green-700) 100%);
+  padding: 36px 32px; color: #fff; text-align: center;
+}
+.stage-hero-glow {
+  position: absolute; top: -80px; right: -60px; width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(200,168,50,0.12) 0%, transparent 70%); pointer-events: none;
+}
+.stage-hero-emoji { font-size: 52px; margin-bottom: 10px; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); }
+.stage-hero-badge {
+  display: inline-block; padding: 4px 14px; background: rgba(200,168,50,0.15);
+  border: 1px solid rgba(200,168,50,0.25); border-radius: 100px;
+  font-size: 10px; font-weight: 600; color: var(--gold-light);
+  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;
+}
+.stage-hero h2 {
+  font-family: 'Bebas Neue', sans-serif; font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: 3px; line-height: 1.1; margin-bottom: 6px;
+}
+.stage-hero-dates {
+  font-size: 16px; font-weight: 700; color: var(--gold-light);
+  letter-spacing: 1px; margin-bottom: 6px;
+}
+.stage-hero p { font-size: 14px; opacity: 0.75; max-width: 400px; margin: 0 auto; line-height: 1.5; }
+.stage-infos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.stage-info-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px; display: flex; align-items: flex-start; gap: 12px;
+  box-shadow: var(--shadow); transition: all 0.15s;
+}
+.stage-info-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.stage-info-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+.stage-info-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.stage-info-value { font-size: 14px; font-weight: 700; color: var(--text); margin-top: 2px; line-height: 1.3; }
+.stage-schedule {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.stage-schedule-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px;
+  color: var(--green-900); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.stage-schedule-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.stage-schedule-row:last-child { border-bottom: none; }
+.stage-schedule-day { font-weight: 700; color: var(--text); min-width: 130px; }
+.stage-schedule-detail { color: var(--text-dim); flex: 1; }
+.stage-schedule-tag {
+  display: inline-block; padding: 3px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; background: rgba(200,168,50,0.12);
+  color: var(--gold); border: 1px solid rgba(200,168,50,0.2);
+}
+.stage-places {
+  display: flex; align-items: center; gap: 16px; padding: 16px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.stage-places-num {
+  font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--green-700); line-height: 1;
+}
+.stage-places-label { font-size: 13px; color: var(--text-dim); }
+.stage-places-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.stage-places-fill { height: 100%; background: linear-gradient(90deg, var(--green-700), var(--green-400)); border-radius: 4px; transition: width 0.5s ease; }
+.stage-places-full .stage-places-fill { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.stage-cta {
+  width: 100%; padding: 16px 0; border: none; border-radius: 14px;
+  font-size: 17px; font-weight: 800; cursor: pointer; transition: all 0.25s;
+  font-family: 'Outfit', sans-serif; letter-spacing: 0.5px;
+  background: linear-gradient(135deg, var(--gold), #d4b53a);
+  color: var(--green-900); box-shadow: 0 4px 20px rgba(200,168,50,0.3);
+  margin-bottom: 12px;
+}
+.stage-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(200,168,50,0.4); }
+.stage-cta:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.stage-cta-cancel {
+  width: 100%; padding: 12px 0; border: 1.5px solid var(--border); border-radius: 12px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  font-family: 'Outfit', sans-serif; background: transparent; color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.stage-cta-cancel:hover { border-color: var(--red); color: var(--red); background: rgba(220,38,38,0.04); }
+.stage-registered-msg {
+  text-align: center; padding: 16px 20px; background: rgba(22,163,74,0.08);
+  border: 1.5px solid rgba(22,163,74,0.2); border-radius: 14px;
+  margin-bottom: 12px;
+}
+.stage-registered-msg strong { color: var(--green-700); }
+.stage-payment {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: rgba(200,168,50,0.06); border: 1px solid rgba(200,168,50,0.15);
+  border-left: 4px solid var(--gold); border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 20px;
+}
+.stage-payment-icon { font-size: 22px; flex-shrink: 0; }
+.stage-payment-text { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.stage-payment-text strong { color: var(--text); }
+.stage-list-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px;
+  color: var(--green-900); margin: 24px 0 12px; display: flex; align-items: center; gap: 8px;
+}
+.stage-registrant {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  margin-bottom: 6px; box-shadow: var(--shadow);
+}
+.stage-registrant-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--green-700); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0;
+}
+.stage-registrant-name { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+.stage-registrant-cat { font-size: 11px; color: var(--text-dim); background: var(--surface2); padding: 2px 10px; border-radius: 100px; }
+.stage-registrant-date { font-size: 11px; color: var(--text-dim); }
+.stage-registrant-del {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(220,38,38,0.2);
+  background: rgba(220,38,38,0.06); color: var(--red); font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.stage-registrant-del:hover { background: rgba(220,38,38,0.12); }
+@media (max-width: 600px) {
+  .stage-infos { grid-template-columns: 1fr; }
+  .stage-hero { padding: 28px 20px; }
+  .stage-schedule-row { flex-direction: column; gap: 4px; }
+  .stage-schedule-day { min-width: auto; }
+}
 `;
 // ============================================
 // COMPONENTS
@@ -4674,6 +4804,149 @@ async function vaultDecrypt(buf, pwd) {
     return crypto.subtle.decrypt({ name: 'AES-GCM', iv: d.slice(16, 28) }, key, d.slice(28));
 }
 
+// ═══ STAGE INSCRIPTION ═══
+function StagePage({ user }) {
+    const STAGE_KEY = "stage-printemps-2026";
+    const MAX_PLACES = 25;
+    const [regs, setRegs] = useState([]);
+    const [myReg, setMyReg] = useState(false);
+    const [count, setCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [sending, setSending] = useState(false);
+    const isCoach = user && user.role === "coach";
+
+    const loadRegs = function() {
+        fetch(API_URL + "?action=stage_list&stage_key=" + encodeURIComponent(STAGE_KEY), { credentials: "same-origin" })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.success) {
+                    setRegs(d.registrations || []);
+                    setMyReg(!!d.my_registration);
+                    setCount(d.count || 0);
+                }
+                setLoading(false);
+            })
+            .catch(function() { setLoading(false); });
+    };
+    useEffect(function() { loadRegs(); }, []);
+
+    const myPlayer = user && user.player_id ? PLAYERS.find(function(p) { return p.id === user.player_id; }) : null;
+
+    const handleRegister = function() {
+        if (!myPlayer) { alert("Aucun joueur li\u00E9 \u00E0 ton compte."); return; }
+        if (!confirm(myPlayer.firstName + " " + myPlayer.lastName + " sera inscrit(e) au stage.\nLe paiement de 65 \u20AC sera \u00E0 remettre \u00E0 Alex ou Patrick.\n\nConfirmer ?")) return;
+        setSending(true);
+        fetch(API_URL + "?action=stage_register", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage_key: STAGE_KEY, player_name: myPlayer.lastName, player_firstname: myPlayer.firstName, player_category: "U9" })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            setSending(false);
+            if (d.success) {
+                alert("\u2705 " + myPlayer.firstName + " est inscrit(e) au stage !\nPensez \u00E0 remettre le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.");
+                loadRegs();
+            } else alert(d.error || "Erreur");
+        }).catch(function() { setSending(false); alert("Erreur r\u00E9seau"); });
+    };
+
+    const handleCancel = function(userId) {
+        if (!confirm("Annuler cette inscription ?")) return;
+        fetch(API_URL + "?action=stage_unregister", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage_key: STAGE_KEY, user_id: userId || user.id })
+        }).then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadRegs(); }).catch(function() {});
+    };
+
+    const fmtDate = function(d) {
+        try { return new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return d; }
+    };
+
+    const el = React.createElement;
+    const pct = Math.min(100, (count / MAX_PLACES) * 100);
+    const isFull = count >= MAX_PLACES;
+
+    if (loading) return el("div", { className: "stage-wrap", style: { textAlign: "center", padding: "60px 0" } }, "\u23F3 Chargement...");
+
+    return el("div", { className: "stage-wrap" },
+        el("div", { className: "stage-hero" },
+            el("div", { className: "stage-hero-glow" }),
+            el("span", { className: "stage-hero-emoji" }, "\uD83C\uDFC0"),
+            el("div", { className: "stage-hero-badge" }, "Vacances de Printemps"),
+            el("h2", null, "STAGE DE PERFECTIONNEMENT"),
+            el("div", { className: "stage-hero-dates" }, "13 \u2192 17 Avril 2026"),
+            el("p", null, "Cat\u00E9gories U9 \u2022 U11 \u2022 U13 \u2014 Sous forme ludique et comp\u00E9titif")),
+        el("div", { className: "stage-infos" },
+            el("div", { className: "stage-info-card" },
+                el("div", { className: "stage-info-icon" }, "\uD83D\uDCCD"),
+                el("div", null,
+                    el("div", { className: "stage-info-label" }, "Lieu"),
+                    el("div", { className: "stage-info-value" }, "Gymnase Daniel Cabot"))),
+            el("div", { className: "stage-info-card" },
+                el("div", { className: "stage-info-icon" }, "\uD83D\uDCB0"),
+                el("div", null,
+                    el("div", { className: "stage-info-label" }, "Tarif"),
+                    el("div", { className: "stage-info-value" }, "65 \u20AC"),
+                    el("div", { style: { fontSize: 11, color: "var(--text-dim)", marginTop: 2 } }, "Collation offerte chaque jour"))),
+            el("div", { className: "stage-info-card" },
+                el("div", { className: "stage-info-icon" }, "\u23F0"),
+                el("div", null,
+                    el("div", { className: "stage-info-label" }, "Horaires"),
+                    el("div", { className: "stage-info-value" }, "9h00 \u2192 12h00"))),
+            el("div", { className: "stage-info-card" },
+                el("div", { className: "stage-info-icon" }, "\uD83C\uDFAF"),
+                el("div", null,
+                    el("div", { className: "stage-info-label" }, "Cat\u00E9gories"),
+                    el("div", { className: "stage-info-value" }, "U9 \u2022 U11 \u2022 U13")))),
+        el("div", { className: "stage-schedule" },
+            el("div", { className: "stage-schedule-title" }, "\uD83D\uDCC5 Programme de la semaine"),
+            el("div", { className: "stage-schedule-row" },
+                el("div", { className: "stage-schedule-day" }, "Lun. 13 \u2192 Jeu. 16"),
+                el("div", { className: "stage-schedule-detail" }, "9h00 \u2013 12h00 \u2022 Basket au gymnase Cabot")),
+            el("div", { className: "stage-schedule-row" },
+                el("div", { className: "stage-schedule-day" }, "Vendredi 17 matin"),
+                el("div", { className: "stage-schedule-detail" }, "9h00 \u2013 12h00 \u2022 Basket au gymnase Cabot")),
+            el("div", { className: "stage-schedule-row" },
+                el("div", { className: "stage-schedule-day" }, "Vendredi 17 apr\u00E8s-midi"),
+                el("div", { className: "stage-schedule-detail" }, "Sortie surprise !"),
+                el("span", { className: "stage-schedule-tag" }, "\u2728 Surprise"))),
+        el("div", { className: "stage-places" + (isFull ? " stage-places-full" : "") },
+            el("div", null,
+                el("div", { className: "stage-places-num" }, count + "/" + MAX_PLACES),
+                el("div", { className: "stage-places-label" }, isFull ? "Complet !" : "Places prises")),
+            el("div", { className: "stage-places-bar" },
+                el("div", { className: "stage-places-fill", style: { width: pct + "%" } }))),
+        el("div", { className: "stage-payment" },
+            el("div", { className: "stage-payment-icon" }, "\uD83D\uDCB3"),
+            el("div", { className: "stage-payment-text" },
+                el("strong", null, "Paiement"), " \u2014 Le r\u00E8glement de 65 \u20AC est \u00E0 remettre en main propre \u00E0 ",
+                el("strong", null, "Alex ou Patrick"), " lors des entra\u00EEnements ou au plus tard le jour du stage.",
+                el("br", null),
+                el("span", { style: { fontSize: 11, opacity: 0.7 } }, "Coupon-r\u00E9ponse + r\u00E8glement avant le 3 avril."))),
+        !isCoach && (myReg
+            ? el(React.Fragment, null,
+                el("div", { className: "stage-registered-msg" },
+                    el("div", { style: { fontSize: 28, marginBottom: 6 } }, "\u2705"),
+                    el("strong", null, myPlayer ? myPlayer.firstName + " est inscrit(e) !" : "Inscription confirm\u00E9e !"),
+                    el("div", { style: { fontSize: 13, color: "var(--text-dim)", marginTop: 4 } }, "N'oubliez pas le r\u00E8glement de 65 \u20AC \u00E0 Alex ou Patrick.")),
+                el("button", { className: "stage-cta-cancel", onClick: function() { handleCancel(); } }, "\u274C Annuler l'inscription"))
+            : el("button", { className: "stage-cta", onClick: handleRegister, disabled: sending || isFull },
+                sending ? "\u23F3 Inscription..." : isFull ? "\uD83D\uDEAB Complet \u2014 Plus de place" : "\uD83C\uDFC0 Inscrire " + (myPlayer ? myPlayer.firstName : "mon enfant") + " au stage")),
+        isCoach && el(React.Fragment, null,
+            el("div", { className: "stage-list-title" }, "\uD83D\uDCCB Inscrits (" + count + "/" + MAX_PLACES + ")"),
+            regs.length === 0
+                ? el("div", { style: { textAlign: "center", color: "var(--text-dim)", padding: 20, fontSize: 14 } }, "Aucune inscription pour le moment")
+                : regs.map(function(r, i) {
+                    return el("div", { key: r.id, className: "stage-registrant" },
+                        el("div", { className: "stage-registrant-num" }, i + 1),
+                        el("div", { className: "stage-registrant-name" }, r.player_firstname + " " + r.player_name),
+                        el("span", { className: "stage-registrant-cat" }, r.player_category),
+                        el("span", { className: "stage-registrant-date" }, fmtDate(r.registered_at)),
+                        el("button", { className: "stage-registrant-del", onClick: function() { handleCancel(r.user_id); }, title: "Annuler" }, "\u2716"));
+                }))
+    );
+}
+
 function VaultPage({ user }) {
     const [phase, setPhase] = useState('loading');
     const [pwd, setPwd] = useState('');
@@ -5087,7 +5360,7 @@ function App() {
                                 p.cap && React.createElement("span", { className: "nav-dropdown-cap" }, "\u2605"))))))) : (React.createElement("button", { key: t, className: `nav-btn ${tab === t && !selectedPlayer && !selectedMatch ? "active" : ""}`, onClick: () => switchTab(t) }, TAB_LABELS[t])))),
                         React.createElement("a", { href: "tchat.html", className: "nav-btn", style: { textDecoration: "none" } }, "\uD83D\uDCAC Tchat"),
                         user && React.createElement("button", { className: `nav-btn ${tab === "medias" ? "active" : ""}`, onClick: () => switchTab("medias") }, "\uD83D\uDCF7 M\u00E9dias"),
-                        user && user.role === "coach" && React.createElement("button", { className: `nav-btn ${tab === "coffre" ? "active" : ""}`, onClick: () => switchTab("coffre") }, "\uD83D\uDD10 Coffre"),
+                        user && React.createElement("button", { className: `nav-btn ${tab === "stage" ? "active" : ""}`, onClick: () => switchTab("stage") }, "\uD83C\uDFC0 Stage"),
                         user && user.role === "coach" && React.createElement("a", { href: "admin.html", className: "nav-btn", style: { textDecoration: "none", color: "var(--gold)" } }, "\u2699\uFE0F Admin"),
                         user ? React.createElement("div", { className: "nav-auth", onClick: () => { navigateTo("compte"); setMobileMenuOpen(false); }, style: { cursor: "pointer" } },
                             user.player_id && PLAYERS.find(p => p.id === user.player_id) ?
@@ -5168,8 +5441,8 @@ function App() {
                                     unreadCount > 0 && React.createElement("span", { style: { marginLeft: "auto", background: "var(--red)", color: "white", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "2px 8px" } }, unreadCount)),
                                 React.createElement("button", { className: "mob-btn" + (tab === "medias" ? " active" : ""), onClick: () => switchTab("medias") },
                                     React.createElement("span", { className: "mob-icon" }, "\uD83D\uDCF7"), "M\u00E9dias"),
-                                user.role === "coach" && React.createElement("button", { className: "mob-btn" + (tab === "coffre" ? " active" : ""), onClick: () => switchTab("coffre") },
-                                    React.createElement("span", { className: "mob-icon" }, "\uD83D\uDD10"), "Coffre-fort"),
+                                React.createElement("button", { className: "mob-btn" + (tab === "stage" ? " active" : ""), onClick: () => switchTab("stage") },
+                                    React.createElement("span", { className: "mob-icon" }, "\uD83C\uDFC0"), "Stage printemps"),
                                 user.role === "coach" && React.createElement("a", { href: "admin.html", className: "mob-btn", style: { textDecoration: "none", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", fontFamily: "inherit", fontSize: 15, color: "var(--gold)", cursor: "pointer", textAlign: "left" }, onClick: () => setMobileMenuOpen(false) },
                                     React.createElement("span", { className: "mob-icon" }, "\u2699\uFE0F"), "Espace Admin"),
                                 React.createElement("hr", { className: "mob-divider" }),
@@ -5207,6 +5480,7 @@ function App() {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(data => { if (data.success) { setCustomUpcoming(data.matches || []); customUpcomingRef.current = data.matches || []; } }).catch(() => {});
                 } }),
                 tab === "medias" && React.createElement(MediaPage, { user: user, matches: matches }),
+                tab === "stage" && user && React.createElement(StagePage, { user: user }),
                 tab === "coffre" && user && user.role === "coach" && React.createElement(VaultPage, { user: user }),
                 tab === "messagerie" && user && React.createElement(MessagingPage, { user: user }),
                 tab === "connexion" && React.createElement(LoginPage, { onLogin: (u) => { setUser(u); if (u.role === "coach") { fetch(API_URL + "?action=get_player_info", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) PLAYER_INFO = d.data; }).catch(() => {}); } } }),
