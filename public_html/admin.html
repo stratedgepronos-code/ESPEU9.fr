@@ -644,7 +644,9 @@ function DashboardTab({ showToast }) {
       .then(function(d) {
         setSyncing(false);
         if (d.success) {
-          var msg = d.matches_synced + " match(s) sync (" + (d.played_count||0) + " jou\u00E9s, " + (d.upcoming_count||0) + " \u00E0 venir)";
+          var msg = d.standings_only
+            ? ("Classement mis \u00e0 jour (" + (d.standings_count || 0) + " \u00e9quipes)")
+            : (d.matches_synced + " match(s) sync (" + (d.played_count||0) + " jou\u00E9s, " + (d.upcoming_count||0) + " \u00E0 venir)");
           if (d.sync_errors && d.sync_errors.length > 0) msg += " | Erreurs: " + d.sync_errors.join(", ");
           showToast(msg); load();
         }
@@ -662,7 +664,7 @@ function DashboardTab({ showToast }) {
     h("div", { className: "sync-bar" },
       h("div", { className: "sync-dot" }),
       h("span", { className: "sync-text" }, data.last_sync ? "Derni\u00E8re synchro FFBB : " + data.last_sync : "Jamais synchronis\u00E9 avec la FFBB"),
-      h("button", { className: "btn btn-blue", onClick: handleSync, disabled: syncing }, syncing ? h("span", null, h("span", { className: "loader", style: { width: 14, height: 14, marginRight: 6 } }), "Sync...") : "\uD83D\uDD04 Synchroniser FFBB")),
+      h("button", { className: "btn btn-blue", onClick: handleSync, disabled: syncing }, syncing ? h("span", null, h("span", { className: "loader", style: { width: 14, height: 14, marginRight: 6 } }), "Sync...") : "\uD83C\uDFC6 Classement FFBB")),
     h("div", { className: "stat-grid" },
       h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, s.matches_played), h("div", { className: "stat-label" }, "Matchs jou\u00E9s")),
       h("div", { className: "stat-card" }, h("div", { className: "stat-value" }, s.wins, "V ", s.losses, "D"), h("div", { className: "stat-label" }, "Bilan")),
@@ -1074,7 +1076,25 @@ function FFBBTab({ showToast }) {
         if (d.success) {
           setSyncResult(d);
           setLastSync(new Date().toLocaleString("fr-FR"));
-          showToast(d.matches_synced + " match(s) synchronis\u00E9(s)");
+          if (d.standings_only) {
+            showToast("Classement mis \u00e0 jour (" + (d.standings_count || 0) + " \u00e9quipes) — matchs non modifi\u00e9s");
+          } else {
+            showToast(d.matches_synced + " match(s) synchronis\u00E9(s)");
+          }
+        } else { showToast(d.error || "Erreur", "error"); }
+      }).catch(function() { setSyncing(false); showToast("Erreur r\u00E9seau", "error"); });
+  };
+  var handleSyncFull = function() {
+    if (!confirm("Importer AUSSI les matchs depuis la FFBB ?\n\nEn fin de saison, \u00e9vite ce mode : il peut cr\u00e9er des doublons si les IDs ne correspondent pas \u00e0 ta base.\n\nContinuer ?")) return;
+    setSyncing(true); setSyncResult(null);
+    fetch(API + "?action=ffbb_sync&full_sync=1", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setSyncing(false);
+        if (d.success) {
+          setSyncResult(d);
+          setLastSync(new Date().toLocaleString("fr-FR"));
+          showToast("Import complet : " + d.matches_synced + " ligne(s) match trait\u00e9e(s)");
         } else { showToast(d.error || "Erreur", "error"); }
       }).catch(function() { setSyncing(false); showToast("Erreur r\u00E9seau", "error"); });
   };
@@ -1085,19 +1105,24 @@ function FFBBTab({ showToast }) {
     h("div", { className: "section-title" }, "\uD83D\uDD04 SYNCHRONISATION FFBB"),
     h("div", { className: "card" },
       h("h3", { style: { fontSize: 16, fontWeight: 700, marginBottom: 12 } }, "\uD83C\uDF10 URL du championnat FFBB"),
-      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "Collez ici le lien de votre \u00E9quipe sur competitions.ffbb.com. Les matchs, scores et classement seront import\u00E9s automatiquement."),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 12 } }, "Collez ici le lien de votre \u00E9quipe sur competitions.ffbb.com. La synchro par d\u00e9faut ne met \u00e0 jour que le classement (pas de recr\u00e9ation des matchs)."),
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
         h("input", { className: "form-input", style: { flex: 1, minWidth: 250 }, value: url, onChange: function(e) { setUrl(e.target.value); }, placeholder: "https://competitions.ffbb.com/ligues/..." }),
         h("button", { className: "btn btn-primary", onClick: handleSaveUrl, disabled: saving }, saving ? "..." : "\uD83D\uDCBE Enregistrer")),
       lastSync && h("div", { style: { marginTop: 10, fontSize: 12, color: "var(--text-dim)" } }, "\u23F0 Derni\u00E8re synchronisation : ", lastSync)),
     h("div", { className: "card", style: { marginTop: 16 } },
       h("h3", { style: { fontSize: 16, fontWeight: 700, marginBottom: 12 } }, "\u26A1 Synchroniser maintenant"),
-      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 16 } }, "R\u00E9cup\u00E8re les derniers r\u00E9sultats, scores et classement depuis la FFBB. Les stats joueurs (import feuille de match) ne sont pas touch\u00E9es."),
-      h("button", { className: "btn btn-blue", style: { padding: "12px 24px", fontSize: 15 }, onClick: handleSync, disabled: syncing },
-        syncing ? h("span", null, h("span", { className: "loader", style: { width: 16, height: 16, marginRight: 8 } }), "Synchronisation en cours...") : "\uD83D\uDD04 Lancer la synchronisation"),
+      h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 16 } }, "Par d\u00e9faut : classement FFBB uniquement (page d\u2019accueil + MyESPE). Aucune cr\u00e9ation / fusion de match en base. Les stats joueurs (feuilles) ne sont pas touch\u00e9es."),
+      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 8 } },
+        h("button", { className: "btn btn-blue", style: { padding: "12px 24px", fontSize: 15 }, onClick: handleSync, disabled: syncing },
+          syncing ? h("span", null, h("span", { className: "loader", style: { width: 16, height: 16, marginRight: 8 } }), "Synchronisation...") : "\uD83C\uDFC6 Mettre \u00e0 jour le classement"),
+        h("button", { className: "btn", style: { padding: "12px 20px", fontSize: 13, border: "1px solid var(--border)", background: "var(--surface2)", color: "var(--text-dim)" }, onClick: handleSyncFull, disabled: syncing },
+          "\u26A0\uFE0F Import complet matchs (FFBB)")),
       syncResult && h("div", { style: { marginTop: 16, padding: 16, background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12 } },
         h("div", { style: { fontWeight: 700, marginBottom: 8, color: "var(--green-400)" } }, "\u2705 Synchronisation r\u00E9ussie"),
-        h("div", { style: { fontSize: 13, color: "var(--text-dim)" } }, syncResult.matches_total, " matchs trouv\u00E9s, ", syncResult.matches_synced, " synchronis\u00E9(s)"),
+        syncResult.standings_only
+          ? h("div", { style: { fontSize: 13, color: "var(--text-dim)" } }, syncResult.message || ("Classement : " + (syncResult.standings_count || 0) + " \u00e9quipe(s)"))
+          : h("div", { style: { fontSize: 13, color: "var(--text-dim)" } }, syncResult.matches_total, " matchs trouv\u00E9s, ", syncResult.matches_synced, " synchronis\u00E9(s)"),
         syncResult.standings && syncResult.standings.length > 0 && h("div", { style: { marginTop: 12 } },
           h("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFC6 Classement import\u00E9 :"),
           syncResult.standings.map(function(s, i) {
