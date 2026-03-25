@@ -118,6 +118,32 @@ if (!defined('SMTP_PORT'))    define('SMTP_PORT', 587);
 if (!defined('SMTP_USER'))    define('SMTP_USER', '');
 if (!defined('SMTP_PASS'))    define('SMTP_PASS', '');
 
+/** Sujet MIME UTF-8 (accents ; éviter les emojis dans le sujet pour plus de compatibilité). */
+function encodeMailSubject($subject) {
+    if (function_exists('mb_encode_mimeheader')) {
+        return mb_encode_mimeheader($subject, 'UTF-8', 'B', "\r\n");
+    }
+    return '=?UTF-8?B?' . base64_encode($subject) . '?=';
+}
+
+/**
+ * Envoie un message interne à tous les comptes coach (messagerie du site).
+ */
+function notifyAllCoachesInbox(PDO $db, int $senderUserId, string $subject, string $body) {
+    try {
+        $coaches = $db->query("SELECT id FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($coaches)) {
+            return;
+        }
+        $ins = $db->prepare("INSERT INTO messages (sender_id, recipient_id, subject, body, msg_type) VALUES (:s, :r, :sub, :b, 'general')");
+        foreach ($coaches as $cid) {
+            $ins->execute([':s' => $senderUserId, ':r' => (int)$cid, ':sub' => $subject, ':b' => $body]);
+        }
+    } catch (Exception $e) {
+        error_log('ESPE notifyAllCoachesInbox: ' . $e->getMessage());
+    }
+}
+
 function sendEmailNotif($toEmail, $subject, $body) {
     if (!$toEmail) return false;
     $fromName = 'ESPE Basket U9';
@@ -132,10 +158,15 @@ function sendEmailNotif($toEmail, $subject, $body) {
         ."<p style='font-size:12px;color:#999'>Connecte-toi sur <a href='https://espeu9.fr/#messagerie'>espeu9.fr</a> pour répondre.</p>"
         ."</div></div>";
     $fullSubject = "ESPE U9 - $subject";
+    $encodedSubject = encodeMailSubject($fullSubject);
 
     // Try SMTP if enabled
     if (SMTP_ENABLED && SMTP_USER && SMTP_PASS) {
-        return sendSmtp($fromEmail, $fromName, $toEmail, $fullSubject, $html);
+        $ok = sendSmtp($fromEmail, $fromName, $toEmail, $encodedSubject, $html);
+        if (!$ok) {
+            error_log('sendEmailNotif: SMTP échec pour ' . $toEmail);
+        }
+        return $ok;
     }
 
     // Fallback: PHP mail() with improved headers
@@ -145,7 +176,11 @@ function sendEmailNotif($toEmail, $subject, $body) {
     $headers .= "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "X-Mailer: ESPE-U9\r\n";
-    return @mail($toEmail, $fullSubject, $html, $headers, "-f$fromEmail");
+    $ok = @mail($toEmail, $encodedSubject, $html, $headers, "-f$fromEmail");
+    if (!$ok) {
+        error_log('sendEmailNotif: mail() échec pour ' . $toEmail);
+    }
+    return $ok;
 }
 
 function sendSmtp($from, $fromName, $to, $subject, $htmlBody) {
@@ -179,7 +214,7 @@ function sendSmtp($from, $fromName, $to, $subject, $htmlBody) {
         // Headers + body
         $msg  = "From: $fromName <$from>\r\n";
         $msg .= "To: $to\r\n";
-        $msg .= "Subject: $subject\r\n";
+        $msg .= "Subject: " . $subject . "\r\n";
         $msg .= "MIME-Version: 1.0\r\n";
         $msg .= "Content-Type: text/html; charset=UTF-8\r\n";
         $msg .= "\r\n" . $htmlBody . "\r\n.\r\n";
@@ -2873,13 +2908,29 @@ case 'stage_register':
         $st->execute([':sk' => $stageKey, ':uid' => (int)$_SESSION['user_id'], ':pn' => $playerName, ':pf' => $playerFirst, ':pc' => $playerCat, ':pn2' => $playerName, ':pf2' => $playerFirst, ':pc2' => $playerCat]);
         $ct->execute([':sk' => $stageKey]);
         $newCount = (int)$ct->fetch()['c'];
-        $emailBody = '<div style="font-family:sans-serif;padding:16px;"><h2>Inscription stage</h2><p><strong>' . htmlspecialchars($playerFirst . ' ' . $playerName) . '</strong> (' . htmlspecialchars($playerCat) . ') — ' . $newCount . '/' . $maxPlaces . '</p></div>';
+        $emailBody = '<div style="font-family:sans-serif;padding:16px;"><h2>Inscription stage</h2><p><strong>' . htmlspecialchars($playerFirst . ' ' . $playerName) . '</strong> (' . htmlspecialchars($playerCat) . ') — ' . $newCount . '/' . $maxPlaces . '</p><p style="font-size:13px;color:#666">Tu as aussi reçu ce rappel dans ta <strong>messagerie du site</strong> (onglet Messagerie).</p></div>';
+        $senderId = (int)$_SESSION['user_id'];
+        $inboxSubject = '[Stage] Inscription : ' . $playerFirst . ' ' . $playerName;
+        $inboxBody = "Une inscription au stage a été enregistrée sur le site.\n\n"
+            . "Enfant : " . $playerFirst . " " . $playerName . "\n"
+            . "Catégorie : " . $playerCat . "\n"
+            . "Places remplies : " . $newCount . " / " . $maxPlaces . "\n\n"
+            . "Ce message est envoyé dans ta messagerie interne pour que tu sois sûr de voir l'alerte même si l'e-mail est en retard ou en spam.\n\n"
+            . "— Notification automatique ESPE U9";
+        notifyAllCoachesInbox($db, $senderId, $inboxSubject, $inboxBody);
         $coaches = $db->query("SELECT id, email, display_name FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_ASSOC);
+        $mailSubject = 'Stage — Inscription ' . $playerFirst . ' ' . $playerName;
         foreach ($coaches as $c) {
+            $cid = (int)$c['id'];
             if (!empty($c['email'])) {
-                sendEmailNotif($c['email'], '🏀 Stage — Inscription ' . $playerFirst . ' ' . $playerName, $emailBody);
+                $sent = sendEmailNotif($c['email'], $mailSubject, $emailBody);
+                if (!$sent) {
+                    error_log('stage_register: e-mail non délivré (coach id ' . $cid . ')');
+                }
+            } else {
+                error_log('stage_register: coach id ' . $cid . ' sans adresse e-mail en base — messagerie interne uniquement');
             }
-            sendPushToUser((int)$c['id'], '🏀 Inscription stage', $playerFirst . ' ' . $playerName . ' (' . $playerCat . ') — ' . $newCount . '/' . $maxPlaces, '#stage');
+            sendPushToUser($cid, 'Inscription stage', $playerFirst . ' ' . $playerName . ' (' . $playerCat . ') — ' . $newCount . '/' . $maxPlaces, '#stage');
         }
         echo json_encode(['success' => true, 'count' => $newCount, 'max_places' => $maxPlaces]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
@@ -2941,7 +2992,27 @@ case 'stage_admin_add':
         if ((int)$ct->fetch()['c'] >= $maxPlaces) { echo json_encode(['error' => 'Capacité atteinte (' . $maxPlaces . '). Augmente la limite ou retire un inscrit.']); break; }
         $ins = $db->prepare("INSERT INTO stage_registrations (stage_key, user_id, player_name, player_firstname, player_category, source, status) VALUES (:sk, NULL, :pn, :pf, :pc, 'manual', 'registered')");
         $ins->execute([':sk' => $stageKey, ':pn' => $playerName, ':pf' => $playerFirst, ':pc' => $playerCat]);
-        echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
+        $newRowId = (int)$db->lastInsertId();
+        $ct->execute([':sk' => $stageKey]);
+        $newCount = (int)$ct->fetch()['c'];
+        $emailBody = '<div style="font-family:sans-serif;padding:16px;"><h2>Stage — ajout manuel</h2><p><strong>' . htmlspecialchars($playerFirst . ' ' . $playerName) . '</strong> (' . htmlspecialchars($playerCat) . ') — ' . $newCount . '/' . $maxPlaces . '</p><p style="font-size:13px;color:#666">Ajouté depuis l\'admin. Vérifie aussi la <strong>messagerie du site</strong>.</p></div>';
+        $inboxSubject = '[Stage] Ajout manuel : ' . $playerFirst . ' ' . $playerName;
+        $inboxBody = "Un inscrit a été ajouté manuellement (admin Stage).\n\n"
+            . "Enfant : " . $playerFirst . " " . $playerName . "\n"
+            . "Catégorie : " . $playerCat . "\n"
+            . "Places remplies : " . $newCount . " / " . $maxPlaces . "\n\n"
+            . "— Notification automatique ESPE U9";
+        notifyAllCoachesInbox($db, $uid, $inboxSubject, $inboxBody);
+        $coaches = $db->query("SELECT id, email FROM users WHERE role = 'coach'")->fetchAll(PDO::FETCH_ASSOC);
+        $mailSubject = 'Stage — Ajout manuel ' . $playerFirst . ' ' . $playerName;
+        foreach ($coaches as $c) {
+            $cid = (int)$c['id'];
+            if (!empty($c['email'])) {
+                sendEmailNotif($c['email'], $mailSubject, $emailBody);
+            }
+            sendPushToUser($cid, 'Stage (manuel)', $playerFirst . ' ' . $playerName . ' (' . $playerCat . ') — ' . $newCount . '/' . $maxPlaces, '#stage');
+        }
+        echo json_encode(['success' => true, 'id' => $newRowId]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
