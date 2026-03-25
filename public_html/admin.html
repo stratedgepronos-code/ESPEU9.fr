@@ -640,6 +640,52 @@ function StageTab({ showToast }) {
   var [addCat, setAddCat] = useState("U9");
   var [adding, setAdding] = useState(false);
   var [savingMax, setSavingMax] = useState(false);
+  var [paidSavingId, setPaidSavingId] = useState(null);
+
+  var escapeHtml = function(s) {
+    if (s == null) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  };
+
+  var setPaid = function(id, checked) {
+    setPaidSavingId(id);
+    fetch(API + "?action=stage_admin_set_paid", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id, paid: !!checked })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setPaidSavingId(null);
+        if (d.success) {
+          setRegs(function(prev) {
+            return prev.map(function(x) {
+              if (x.id !== id) return x;
+              return Object.assign({}, x, { paid: d.paid ? 1 : 0 });
+            });
+          });
+        } else {
+          showToast(d.error || "Erreur", "error");
+          load();
+        }
+      })
+      .catch(function() { setPaidSavingId(null); showToast("Erreur r\u00E9seau", "error"); load(); });
+  };
+
+  var printDtReport = function() {
+    var paidN = regs.filter(function(r) { return parseInt(r.paid, 10) === 1; }).length;
+    var rows = regs.map(function(r, i) {
+      var isPaid = parseInt(r.paid, 10) === 1;
+      return "<tr><td>" + (i + 1) + "</td><td>" + escapeHtml(r.player_firstname) + "</td><td>" + escapeHtml(r.player_name) + "</td><td>" + escapeHtml(r.player_category) + "</td><td>" + ((r.source === "manual" || !r.user_id) ? "Manuel" : "Ligne") + "</td><td>" + (isPaid ? "Oui" : "Non") + "</td><td>" + escapeHtml(fmtDate(r.registered_at)) + "</td></tr>";
+    }).join("");
+    var html = "<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"utf-8\"><title>ESPE U9 — Stage printemps 2026 — Suivi DT</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;font-weight:normal;color:#444;margin:0 0 16px}table{border-collapse:collapse;width:100%;max-width:900px;font-size:13px}th,td{border:1px solid #333;padding:8px;text-align:left}th{background:#eee}tfoot td{font-weight:bold;border-top:2px solid #333}.meta{margin:20px 0 12px;font-size:13px}.sign{margin-top:32px;font-size:13px}@media print{body{padding:12px}}</style></head><body><h1>ESPE U9 — Stage printemps 2026</h1><h2>Suivi des inscriptions — document pour le directeur technique</h2><p class=\"meta\">Inscrits : <strong>" + regs.length + "</strong> / " + maxPlaces + " places — Pay\u00E9s : <strong>" + paidN + "</strong> — Impression : " + new Date().toLocaleString("fr-FR") + "</p><table><thead><tr><th>#</th><th>Pr\u00E9nom</th><th>Nom</th><th>Cat.</th><th>Source</th><th>Pay\u00E9</th><th>Date inscription</th></tr></thead><tbody>" + (rows || "<tr><td colspan=\"7\">Aucun inscrit</td></tr>") + "</tbody><tfoot><tr><td colspan=\"5\">Totaux</td><td>" + paidN + " / " + regs.length + "</td><td></td></tr></tfoot></table><p class=\"sign\">Visa directeur technique : __________________ &nbsp;&nbsp; Date : __________</p></body></html>";
+    var w = window.open("", "_blank");
+    if (!w) { showToast("Autorise les pop-ups pour imprimer", "error"); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(function() { w.print(); }, 250);
+  };
 
   var load = function() {
     setLoading(true);
@@ -752,10 +798,15 @@ function StageTab({ showToast }) {
             h("option", { value: "U13" }, "U13")))),
       h("button", { type: "button", className: "btn btn-blue", style: { marginTop: 12 }, disabled: adding, onClick: addManual }, adding ? "Ajout..." : "Ajouter \u00E0 la liste")),
     h("div", { className: "card" },
-      h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 17, marginBottom: 12 } }, "Liste des inscrits"),
+      h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 } },
+        h("h3", { style: { fontFamily: "'Bebas Neue'", fontSize: 17, margin: 0 } }, "Liste des inscrits"),
+        regs.length > 0 && h("button", { type: "button", className: "btn btn-blue", onClick: printDtReport }, "\uD83D\uDCC4 Imprimer (DT)")),
       regs.length === 0
         ? h("p", { style: { color: "var(--text-dim)", fontSize: 14 } }, "Aucun inscrit pour ce stage.")
-        : h("div", { className: "table-scroll-wrap", style: { overflowX: "auto" } },
+        : h("div", null,
+            h("p", { style: { fontSize: 13, color: "var(--text-dim)", marginBottom: 10 } },
+              "Pay\u00E9s : ", h("strong", null, regs.filter(function(r) { return parseInt(r.paid, 10) === 1; }).length), " / ", h("strong", null, regs.length)),
+            h("div", { className: "table-scroll-wrap", style: { overflowX: "auto" } },
             h("table", { className: "data-table" },
               h("thead", null,
                 h("tr", null,
@@ -764,23 +815,34 @@ function StageTab({ showToast }) {
                   h("th", null, "Nom"),
                   h("th", null, "Cat."),
                   h("th", null, "Source"),
+                  h("th", null, "Pay\u00E9"),
                   h("th", null, "Date"),
                   h("th", null, ""))),
               h("tbody", null,
                 regs.map(function(r, i) {
-                  return h("tr", { key: r.id },
+                  var pid = r.id;
+                  var isPaid = parseInt(r.paid, 10) === 1;
+                  return h("tr", { key: pid },
                     h("td", null, i + 1),
                     h("td", null, r.player_firstname),
                     h("td", null, r.player_name),
                     h("td", null, r.player_category),
                     h("td", null, (r.source === "manual" || !r.user_id) ? h("span", { className: "badge badge-dom" }, "Manuel") : h("span", { className: "badge badge-win" }, "Ligne")),
+                    h("td", { style: { textAlign: "center" } },
+                      h("input", {
+                        type: "checkbox",
+                        checked: isPaid,
+                        disabled: paidSavingId === pid,
+                        title: "Paiement re\u00E7u",
+                        onChange: function(e) { setPaid(pid, e.target.checked); }
+                      })),
                     h("td", null, fmtDate(r.registered_at)),
                     h("td", null,
-                      h("button", { type: "button", className: "btn btn-ghost", style: { padding: "6px 10px", fontSize: 12, color: "var(--red)" }, onClick: function() { delRow(r.id, r.player_firstname + " " + r.player_name); } }, "Suppr.")));
+                      h("button", { type: "button", className: "btn btn-ghost", style: { padding: "6px 10px", fontSize: 12, color: "var(--red)" }, onClick: function() { delRow(pid, r.player_firstname + " " + r.player_name); } }, "Suppr.")));
                 })
               )
             )
-          )
+          ))
     )
   );
 }

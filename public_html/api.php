@@ -2824,6 +2824,7 @@ case 'stage_list':
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         try { $db->exec("ALTER TABLE stage_registrations MODIFY user_id INT NULL"); } catch (Exception $e) {}
         try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'online'"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN paid TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
         $sk = trim($_GET['stage_key'] ?? 'stage-printemps-2026');
         $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $sk);
         $stMax = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
@@ -2889,6 +2890,7 @@ case 'stage_register':
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         try { $db->exec("ALTER TABLE stage_registrations MODIFY user_id INT NULL"); } catch (Exception $e) {}
         try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'online'"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN paid TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
         $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $stageKey);
         $stMax = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
         $stMax->execute([':k' => $maxK]);
@@ -2979,6 +2981,7 @@ case 'stage_admin_add':
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         try { $db->exec("ALTER TABLE stage_registrations MODIFY user_id INT NULL"); } catch (Exception $e) {}
         try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'online'"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN paid TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
         $maxK = 'stage_max_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $stageKey);
         $stMax = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
         $stMax->execute([':k' => $maxK]);
@@ -3026,6 +3029,22 @@ case 'stage_admin_delete':
         $db = getDB();
         $db->prepare("DELETE FROM stage_registrations WHERE id = :id")->execute([':id' => $regId]);
         echo json_encode(['success' => true]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
+
+case 'stage_admin_set_paid':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $regId = (int)($in['id'] ?? 0);
+    if ($regId <= 0) { http_response_code(400); echo json_encode(['error' => 'ID invalide']); break; }
+    $paidVal = !empty($in['paid']);
+    try {
+        $db = getDB();
+        try { $db->exec("ALTER TABLE stage_registrations ADD COLUMN paid TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
+        $st = $db->prepare("UPDATE stage_registrations SET paid = :p WHERE id = :id");
+        $st->execute([':p' => $paidVal ? 1 : 0, ':id' => $regId]);
+        echo json_encode(['success' => true, 'paid' => $paidVal ? 1 : 0]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
