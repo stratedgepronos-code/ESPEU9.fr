@@ -4262,8 +4262,8 @@ function TrombiButton({ matchId, upcoming }) {
             const dateEdition = String(now.getDate()).padStart(2,"0") + "/" + String(now.getMonth()+1).padStart(2,"0") + "/" + now.getFullYear() + " " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
 
             let playersHtml = "";
-            // Sort by num descending (like the FFBB doc)
-            const sorted = [...presentPlayers].sort((a, b) => b.num - a.num);
+            // Tri maillot croissant : du plus petit numéro en haut au plus grand en bas (impression)
+            const sorted = [...presentPlayers].sort((a, b) => (a.num || 0) - (b.num || 0));
             sorted.forEach(p => {
                 const t = TROMBI_DATA[p.photoKey] || {};
                 const photo = PLAYER_PHOTOS[p.photoKey];
