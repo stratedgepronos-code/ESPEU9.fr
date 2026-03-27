@@ -1421,6 +1421,10 @@ body {
 
 /* FB SECTION — clean cards */
 .fb-section { margin-top: 40px; }
+.fb-section--in-grid { margin-top: 0; }
+.home-results-social { align-items: start; }
+.home-results-col { display: flex; flex-direction: column; gap: 16px; }
+.home-social-col { min-width: 0; }
 .fb-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .fb-card {
   background: var(--surface); border-radius: 16px; border: 1px solid var(--border);
@@ -6024,38 +6028,41 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                                 React.createElement("span", null, s.team)),
                             React.createElement("td", null, s.pts),
                             React.createElement("td", null, s.v),
-                            React.createElement("td", null, s.d)))))))),
-        React.createElement("div", { className: "section-title" }, "Derniers r\u00E9sultats"),
-        [...matches].reverse().slice(0, 3).map((m) => {
-            const leftName = m.equipeA.short;
-            const rightName = m.equipeB.short;
-            const leftScore = m.equipeA.score;
-            const rightScore = m.equipeB.score;
-            const leftLogo = leftName === "ESPE" ? LOGO : getAdvLogo(leftName);
-            const rightLogo = rightName === "ESPE" ? LOGO : getAdvLogo(rightName);
-            return React.createElement("div", { className: "result-card", key: m.id, onClick: () => onMatchClick(m) },
-            React.createElement("div", { className: `result-score ${m.win ? "result-win" : "result-loss"}` },
-                leftScore,
-                " - ",
-                rightScore),
-            React.createElement("div", { className: "result-teams" },
-                React.createElement("div", { className: "result-team-name", style: { display: "flex", alignItems: "center", gap: 6 } },
-                    leftLogo && React.createElement("img", { src: leftLogo, alt: leftName, style: { width: 22, height: 22, objectFit: "contain" } }),
-                    React.createElement("span", null, leftName + " vs"),
-                    rightLogo && React.createElement("img", { src: rightLogo, alt: rightName, style: { width: 22, height: 22, objectFit: "contain" } }),
-                    React.createElement("span", null, rightName)),
-                React.createElement("div", { className: "result-meta" },
-                    "J",
-                    m.journee,
-                    " \u2022 ",
-                    m.date,
-                    " \u2022 ",
-                    m.lieu)),
-            React.createElement("span", { className: `result-badge ${m.win ? "win" : "loss"}` }, m.win ? "VICTOIRE" : "DÉFAITE"));
-        }),
-        React.createElement("div", { className: "fb-section" },
-            React.createElement("div", { className: "section-title" }, "Suivez-nous sur Facebook"),
-            React.createElement("div", { className: "fb-cards-row" },
+                            React.createElement("td", null, s.d))))))))),
+        React.createElement("div", { className: "grid-2 home-results-social", style: { marginBottom: 40, marginTop: 8 } },
+            React.createElement("div", { className: "home-results-col" },
+                React.createElement("div", { className: "section-title" }, "Derniers r\u00E9sultats"),
+                ...[...matches].reverse().slice(0, 3).map((m) => {
+                    const leftName = m.equipeA.short;
+                    const rightName = m.equipeB.short;
+                    const leftScore = m.equipeA.score;
+                    const rightScore = m.equipeB.score;
+                    const leftLogo = leftName === "ESPE" ? LOGO : getAdvLogo(leftName);
+                    const rightLogo = rightName === "ESPE" ? LOGO : getAdvLogo(rightName);
+                    return React.createElement("div", { className: "result-card", key: m.id, onClick: () => onMatchClick(m) },
+                        React.createElement("div", { className: `result-score ${m.win ? "result-win" : "result-loss"}` },
+                            leftScore,
+                            " - ",
+                            rightScore),
+                        React.createElement("div", { className: "result-teams" },
+                            React.createElement("div", { className: "result-team-name", style: { display: "flex", alignItems: "center", gap: 6 } },
+                                leftLogo && React.createElement("img", { src: leftLogo, alt: leftName, style: { width: 22, height: 22, objectFit: "contain" } }),
+                                React.createElement("span", null, leftName + " vs"),
+                                rightLogo && React.createElement("img", { src: rightLogo, alt: rightName, style: { width: 22, height: 22, objectFit: "contain" } }),
+                                React.createElement("span", null, rightName)),
+                            React.createElement("div", { className: "result-meta" },
+                                "J",
+                                m.journee,
+                                " \u2022 ",
+                                m.date,
+                                " \u2022 ",
+                                m.lieu)),
+                        React.createElement("span", { className: `result-badge ${m.win ? "win" : "loss"}` }, m.win ? "VICTOIRE" : "DÉFAITE"));
+                })),
+            React.createElement("div", { className: "home-social-col" },
+                React.createElement("div", { className: "fb-section fb-section--in-grid" },
+                    React.createElement("div", { className: "section-title" }, "Suivez-nous sur Facebook"),
+                    React.createElement("div", { className: "fb-cards-row" },
                 // ESPE Basket card
                 React.createElement("div", { className: "fb-card" },
                     React.createElement("div", { className: "fb-card-header" },
@@ -6079,7 +6086,7 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                         React.createElement("div", { className: "fb-card-desc" }, "Suivez l'\u00E9quipe professionnelle du Champagne Basket, les r\u00E9sultats PRO B, les vid\u00E9os et les coulisses du club."),
                         React.createElement("a", { href: CLUB_INFO.champagneBasketFB, target: "_blank", rel: "noopener noreferrer", className: "fb-card-btn" },
                             React.createElement("svg", { viewBox: "0 0 24 24" }, React.createElement("path", { d: "M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" })),
-                            "Suivre sur Facebook"))))))));
+                            "Suivre sur Facebook")))))))));
 }
 // PLAYERS PAGE — no stats, with photos
 function PlayersPage({ onSelect }) {
