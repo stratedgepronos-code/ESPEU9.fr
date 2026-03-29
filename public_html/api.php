@@ -3584,7 +3584,7 @@ case 'ffbb_sync':
                 $standings[] = ['rank' => (int)$s[1], 'team' => $team, 'points' => (int)$s[3]];
             }
         }
-        // Méthode 2 : Next.js __next_f.push
+        // Méthode 2 : Next.js __next_f.push (ancien format)
         if (empty($standings)) {
             $chunks = '';
             if (preg_match_all('/self\.__next_f\.push\(\[\d+,"((?:[^"\\\\]|\\\\.)*)"\]\)/s', $standingsHtml, $chunkM)) {
@@ -3608,6 +3608,68 @@ case 'ffbb_sync':
             if (preg_match_all('/>(\d+)([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]+?)(\d{1,3})<\/(?:div|a|span)>/u', $standingsHtml, $standM, PREG_SET_ORDER)) {
                 foreach ($standM as $s) {
                     $standings[] = ['rank' => (int)$s[1], 'team' => trim($s[2]), 'points' => (int)$s[3]];
+                }
+            }
+        }
+        // Méthode 4 : RSC (React Server Components) — format FFBB 2025+
+        // Les données sont dans des script tags sous forme de composants React sérialisés
+        if (empty($standings)) {
+            preg_match_all('/<script[^>]*>(.*?)<\/script>/s', $standingsHtml, $allScripts);
+            $rscContent = '';
+            foreach ($allScripts[1] as $sc) {
+                // Le script contenant le classement est le plus gros (>30K) et contient des noms d'équipes connus
+                if (strlen($sc) > 30000 && (
+                    stripos($sc, 'font-bold') !== false &&
+                    (stripos($sc, 'BASKET') !== false || stripos($sc, 'ESPE') !== false || stripos($sc, 'CHALONS') !== false)
+                )) {
+                    $rscContent = $sc;
+                    break;
+                }
+            }
+            if ($rscContent) {
+                // Décode les séquences échappées JSON dans le RSC
+                $decoded = str_replace(['\\"', '\\n', '\\t', '\\\\'], ['"', "\n", "\t", '\\'], $rscContent);
+                // Extraction des noms d'équipes : pattern "font-bold","children":"NOM EQUIPE"
+                // Dans RSC: "text-xs font-bold","children":"GAULOISE DE VITRY LE FRANCOIS"
+                $teamPattern = '/font-bold["\s,}]*["\s,]*"children"\s*:\s*"([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]{4,}?)"/u';
+                if (preg_match_all($teamPattern, $decoded, $teamMatches)) {
+                    $teamNames = array_unique($teamMatches[1]);
+                    // Pour chaque équipe, trouver le rang et les stats dans le contexte RSC
+                    // Le classement RSC a des cellules td avec les valeurs numériques autour du nom
+                    $rank = 1;
+                    foreach ($teamNames as $teamName) {
+                        $teamName = trim($teamName);
+                        if (strlen($teamName) < 4) continue;
+                        // Trouver la position du nom d'équipe dans le RSC
+                        $pos = strpos($decoded, $teamName);
+                        if ($pos === false) continue;
+                        // Extraire le contexte autour (avant et après le nom)
+                        $before = substr($decoded, max(0, $pos - 1500), 1500);
+                        $after = substr($decoded, $pos + strlen($teamName), 2000);
+                        // Chercher les valeurs numériques dans les cellules td après le nom
+                        // Pattern RSC pour valeurs dans td: "children":"N" ou "children":N
+                        $nums = [];
+                        if (preg_match_all('/"children"\s*:\s*"?(\d{1,3})"?\s*[,}\]]/u', $after, $numM)) {
+                            $nums = array_map('intval', $numM[1]);
+                        }
+                        // Les colonnes typiques FFBB classement: Pts, Joués, Gagnés, Perdus
+                        $pts = $nums[0] ?? 0;
+                        $played = $nums[1] ?? 0;
+                        $wins = $nums[2] ?? 0;
+                        $losses = $nums[3] ?? 0;
+                        // Vérifier si c'est cohérent (pts > 0 pour un classement)
+                        if ($pts > 0 || $wins > 0 || $losses > 0) {
+                            $standings[] = [
+                                'rank' => $rank,
+                                'team' => $teamName,
+                                'points' => $pts,
+                                'played' => $played,
+                                'wins' => $wins,
+                                'losses' => $losses,
+                            ];
+                            $rank++;
+                        }
+                    }
                 }
             }
         }
