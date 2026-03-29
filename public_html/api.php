@@ -3612,85 +3612,61 @@ case 'ffbb_sync':
             }
         }
         // Méthode 4 : RSC (React Server Components) — format FFBB 2025+
-        // Les données sont dans des script tags sous forme de composants React sérialisés
         if (empty($standings)) {
             preg_match_all('/<script[^>]*>(.*?)<\/script>/s', $standingsHtml, $allScripts);
+            // Find script with team data (must contain known team names like VITRY/COURTISOLS/CORMONTREUIL)
             $rscContent = '';
             foreach ($allScripts[1] as $sc) {
-                // Le bon script contient des noms d'équipes adverses (VITRY, COURTISOLS, CORMONTREUIL, REIMS)
-                if (stripos($sc, 'VITRY') !== false || stripos($sc, 'COURTISOLS') !== false || stripos($sc, 'CORMONTREUIL') !== false) {
-                    $rscContent = $sc;
-                    break;
+                if ((stripos($sc, 'VITRY') !== false || stripos($sc, 'COURTISOLS') !== false || stripos($sc, 'CORMONTREUIL') !== false) && strlen($sc) > 5000) {
+                    $rscContent = $sc; break;
                 }
             }
-            // Fallback : chercher un gros script avec font-bold + classement
             if (!$rscContent) {
+                $bigLen = 0;
                 foreach ($allScripts[1] as $sc) {
-                    if (strlen($sc) > 50000 && stripos($sc, 'font-bold') !== false && stripos($sc, 'classement') !== false) {
-                        $rscContent = $sc;
-                        break;
+                    if (strlen($sc) > $bigLen && stripos($sc, '"td"') !== false && stripos($sc, 'font-bold') !== false) {
+                        $rscContent = $sc; $bigLen = strlen($sc);
                     }
                 }
             }
             if ($rscContent) {
-                // Décoder les échappements JSON du RSC
                 $decoded = str_replace('\\\\', "\x01", $rscContent);
                 $decoded = str_replace('\\"', '"', $decoded);
                 $decoded = str_replace('\\n', "\n", $decoded);
                 $decoded = str_replace("\x01", '\\', $decoded);
-                // Extraire les noms d'équipes : dans le classement, ils sont dans des td avec "font-bold"
-                // Pattern: min-w-[228px] text-[#0b0b1a] text-xs font-bold","children":"NOM EQUIPE"
-                $teamPattern = '/"children"\s*:\s*"([A-Z][A-Z\s\-\'\x{00C0}-\x{024F}]{6,})"/u';
-                preg_match_all($teamPattern, $decoded, $allNames, PREG_OFFSET_CAPTURE);
-                // Filtrer : garder uniquement les noms qui ressemblent à des clubs de basket
-                // et qui sont dans le contexte d'un td de classement (font-bold nearby)
-                $teamEntries = [];
-                foreach ($allNames[1] as $match) {
-                    $name = trim($match[0]);
-                    $offset = $match[1];
-                    // Vérifier que c'est un nom de club (pas un titre de page, pas du texte UI)
-                    if (strlen($name) < 8) continue;
-                    if (preg_match('/^(LA |LE |LES |COUPE|NATIONALE|LIGUE|BETCLIC|ELITE|ESPOIR|TROPHEE|FEMININE)/i', $name)) continue;
-                    // Vérifier que "font-bold" apparaît dans les 500 chars avant
-                    $before = substr($decoded, max(0, $offset - 500), 500);
-                    if (stripos($before, 'font-bold') === false) continue;
-                    // Extraire les nombres dans les children des td suivants (stats)
-                    $after = substr($decoded, $offset + strlen($name), 2000);
-                    preg_match_all('/"children"\s*:\s*"(\d{1,3})"/u', $after, $nums);
-                    $values = array_map('intval', $nums[1] ?? []);
-                    // Format classement FFBB : Pts, Joués, Gagnés, Perdus, ...
-                    $pts = $values[0] ?? 0;
-                    $played = $values[1] ?? 0;
-                    $wins = $values[2] ?? 0;
-                    $losses = $values[3] ?? 0;
-                    // Vérification cohérence : pts doit être > 0 pour un classement valide
-                    if ($pts > 0 && ($wins + $losses) > 0) {
-                        $teamEntries[] = [
-                            'team' => $name,
-                            'points' => $pts,
-                            'played' => $played,
-                            'wins' => $wins,
-                            'losses' => $losses,
-                        ];
+                $candidates = [];
+                // Strategy A: font-bold team names
+                if (preg_match_all('/font-bold[^}]*?"children"\s*:\s*"([A-Z][A-Z\s\-\'\x{00C0}-\x{024F}]{6,}?)"/u', $decoded, $mA, PREG_OFFSET_CAPTURE)) {
+                    foreach ($mA[1] as $m) {
+                        $n = trim($m[0]);
+                        if (strlen($n) < 8 || preg_match('/^(L\'ACT|VOIR|D..COUV|COUPE|NATIONALE|LIGUE|BETCLIC|ELITE|ESPOIR|TROPHEE|FEMININE)/iu', $n)) continue;
+                        $candidates[$n] = $m[1];
                     }
                 }
-                // Dédupliquer (un nom peut apparaître dans le header ET dans le tableau)
-                $seen = [];
-                $rank = 1;
-                // Trier par points décroissants
-                usort($teamEntries, function($a, $b) { return $b['points'] - $a['points']; });
-                foreach ($teamEntries as $entry) {
-                    $key = $entry['team'];
-                    if (isset($seen[$key])) continue;
-                    $seen[$key] = true;
-                    $standings[] = [
-                        'rank' => $rank++,
-                        'team' => $entry['team'],
-                        'points' => $entry['points'],
-                        'played' => $entry['played'],
-                        'wins' => $entry['wins'],
-                        'losses' => $entry['losses'],
-                    ];
+                // Strategy B: broader - ALL uppercase club-like names with BASKET/ESPE/etc
+                if (preg_match_all('/"children"\s*:\s*"((?:[A-Z\x{00C0}-\x{024F}][\sA-Z\x{00C0}-\x{024F}\-\']{10,}))"/u', $decoded, $mB, PREG_OFFSET_CAPTURE)) {
+                    foreach ($mB[1] as $m) {
+                        $n = trim($m[0]);
+                        if (!preg_match('/BASKET|ESPE|CHALONS|VITRY|COURTISOLS|CORMONTREUIL|REIMS|GAULOISE|AVENIR|ASSOCIATION/i', $n)) continue;
+                        if (!isset($candidates[$n])) $candidates[$n] = $m[1];
+                    }
+                }
+                $teamEntries = [];
+                foreach ($candidates as $name => $offset) {
+                    $after = substr($decoded, $offset + strlen($name), 3000);
+                    preg_match_all('/"children"\s*:\s*"(\d{1,3})"/u', $after, $nums);
+                    $vals = array_map('intval', $nums[1] ?? []);
+                    $pts = $vals[0] ?? 0; $played = $vals[1] ?? 0; $wins = $vals[2] ?? 0; $losses = $vals[3] ?? 0;
+                    if ($pts > 0 && ($wins + $losses) > 0) {
+                        $teamEntries[] = ['team'=>$name, 'points'=>$pts, 'played'=>$played, 'wins'=>$wins, 'losses'=>$losses];
+                    }
+                }
+                usort($teamEntries, function($a,$b){ return $b['points'] - $a['points']; });
+                $seen = []; $rank = 1;
+                foreach ($teamEntries as $e) {
+                    if (isset($seen[$e['team']])) continue;
+                    $seen[$e['team']] = true;
+                    $standings[] = array_merge($e, ['rank' => $rank++]);
                 }
             }
         }
