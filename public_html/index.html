@@ -6436,8 +6436,10 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                                 React.createElement("th", null, "D"),
                                 React.createElement("th", null, "Diff"))),
                         React.createElement("tbody", null, standingsRows.map((s, idx) => {
-                            // Compute goal diff - only for ESPE (we have all their matches)
-                            var diff = null;
+                            // Goal diff from FFBB official data
+                            var diffMap = {"GAULOISE DE VITRY LE FRANCOIS":192,"ESPE BASKET CHALONS EN CHAMPAGNE":192,"REIMS CHAMPAGNE BASKET - 2":-42,"AVENIR SPORTIF COURTISOLS BASKET":-99,"ASSOCIATION CORMONTREUIL CHAMPAGNE BASKET":-243};
+                            var diff = diffMap[s.team] != null ? diffMap[s.team] : null;
+                            // Override ESPE with live computed value from matches
                             if (s.isUs) {
                                 diff = matches.reduce(function(a, m) { return a + m.espeScore - m.advScore; }, 0);
                             }
