@@ -2834,11 +2834,18 @@ case 'stage_list':
         if ($rowMax && $rowMax['config_value'] !== '' && is_numeric($rowMax['config_value'])) {
             $maxPlaces = max(1, min(500, (int)$rowMax['config_value']));
         }
+        // External registrations (other teams)
+        $extK = 'stage_external_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $sk);
+        $stExt = $db->prepare("SELECT config_value FROM site_config WHERE config_key = :k");
+        $stExt->execute([':k' => $extK]);
+        $rowExt = $stExt->fetch();
+        $externalCount = ($rowExt && is_numeric($rowExt['config_value'])) ? max(0, (int)$rowExt['config_value']) : 0;
         $ct = $db->prepare("SELECT COUNT(*) as c FROM stage_registrations WHERE stage_key = :sk AND status = 'registered'");
         $ct->execute([':sk' => $sk]);
-        $count = (int)$ct->fetch()['c'];
+        $siteCount = (int)$ct->fetch()['c'];
+        $count = $siteCount + $externalCount;
         if (!isset($_SESSION['user_id'])) {
-            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => null, 'count' => $count, 'max_places' => $maxPlaces]);
+            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => null, 'count' => $count, 'external_count' => $externalCount, 'site_count' => $siteCount, 'max_places' => $maxPlaces]);
             break;
         }
         $sid = (int)$_SESSION['user_id'];
@@ -2847,7 +2854,7 @@ case 'stage_list':
             $stMy = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' AND user_id = :uid LIMIT 1");
             $stMy->execute([':sk' => $sk, ':uid' => $sid]);
             $my = $stMy->fetch(PDO::FETCH_ASSOC) ?: null;
-            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => $my, 'count' => $count, 'max_places' => $maxPlaces]);
+            echo json_encode(['success' => true, 'registrations' => [], 'my_registration' => $my, 'count' => $count, 'external_count' => $externalCount, 'site_count' => $siteCount, 'max_places' => $maxPlaces]);
             break;
         }
         $st = $db->prepare("SELECT * FROM stage_registrations WHERE stage_key = :sk AND status = 'registered' ORDER BY registered_at ASC");
@@ -2857,7 +2864,7 @@ case 'stage_list':
         foreach ($regs as $r) {
             if ($r['user_id'] !== null && (int)$r['user_id'] === $sid) { $my = $r; break; }
         }
-        echo json_encode(['success' => true, 'registrations' => $regs, 'my_registration' => $my, 'count' => $count, 'max_places' => $maxPlaces]);
+        echo json_encode(['success' => true, 'registrations' => $regs, 'my_registration' => $my, 'count' => $count, 'external_count' => $externalCount, 'site_count' => $siteCount, 'max_places' => $maxPlaces]);
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
@@ -3065,7 +3072,21 @@ case 'stage_admin_set_max':
     } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
     break;
 
-// ═══ TCHAT PUBLIC (connectés : post + suppr propre ; coach : suppr tout) ═══
+case 'stage_set_external':
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'POST requis']); break; }
+    if (!$uid || $role !== 'coach') { http_response_code(403); echo json_encode(['error' => 'Coach requis']); break; }
+    $in = json_decode(file_get_contents('php://input'), true) ?: [];
+    $stageKey = trim($in['stage_key'] ?? 'stage-printemps-2026');
+    $extCount = max(0, min(500, (int)($in['external_count'] ?? 0)));
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS site_config (config_key VARCHAR(100) PRIMARY KEY, config_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
+        $extK = 'stage_external_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $stageKey);
+        $db->prepare("INSERT INTO site_config (config_key, config_value) VALUES (:k, :v) ON DUPLICATE KEY UPDATE config_value = :v2")
+            ->execute([':k' => $extK, ':v' => (string)$extCount, ':v2' => (string)$extCount]);
+        echo json_encode(['success' => true, 'external_count' => $extCount]);
+    } catch (Exception $e) { http_response_code(500); echo json_encode(['error' => 'Erreur serveur']); }
+    break;
 case 'chat_list':
     $db = getDB();
     try {

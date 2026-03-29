@@ -4959,6 +4959,7 @@ function StagePage({ user }) {
     const [myRegRow, setMyRegRow] = useState(null);
     const [count, setCount] = useState(0);
     const [maxPlaces, setMaxPlaces] = useState(25);
+    const [externalCount, setExternalCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [formFirst, setFormFirst] = useState("");
@@ -4975,6 +4976,7 @@ function StagePage({ user }) {
                     setMyRegRow(d.my_registration || null);
                     setCount(d.count || 0);
                     if (d.max_places != null) setMaxPlaces(d.max_places);
+                    if (d.external_count != null) setExternalCount(d.external_count);
                     if (d.my_registration) {
                         setFormFirst(d.my_registration.player_firstname || "");
                         setFormLast(d.my_registration.player_name || "");
@@ -5032,6 +5034,17 @@ function StagePage({ user }) {
             method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: reg.id })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) loadRegs();
+            else alert(d.error || "Erreur");
+        }).catch(function() { alert("Erreur r\u00E9seau"); });
+    };
+
+    const handleSetExternal = function(n) {
+        fetch(API_URL + "?action=stage_set_external", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage_key: STAGE_KEY, external_count: n })
         }).then(function(r) { return r.json(); }).then(function(d) {
             if (d.success) loadRegs();
             else alert(d.error || "Erreur");
@@ -5138,7 +5151,17 @@ function StagePage({ user }) {
             el("div", { className: "stage-coach-admin-hint" },
                 "Pour ajouter ou retirer des inscrits, ou modifier la capacit\u00E9 max, utilise l'onglet ",
                 el("a", { href: "admin.html" }, "Stage dans l'admin")),
-            el("div", { className: "stage-list-title" }, "\uD83D\uDCCB Inscrits (" + count + "/" + maxPlaces + ")"),
+            // External count control
+            el("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: "rgba(200,168,50,0.06)", border: "1px solid rgba(200,168,50,0.15)", borderLeft: "4px solid var(--gold)", borderRadius: 12, marginBottom: 16 } },
+                el("div", { style: { fontSize: 20, flexShrink: 0 } }, "\uD83C\uDFC0"),
+                el("div", { style: { flex: 1 } },
+                    el("div", { style: { fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 } }, "Inscrits autres \u00E9quipes"),
+                    el("div", { style: { fontSize: 11, color: "var(--text-dim)" } }, "Places occup\u00E9es par les U11, U13 ou inscrits hors site")),
+                el("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+                    el("button", { type: "button", onClick: function() { if (externalCount > 0) handleSetExternal(externalCount - 1); }, style: { width: 32, height: 32, borderRadius: 8, border: "1.5px solid var(--border)", background: "var(--surface)", fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" } }, "\u2212"),
+                    el("div", { style: { minWidth: 36, textAlign: "center", fontSize: 20, fontWeight: 800, color: "var(--gold)", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 1 } }, externalCount),
+                    el("button", { type: "button", onClick: function() { handleSetExternal(externalCount + 1); }, style: { width: 32, height: 32, borderRadius: 8, border: "1.5px solid var(--border)", background: "var(--surface)", fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" } }, "+"))),
+            el("div", { className: "stage-list-title" }, "\uD83D\uDCCB Inscrits (" + count + "/" + maxPlaces + (externalCount > 0 ? " dont " + externalCount + " autres \u00E9quipes" : "") + ")"),
             regs.length === 0
                 ? el("div", { style: { textAlign: "center", color: "var(--text-dim)", padding: 20, fontSize: 14 } }, "Aucune inscription pour le moment")
                 : regs.map(function(r, i) {
