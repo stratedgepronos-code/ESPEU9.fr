@@ -6436,28 +6436,10 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                                 React.createElement("th", null, "D"),
                                 React.createElement("th", null, "Diff"))),
                         React.createElement("tbody", null, standingsRows.map((s, idx) => {
-                            // Compute goal diff from matches
+                            // Compute goal diff - only for ESPE (we have all their matches)
                             var diff = null;
                             if (s.isUs) {
-                                // ESPE: compute from all matches
                                 diff = matches.reduce(function(a, m) { return a + m.espeScore - m.advScore; }, 0);
-                            } else {
-                                // Opponent: compute from their matches against ESPE
-                                var bp = 0, bc = 0, found = false;
-                                matches.forEach(function(m) {
-                                    var teamName = (s.team || "").toUpperCase();
-                                    var aName = (m.equipeA && m.equipeA.nom || "").toUpperCase();
-                                    var bName = (m.equipeB && m.equipeB.nom || "").toUpperCase();
-                                    var aShort = (m.equipeA && m.equipeA.short || "").toUpperCase();
-                                    var bShort = (m.equipeB && m.equipeB.short || "").toUpperCase();
-                                    // Check if this opponent is in team A or B
-                                    if (teamName.indexOf(aShort) >= 0 || aName.indexOf(teamName.slice(0,8)) >= 0 || teamName.indexOf(aName.slice(0,8)) >= 0) {
-                                        bp += m.equipeA.score; bc += m.equipeB.score; found = true;
-                                    } else if (teamName.indexOf(bShort) >= 0 || bName.indexOf(teamName.slice(0,8)) >= 0 || teamName.indexOf(bName.slice(0,8)) >= 0) {
-                                        bp += m.equipeB.score; bc += m.equipeA.score; found = true;
-                                    }
-                                });
-                                if (found) diff = bp - bc;
                             }
                             var diffStr = diff !== null ? (diff > 0 ? "+" + diff : String(diff)) : "-";
                             var diffColor = diff !== null ? (diff > 0 ? "#16a34a" : diff < 0 ? "#dc2626" : "var(--text-dim)") : "var(--text-dim)";
