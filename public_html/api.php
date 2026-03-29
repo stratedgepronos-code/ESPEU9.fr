@@ -3617,59 +3617,80 @@ case 'ffbb_sync':
             preg_match_all('/<script[^>]*>(.*?)<\/script>/s', $standingsHtml, $allScripts);
             $rscContent = '';
             foreach ($allScripts[1] as $sc) {
-                // Le script contenant le classement est le plus gros (>30K) et contient des noms d'équipes connus
-                if (strlen($sc) > 30000 && (
-                    stripos($sc, 'font-bold') !== false &&
-                    (stripos($sc, 'BASKET') !== false || stripos($sc, 'ESPE') !== false || stripos($sc, 'CHALONS') !== false)
-                )) {
+                // Le bon script contient des noms d'équipes adverses (VITRY, COURTISOLS, CORMONTREUIL, REIMS)
+                if (stripos($sc, 'VITRY') !== false || stripos($sc, 'COURTISOLS') !== false || stripos($sc, 'CORMONTREUIL') !== false) {
                     $rscContent = $sc;
                     break;
                 }
             }
-            if ($rscContent) {
-                // Décode les séquences échappées JSON dans le RSC
-                $decoded = str_replace(['\\"', '\\n', '\\t', '\\\\'], ['"', "\n", "\t", '\\'], $rscContent);
-                // Extraction des noms d'équipes : pattern "font-bold","children":"NOM EQUIPE"
-                // Dans RSC: "text-xs font-bold","children":"GAULOISE DE VITRY LE FRANCOIS"
-                $teamPattern = '/font-bold["\s,}]*["\s,]*"children"\s*:\s*"([A-Z\x{00C0}-\x{024F}][A-Z\x{00C0}-\x{024F}\s\-\'\.\d]{4,}?)"/u';
-                if (preg_match_all($teamPattern, $decoded, $teamMatches)) {
-                    $teamNames = array_unique($teamMatches[1]);
-                    // Pour chaque équipe, trouver le rang et les stats dans le contexte RSC
-                    // Le classement RSC a des cellules td avec les valeurs numériques autour du nom
-                    $rank = 1;
-                    foreach ($teamNames as $teamName) {
-                        $teamName = trim($teamName);
-                        if (strlen($teamName) < 4) continue;
-                        // Trouver la position du nom d'équipe dans le RSC
-                        $pos = strpos($decoded, $teamName);
-                        if ($pos === false) continue;
-                        // Extraire le contexte autour (avant et après le nom)
-                        $before = substr($decoded, max(0, $pos - 1500), 1500);
-                        $after = substr($decoded, $pos + strlen($teamName), 2000);
-                        // Chercher les valeurs numériques dans les cellules td après le nom
-                        // Pattern RSC pour valeurs dans td: "children":"N" ou "children":N
-                        $nums = [];
-                        if (preg_match_all('/"children"\s*:\s*"?(\d{1,3})"?\s*[,}\]]/u', $after, $numM)) {
-                            $nums = array_map('intval', $numM[1]);
-                        }
-                        // Les colonnes typiques FFBB classement: Pts, Joués, Gagnés, Perdus
-                        $pts = $nums[0] ?? 0;
-                        $played = $nums[1] ?? 0;
-                        $wins = $nums[2] ?? 0;
-                        $losses = $nums[3] ?? 0;
-                        // Vérifier si c'est cohérent (pts > 0 pour un classement)
-                        if ($pts > 0 || $wins > 0 || $losses > 0) {
-                            $standings[] = [
-                                'rank' => $rank,
-                                'team' => $teamName,
-                                'points' => $pts,
-                                'played' => $played,
-                                'wins' => $wins,
-                                'losses' => $losses,
-                            ];
-                            $rank++;
-                        }
+            // Fallback : chercher un gros script avec font-bold + classement
+            if (!$rscContent) {
+                foreach ($allScripts[1] as $sc) {
+                    if (strlen($sc) > 50000 && stripos($sc, 'font-bold') !== false && stripos($sc, 'classement') !== false) {
+                        $rscContent = $sc;
+                        break;
                     }
+                }
+            }
+            if ($rscContent) {
+                // Décoder les échappements JSON du RSC
+                $decoded = str_replace('\\\\', "\x01", $rscContent);
+                $decoded = str_replace('\\"', '"', $decoded);
+                $decoded = str_replace('\\n', "\n", $decoded);
+                $decoded = str_replace("\x01", '\\', $decoded);
+                // Extraire les noms d'équipes : dans le classement, ils sont dans des td avec "font-bold"
+                // Pattern: min-w-[228px] text-[#0b0b1a] text-xs font-bold","children":"NOM EQUIPE"
+                $teamPattern = '/"children"\s*:\s*"([A-Z][A-Z\s\-\'\x{00C0}-\x{024F}]{6,})"/u';
+                preg_match_all($teamPattern, $decoded, $allNames, PREG_OFFSET_CAPTURE);
+                // Filtrer : garder uniquement les noms qui ressemblent à des clubs de basket
+                // et qui sont dans le contexte d'un td de classement (font-bold nearby)
+                $teamEntries = [];
+                foreach ($allNames[1] as $match) {
+                    $name = trim($match[0]);
+                    $offset = $match[1];
+                    // Vérifier que c'est un nom de club (pas un titre de page, pas du texte UI)
+                    if (strlen($name) < 8) continue;
+                    if (preg_match('/^(LA |LE |LES |COUPE|NATIONALE|LIGUE|BETCLIC|ELITE|ESPOIR|TROPHEE|FEMININE)/i', $name)) continue;
+                    // Vérifier que "font-bold" apparaît dans les 500 chars avant
+                    $before = substr($decoded, max(0, $offset - 500), 500);
+                    if (stripos($before, 'font-bold') === false) continue;
+                    // Extraire les nombres dans les children des td suivants (stats)
+                    $after = substr($decoded, $offset + strlen($name), 2000);
+                    preg_match_all('/"children"\s*:\s*"(\d{1,3})"/u', $after, $nums);
+                    $values = array_map('intval', $nums[1] ?? []);
+                    // Format classement FFBB : Pts, Joués, Gagnés, Perdus, ...
+                    $pts = $values[0] ?? 0;
+                    $played = $values[1] ?? 0;
+                    $wins = $values[2] ?? 0;
+                    $losses = $values[3] ?? 0;
+                    // Vérification cohérence : pts doit être > 0 pour un classement valide
+                    if ($pts > 0 && ($wins + $losses) > 0) {
+                        $teamEntries[] = [
+                            'team' => $name,
+                            'points' => $pts,
+                            'played' => $played,
+                            'wins' => $wins,
+                            'losses' => $losses,
+                        ];
+                    }
+                }
+                // Dédupliquer (un nom peut apparaître dans le header ET dans le tableau)
+                $seen = [];
+                $rank = 1;
+                // Trier par points décroissants
+                usort($teamEntries, function($a, $b) { return $b['points'] - $a['points']; });
+                foreach ($teamEntries as $entry) {
+                    $key = $entry['team'];
+                    if (isset($seen[$key])) continue;
+                    $seen[$key] = true;
+                    $standings[] = [
+                        'rank' => $rank++,
+                        'team' => $entry['team'],
+                        'points' => $entry['points'],
+                        'played' => $entry['played'],
+                        'wins' => $entry['wins'],
+                        'losses' => $entry['losses'],
+                    ];
                 }
             }
         }
