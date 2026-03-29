@@ -112,6 +112,7 @@ function ffbb_parse_all($html) {
         
         echo "  [{$c['method']}] {$c['name']} → Pts:{$c['pts']} J:{$c['played']} V:{$c['wins']} D:{$c['losses']} (raw: " . implode(',', array_slice($filteredVals, 0, 8)) . ")\n";
     }
+    unset($c); // Fix PHP foreach-by-reference bug
     
     // Build standings: dedup, filter valid, sort by pts
     $valid = [];
