@@ -744,6 +744,7 @@ body {
   letter-spacing: 1px;
   color: var(--text-dim);
   border-bottom: 2px solid var(--border);
+  white-space: nowrap;
 }
 
 .standings-table td {
@@ -756,6 +757,15 @@ body {
   font-weight: 700;
   color: var(--green-700);
   background: #f0faf2;
+}
+
+@media (max-width: 600px) {
+  .standings-table th { padding: 8px 6px; font-size: 10px; }
+  .standings-table td { padding: 8px 6px; font-size: 12px; }
+  .standings-table td:nth-child(2) { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .standings-table td:nth-child(2) span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+  .upcoming-card { gap: 10px; padding: 14px; }
+  .upcoming-badge { font-size: 11px !important; padding: 4px 10px !important; white-space: nowrap; flex-shrink: 0; }
 }
 
 /* RESULTS */
@@ -6451,11 +6461,15 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                             }
                             var diffStr = diff !== null ? (diff > 0 ? "+" + diff : String(diff)) : "-";
                             var diffColor = diff !== null ? (diff > 0 ? "#16a34a" : diff < 0 ? "#dc2626" : "var(--text-dim)") : "var(--text-dim)";
+                            // Shorten team names for readability
+                            var shortName = s.team;
+                            var shortMap = {"GAULOISE DE VITRY LE FRANCOIS":"Gauloise de Vitry","GAULOISE DE VITRY":"Gauloise de Vitry","ESPE BASKET CHALONS EN CHAMPAGNE":"ESPE Ch\u00E2lons","REIMS CHAMPAGNE BASKET - 2":"Reims Champagne B-2","REIMS CHAMPAGNE BASKET":"Reims Champagne","AVENIR SPORTIF COURTISOLS BASKET":"AS Courtisols","AVENIR SPORTIF COURTISOLS":"AS Courtisols","ASSOCIATION CORMONTREUIL CHAMPAGNE BASKET":"Assoc. Cormontreuil","ASSOCIATION CORMONTREUIL":"Assoc. Cormontreuil"};
+                            if (shortMap[shortName]) shortName = shortMap[shortName];
                             return React.createElement("tr", { key: s.rank + "-" + idx + "-" + (s.team || "").slice(0, 12), className: s.isUs ? "is-us" : "" },
                                 React.createElement("td", null, s.rank),
                                 React.createElement("td", { style: { display: "flex", alignItems: "center", gap: 8 } },
                                     s.isUs ? React.createElement("img", { src: LOGO, alt: "ESPE", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }) : (getAdvLogo(s.team) && React.createElement("img", { src: getAdvLogo(s.team), alt: s.team, style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } })),
-                                    React.createElement("span", null, s.team)),
+                                    React.createElement("span", null, shortName)),
                                 React.createElement("td", null, s.pts),
                                 React.createElement("td", null, s.v),
                                 React.createElement("td", null, s.d),
