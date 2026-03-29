@@ -3636,7 +3636,7 @@ case 'ffbb_sync':
                 $decoded = str_replace("\x01", '\\', $decoded);
                 $candidates = [];
                 // Strategy A: font-bold team names
-                if (preg_match_all('/font-bold[^}]*?"children"\s*:\s*"([A-Z][A-Z\s\-\'\x{00C0}-\x{024F}]{6,}?)"/u', $decoded, $mA, PREG_OFFSET_CAPTURE)) {
+                if (preg_match_all('/font-bold[^}]*?"children"\s*:\s*"([A-Z][A-Z0-9\s\-\'\x{00C0}-\x{024F}]{6,}?)"/u', $decoded, $mA, PREG_OFFSET_CAPTURE)) {
                     foreach ($mA[1] as $m) {
                         $n = trim($m[0]);
                         if (strlen($n) < 8 || preg_match('/^(L\'ACT|VOIR|D..COUV|COUPE|NATIONALE|LIGUE|BETCLIC|ELITE|ESPOIR|TROPHEE|FEMININE)/iu', $n)) continue;
@@ -3644,7 +3644,7 @@ case 'ffbb_sync':
                     }
                 }
                 // Strategy B: broader - ALL uppercase club-like names with BASKET/ESPE/etc
-                if (preg_match_all('/"children"\s*:\s*"((?:[A-Z\x{00C0}-\x{024F}][\sA-Z\x{00C0}-\x{024F}\-\']{10,}))"/u', $decoded, $mB, PREG_OFFSET_CAPTURE)) {
+                if (preg_match_all('/"children"\s*:\s*"((?:[A-Z\x{00C0}-\x{024F}][\sA-Z0-9\x{00C0}-\x{024F}\-\']{10,}))"/u', $decoded, $mB, PREG_OFFSET_CAPTURE)) {
                     foreach ($mB[1] as $m) {
                         $n = trim($m[0]);
                         if (!preg_match('/BASKET|ESPE|CHALONS|VITRY|COURTISOLS|CORMONTREUIL|REIMS|GAULOISE|AVENIR|ASSOCIATION/i', $n)) continue;

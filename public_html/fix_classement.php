@@ -59,7 +59,7 @@ function ffbb_parse_all($html) {
     $candidates = [];
     
     // Approach A: font-bold pattern
-    if (preg_match_all('/font-bold[^}]*?"children"\s*:\s*"([A-Z][A-Z\s\-\'\x{00C0}-\x{024F}]{6,}?)"/u', $d, $mA, PREG_OFFSET_CAPTURE)) {
+    if (preg_match_all('/font-bold[^}]*?"children"\s*:\s*"([A-Z][A-Z0-9\s\-\'\x{00C0}-\x{024F}]{6,}?)"/u', $d, $mA, PREG_OFFSET_CAPTURE)) {
         foreach ($mA[1] as $m) {
             $name = trim($m[0]); $off = $m[1];
             if (strlen($name) < 8) continue;
@@ -69,7 +69,7 @@ function ffbb_parse_all($html) {
     }
     
     // Approach B: ALL uppercase names > 15 chars containing BASKET/ESPE/CHAMPAGNE etc
-    if (preg_match_all('/"children"\s*:\s*"((?:[A-Z\x{00C0}-\x{024F}][\sA-Z\x{00C0}-\x{024F}\-\']{10,}))"/u', $d, $mB, PREG_OFFSET_CAPTURE)) {
+    if (preg_match_all('/"children"\s*:\s*"((?:[A-Z\x{00C0}-\x{024F}][\sA-Z0-9\x{00C0}-\x{024F}\-\']{10,}))"/u', $d, $mB, PREG_OFFSET_CAPTURE)) {
         foreach ($mB[1] as $m) {
             $name = trim($m[0]); $off = $m[1];
             // Must look like a basketball club
