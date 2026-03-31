@@ -313,6 +313,12 @@ function getMatchSideLogo(short, nom) {
     if (short === "ESPE") return LOGO;
     return getAdvLogo(short) || getAdvLogo(nom);
 }
+/** Logo Gauloise / Vitry (FFBB) : PNG souvent avec fond blanc — blend CSS (--knockout). */
+function isGauloiseVitryKnockoutLogo(name) {
+    if (!name || typeof name !== "string") return false;
+    return /vitry|gauloise/i.test(name);
+}
+
 /** Ligne classement FFBB = notre club (libellés variables sur le site fédéral). */
 function isEspeStandingsTeam(teamName) {
     if (!teamName || typeof teamName !== "string") return false;
@@ -1900,6 +1906,11 @@ body {
   border-radius: 8px;
 }
 
+.upcoming-adv-logo {
+  flex-shrink: 0;
+  display: block;
+}
+
 /* COACH NOTES TEXTAREA */
 .coach-notes-textarea {
   width: 100%;
@@ -2319,8 +2330,15 @@ body {
 }
 .finale-vs-logo--knockout {
   background:transparent !important;
-  mix-blend-mode:multiply;
+  mix-blend-mode:darken;
   border-color:rgba(255,255,255,0.12);
+}
+.match-team-logo--knockout {
+  mix-blend-mode:multiply;
+  background:transparent !important;
+}
+.upcoming-adv-logo--knockout {
+  mix-blend-mode:multiply;
 }
 .finale-vs-name {
   font-family:'Bebas Neue', sans-serif; font-size:18px; letter-spacing:2px;
@@ -5002,7 +5020,7 @@ function FinaleHero({ upcoming, matches }) {
     var el = React.createElement;
     var u = upcoming;
     var advLogo = u.logoUrl || getAdvLogo(u.adversaire);
-    var advKnockoutLogo = /vitry|gauloise/i.test(u.adversaire || "");
+    var advKnockoutLogo = isGauloiseVitryKnockoutLogo(u.adversaire);
     var wins = matches.filter(function(m){ return m.win; }).length;
     var losses = matches.length - wins;
     var totalPts = matches.reduce(function(a,m){ return a + m.espeScore; }, 0);
@@ -5096,7 +5114,7 @@ function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
         React.createElement("img", { src: TEAM_LOGOS.ESPE, alt: "ESPE", className: "match-team-logo" }),
         React.createElement("div", { className: "match-detail-team-name" }, "ESPE"));
     const advTeam = React.createElement("div", { className: "match-detail-team" },
-        advLogo && React.createElement("img", { src: advLogo, alt: u.adversaire, className: "match-team-logo" }),
+        advLogo && React.createElement("img", { src: advLogo, alt: u.adversaire, className: "match-team-logo" + (isGauloiseVitryKnockoutLogo(u.adversaire) ? " match-team-logo--knockout" : "") }),
         React.createElement("div", { className: "match-detail-team-name" }, u.adversaire));
     return React.createElement(React.Fragment, null,
         React.createElement("div", { className: "detail-back", onClick: onBack }, "\u2190 Retour aux matchs"),
@@ -6448,7 +6466,7 @@ function UpcomingList({ onUpcomingClick, customUpcoming }) {
                 React.createElement("div", { className: "upcoming-date-month" }, MONTHS[parseInt(parts[1])])),
             React.createElement("div", { className: "upcoming-info" },
                 React.createElement("div", { className: "upcoming-adv", style: { display: "flex", alignItems: "center", gap: 6 } },
-                    advLogo && React.createElement("img", { src: advLogo, alt: "", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }),
+                    advLogo && React.createElement("img", { src: advLogo, alt: "", className: "upcoming-adv-logo" + (isGauloiseVitryKnockoutLogo(u.adversaire) ? " upcoming-adv-logo--knockout" : ""), style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }),
                     React.createElement("span", null, "vs ", u.adversaire),
                     u.custom && !u.journee && React.createElement("span", { style: { fontSize: 9, background: "#7c3aed", color: "#fff", padding: "1px 6px", borderRadius: 8, fontWeight: 700, marginLeft: 4 } }, "COUPE")),
                 React.createElement("div", { className: "upcoming-meta" },
@@ -6675,7 +6693,7 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                             return React.createElement("tr", { key: s.rank + "-" + idx + "-" + (s.team || "").slice(0, 12), className: s.isUs ? "is-us" : "" },
                                 React.createElement("td", null, s.rank),
                                 React.createElement("td", { style: { display: "flex", alignItems: "center", gap: 8 } },
-                                    s.isUs ? React.createElement("img", { src: LOGO, alt: "ESPE", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }) : (getAdvLogo(s.team) && React.createElement("img", { src: getAdvLogo(s.team), alt: s.team, style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } })),
+                                    s.isUs ? React.createElement("img", { src: LOGO, alt: "ESPE", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }) : (getAdvLogo(s.team) && React.createElement("img", { src: getAdvLogo(s.team), alt: s.team, style: Object.assign({ width: 24, height: 24, objectFit: "contain", borderRadius: 4 }, isGauloiseVitryKnockoutLogo(s.team) ? { mixBlendMode: "multiply" } : {}) })),
                                     React.createElement("span", null, shortName)),
                                 React.createElement("td", null, s.pts),
                                 React.createElement("td", null, s.v),
@@ -6699,9 +6717,9 @@ function HomePage({ onMatchClick, onPlayerClick, onUpcomingClick, matches, user,
                             rightScore),
                         React.createElement("div", { className: "result-teams" },
                             React.createElement("div", { className: "result-team-name", style: { display: "flex", alignItems: "center", gap: 6 } },
-                                leftLogo && React.createElement("img", { src: leftLogo, alt: leftName, style: { width: 22, height: 22, objectFit: "contain" } }),
+                                leftLogo && React.createElement("img", { src: leftLogo, alt: leftName, style: Object.assign({ width: 22, height: 22, objectFit: "contain" }, isGauloiseVitryKnockoutLogo(leftName) ? { mixBlendMode: "multiply" } : {}) }),
                                 React.createElement("span", null, leftName + " vs"),
-                                rightLogo && React.createElement("img", { src: rightLogo, alt: rightName, style: { width: 22, height: 22, objectFit: "contain" } }),
+                                rightLogo && React.createElement("img", { src: rightLogo, alt: rightName, style: Object.assign({ width: 22, height: 22, objectFit: "contain" }, isGauloiseVitryKnockoutLogo(rightName) ? { mixBlendMode: "multiply" } : {}) }),
                                 React.createElement("span", null, rightName)),
                             React.createElement("div", { className: "result-meta" },
                                 "J",
@@ -7044,9 +7062,9 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                 leftScore, " - ", rightScore),
             React.createElement("div", { className: "result-teams" },
                 React.createElement("div", { className: "result-team-name", style: { display: "flex", alignItems: "center", gap: 6 } },
-                    leftLogo && React.createElement("img", { src: leftLogo, alt: leftName, style: { width: 22, height: 22, objectFit: "contain" } }),
+                    leftLogo && React.createElement("img", { src: leftLogo, alt: leftName, style: Object.assign({ width: 22, height: 22, objectFit: "contain" }, isGauloiseVitryKnockoutLogo(leftName) ? { mixBlendMode: "multiply" } : {}) }),
                     React.createElement("span", null, leftName + " vs"),
-                    rightLogo && React.createElement("img", { src: rightLogo, alt: rightName, style: { width: 22, height: 22, objectFit: "contain" } }),
+                    rightLogo && React.createElement("img", { src: rightLogo, alt: rightName, style: Object.assign({ width: 22, height: 22, objectFit: "contain" }, isGauloiseVitryKnockoutLogo(rightName) ? { mixBlendMode: "multiply" } : {}) }),
                     React.createElement("span", null, rightName)),
                 React.createElement("div", { className: "result-meta" },
                     "Journ\u00E9e ", m.journee, " \u2022 ", m.date, " \u2022 ", m.lieu)),
@@ -7065,7 +7083,7 @@ function MatchesPage({ onSelect, onSelectUpcoming, matches, coachUnlocked, user,
                 React.createElement("div", { className: "upcoming-date-month" }, parts[1] ? MONTHS[parseInt(parts[1])] : "")),
             React.createElement("div", { className: "upcoming-info" },
                 React.createElement("div", { className: "upcoming-adv", style: { display: "flex", alignItems: "center", gap: 6 } },
-                    advLogo && React.createElement("img", { src: advLogo, alt: "", style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }),
+                    advLogo && React.createElement("img", { src: advLogo, alt: "", className: "upcoming-adv-logo" + (isGauloiseVitryKnockoutLogo(u.adversaire) ? " upcoming-adv-logo--knockout" : ""), style: { width: 24, height: 24, objectFit: "contain", borderRadius: 4 } }),
                     React.createElement("span", null, "vs ", u.adversaire),
                     u.custom && !u.journee && React.createElement("span", { style: { fontSize: 9, background: "#7c3aed", color: "#fff", padding: "1px 6px", borderRadius: 8, fontWeight: 700, marginLeft: 6 } }, "COUPE")),
                 React.createElement("div", { className: "upcoming-meta" },
@@ -7333,8 +7351,9 @@ function MatchDetail({ match, onBack, coachUnlocked, matchNotes, setMatchNotes, 
     const espeTeam = React.createElement("div", { className: "match-detail-team" },
         React.createElement("img", { src: TEAM_LOGOS.ESPE, alt: "ESPE", className: "match-team-logo" }),
         React.createElement("div", { className: "match-detail-team-name" }, "ESPE"));
+    const advKnockout = isGauloiseVitryKnockoutLogo(advName) || isGauloiseVitryKnockoutLogo(advShort);
     const advTeam = React.createElement("div", { className: "match-detail-team" },
-        advLogo && React.createElement("img", { src: advLogo, alt: advShort, className: "match-team-logo" }),
+        advLogo && React.createElement("img", { src: advLogo, alt: advShort, className: "match-team-logo" + (advKnockout ? " match-team-logo--knockout" : "") }),
         React.createElement("div", { className: "match-detail-team-name" }, advShort));
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
