@@ -2225,6 +2225,149 @@ body {
   }
 }
 
+/* ═══ FINALE — Dernier Match de la Saison ═══ */
+@keyframes finaleSlideUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+@keyframes finalePulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }
+@keyframes finaleShine { 0% { left:-100%; } 100% { left:200%; } }
+@keyframes finaleFloat { 0%,100% { transform:translateY(0) rotate(0deg); } 25% { transform:translateY(-15px) rotate(5deg); } 75% { transform:translateY(-8px) rotate(-3deg); } }
+@keyframes finaleConfetti {
+  0% { transform:translateY(-10vh) rotate(0deg); opacity:1; }
+  100% { transform:translateY(110vh) rotate(720deg); opacity:0; }
+}
+@keyframes finaleGlow { 0%,100% { box-shadow:0 0 30px rgba(200,168,50,0.2); } 50% { box-shadow:0 0 60px rgba(200,168,50,0.4); } }
+@keyframes finaleStar { 0%,100% { opacity:0.3; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }
+
+.finale-wrap { position:relative; overflow:hidden; margin-bottom:28px; }
+.finale-hero {
+  position:relative; overflow:hidden; border-radius:24px;
+  background:linear-gradient(150deg, #071a0c 0%, #0f3d1a 30%, #1a5c2c 60%, #0d2e14 100%);
+  padding:0; color:#fff;
+}
+.finale-hero-inner { position:relative; z-index:2; padding:40px 32px 32px; text-align:center; }
+.finale-glow1 { position:absolute; top:-100px; left:50%; transform:translateX(-50%); width:400px; height:400px; background:radial-gradient(circle, rgba(200,168,50,0.15) 0%, transparent 65%); pointer-events:none; }
+.finale-glow2 { position:absolute; bottom:-60px; right:-40px; width:250px; height:250px; background:radial-gradient(circle, rgba(26,107,46,0.2) 0%, transparent 70%); pointer-events:none; }
+
+/* Confetti */
+.finale-confetti { position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden; pointer-events:none; z-index:1; }
+.finale-confetti-piece {
+  position:absolute; top:-20px; width:10px; height:10px; border-radius:2px;
+  animation:finaleConfetti linear infinite;
+}
+
+.finale-badge {
+  display:inline-block; padding:6px 20px; background:rgba(200,168,50,0.12);
+  border:1px solid rgba(200,168,50,0.3); border-radius:100px;
+  font-size:11px; font-weight:700; color:#dac66e; text-transform:uppercase;
+  letter-spacing:3px; margin-bottom:16px; animation:finaleSlideUp 0.6s ease-out;
+}
+.finale-trophy {
+  font-size:72px; display:block; margin-bottom:12px;
+  filter:drop-shadow(0 8px 24px rgba(200,168,50,0.4));
+  animation:finaleFloat 4s ease-in-out infinite, finaleSlideUp 0.8s ease-out;
+}
+.finale-title {
+  font-family:'Bebas Neue', sans-serif; font-size:clamp(32px, 7vw, 52px);
+  letter-spacing:4px; line-height:1; margin-bottom:6px;
+  background:linear-gradient(135deg, #fff 30%, #c8a832 70%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text; animation:finaleSlideUp 0.7s ease-out;
+}
+.finale-subtitle {
+  font-size:18px; font-weight:300; color:rgba(255,255,255,0.6);
+  letter-spacing:1px; margin-bottom:20px; animation:finaleSlideUp 0.8s ease-out;
+}
+.finale-championship {
+  display:inline-block; padding:12px 28px; border-radius:14px;
+  background:linear-gradient(135deg, rgba(200,168,50,0.15), rgba(200,168,50,0.08));
+  border:1.5px solid rgba(200,168,50,0.3); margin-bottom:24px;
+  animation:finaleGlow 3s ease-in-out infinite, finaleSlideUp 0.9s ease-out;
+}
+.finale-championship-text {
+  font-family:'Bebas Neue', sans-serif; font-size:clamp(18px, 4vw, 26px);
+  letter-spacing:3px; color:#c8a832;
+}
+
+/* Season stats */
+.finale-season { animation:finaleSlideUp 1s ease-out; margin-bottom:20px; }
+.finale-season-title {
+  font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px;
+  color:rgba(255,255,255,0.35); margin-bottom:14px;
+}
+.finale-stats {
+  display:flex; justify-content:center; gap:20px; flex-wrap:wrap;
+}
+.finale-stat {
+  text-align:center; min-width:70px;
+}
+.finale-stat-val {
+  font-family:'Bebas Neue', sans-serif; font-size:32px; letter-spacing:1px;
+  color:#fff; line-height:1;
+}
+.finale-stat-val.gold { color:#c8a832; }
+.finale-stat-label {
+  font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase;
+  letter-spacing:1px; margin-top:4px;
+}
+
+/* VS section */
+.finale-vs {
+  display:flex; align-items:center; justify-content:center; gap:20px;
+  padding:20px 0; animation:finaleSlideUp 1.1s ease-out;
+}
+.finale-vs-team {
+  display:flex; flex-direction:column; align-items:center; gap:8px; flex:1;
+}
+.finale-vs-logo {
+  width:64px; height:64px; object-fit:contain; border-radius:12px;
+  border:2px solid rgba(255,255,255,0.15); padding:4px;
+  background:rgba(255,255,255,0.05);
+}
+.finale-vs-name {
+  font-family:'Bebas Neue', sans-serif; font-size:18px; letter-spacing:2px;
+  color:rgba(255,255,255,0.8); text-align:center;
+}
+.finale-vs-icon {
+  font-family:'Bebas Neue', sans-serif; font-size:36px;
+  color:#c8a832; letter-spacing:2px;
+  animation:finalePulse 2s ease-in-out infinite;
+}
+
+/* Info bar */
+.finale-info {
+  display:flex; justify-content:center; gap:16px; flex-wrap:wrap;
+  padding:16px 0; animation:finaleSlideUp 1.2s ease-out;
+}
+.finale-info-pill {
+  display:inline-flex; align-items:center; gap:6px; padding:8px 16px;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08);
+  border-radius:100px; font-size:13px; color:rgba(255,255,255,0.7);
+}
+
+/* Bottom bar */
+.finale-bottom {
+  position:relative; overflow:hidden; height:5px; border-radius:0 0 24px 24px;
+  background:linear-gradient(90deg, #0f3d1a, #c8a832, #0f3d1a);
+}
+.finale-bottom::after {
+  content:''; position:absolute; top:0; left:-100%; width:60%; height:100%;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  animation:finaleShine 3s linear infinite;
+}
+
+/* Motivational quote */
+.finale-quote {
+  text-align:center; padding:12px 0 0; font-size:14px;
+  font-style:italic; color:rgba(255,255,255,0.3); animation:finaleSlideUp 1.3s ease-out;
+}
+
+@media (max-width:600px) {
+  .finale-hero-inner { padding:28px 20px 24px; }
+  .finale-trophy { font-size:56px; }
+  .finale-vs { gap:12px; }
+  .finale-vs-logo { width:48px; height:48px; }
+  .finale-stats { gap:14px; }
+}
+
 /* ═══ COFFRE-FORT ═══ */
 .vault-wrap { max-width: 580px; margin: 0 auto; }
 .vault-hero {
@@ -4852,6 +4995,84 @@ function QuickConvocationResponse({ matchId, user }) {
             color: flash.includes("Pr\u00E9sence") ? "#16a34a" : flash.includes("Absence") ? "#dc2626" : "#d97706" } }, flash));
 }
 
+// ══════════════════════════════════════
+// FINALE — Dernier Match de la Saison
+// ══════════════════════════════════════
+function FinaleHero({ upcoming, matches }) {
+    var el = React.createElement;
+    var u = upcoming;
+    var advLogo = u.logoUrl || getAdvLogo(u.adversaire);
+    var wins = matches.filter(function(m){ return m.win; }).length;
+    var losses = matches.length - wins;
+    var totalPts = matches.reduce(function(a,m){ return a + m.espeScore; }, 0);
+    var totalEnc = matches.reduce(function(a,m){ return a + m.advScore; }, 0);
+    var diff = totalPts - totalEnc;
+    // Confetti pieces
+    var confetti = [];
+    var colors = ['#c8a832','#1a6b2e','#d4b53a','#228b38','#fff','#f59e0b','#4ade80'];
+    for (var i = 0; i < 40; i++) {
+        var left = Math.random() * 100;
+        var size = 6 + Math.random() * 10;
+        var dur = 4 + Math.random() * 8;
+        var delay = Math.random() * 6;
+        var color = colors[Math.floor(Math.random() * colors.length)];
+        var rot = Math.random() > 0.5 ? 'rotate(45deg)' : '';
+        var shape = Math.random() > 0.4 ? {borderRadius:'2px'} : {borderRadius:'50%'};
+        confetti.push(el('div', {
+            key: 'c'+i, className: 'finale-confetti-piece',
+            style: Object.assign({left:left+'%', width:size, height:size*0.6, background:color, animationDuration:dur+'s', animationDelay:delay+'s', transform:rot, opacity:0.8}, shape)
+        }));
+    }
+    return el('div', { className: 'finale-wrap' },
+        el('div', { className: 'finale-hero' },
+            el('div', { className: 'finale-glow1' }),
+            el('div', { className: 'finale-glow2' }),
+            el('div', { className: 'finale-confetti' }, confetti),
+            el('div', { className: 'finale-hero-inner' },
+                el('div', { className: 'finale-badge' }, 'Journ\u00E9e 10 \u2022 Dernier match'),
+                el('span', { className: 'finale-trophy' }, '\uD83C\uDFC6'),
+                el('div', { className: 'finale-title' }, 'LE MATCH POUR\nLE TITRE'),
+                el('div', { className: 'finale-subtitle' }, 'Saison 2025-2026 \u2022 D\u00E9partementale U9'),
+                el('div', { className: 'finale-championship' },
+                    el('div', { className: 'finale-championship-text' }, '\u2B50 SI ON GAGNE, ON EST CHAMPIONS \u2B50')),
+                // VS
+                el('div', { className: 'finale-vs' },
+                    el('div', { className: 'finale-vs-team' },
+                        el('img', { src: LOGO, alt: 'ESPE', className: 'finale-vs-logo' }),
+                        el('div', { className: 'finale-vs-name' }, 'ESPE CH\u00C2LONS')),
+                    el('div', { className: 'finale-vs-icon' }, 'VS'),
+                    el('div', { className: 'finale-vs-team' },
+                        advLogo && el('img', { src: advLogo, alt: u.adversaire, className: 'finale-vs-logo' }),
+                        el('div', { className: 'finale-vs-name' }, u.adversaire || 'ADVERSAIRE'))),
+                // Info
+                el('div', { className: 'finale-info' },
+                    el('div', { className: 'finale-info-pill' }, '\uD83D\uDCC5 ', u.date || ''),
+                    el('div', { className: 'finale-info-pill' }, '\u23F0 ', u.heure || ''),
+                    el('div', { className: 'finale-info-pill' }, '\uD83C\uDFE0 Domicile'),
+                    el('div', { className: 'finale-info-pill' }, '\uD83D\uDCCD Gymnase Cabot')),
+                // Season recap
+                el('div', { className: 'finale-season' },
+                    el('div', { className: 'finale-season-title' }, 'Notre saison'),
+                    el('div', { className: 'finale-stats' },
+                        el('div', { className: 'finale-stat' },
+                            el('div', { className: 'finale-stat-val gold' }, wins + 'V'),
+                            el('div', { className: 'finale-stat-label' }, 'Victoires')),
+                        el('div', { className: 'finale-stat' },
+                            el('div', { className: 'finale-stat-val' }, losses + 'D'),
+                            el('div', { className: 'finale-stat-label' }, 'D\u00E9faites')),
+                        el('div', { className: 'finale-stat' },
+                            el('div', { className: 'finale-stat-val gold' }, totalPts),
+                            el('div', { className: 'finale-stat-label' }, 'Pts marqu\u00E9s')),
+                        el('div', { className: 'finale-stat' },
+                            el('div', { className: 'finale-stat-val' }, totalEnc),
+                            el('div', { className: 'finale-stat-label' }, 'Pts encaiss\u00E9s')),
+                        el('div', { className: 'finale-stat' },
+                            el('div', { className: 'finale-stat-val gold' }, (diff > 0 ? '+' : '') + diff),
+                            el('div', { className: 'finale-stat-label' }, 'Diff\u00E9rence')))),
+                el('div', { className: 'finale-quote' }, '\u00AB Quelle que soit l\u2019issue, cette \u00E9quipe a \u00E9crit une saison magnifique. \u00BB \uD83D\uDC9A')),
+            el('div', { className: 'finale-bottom' })));
+}
+
 function UpcomingDetail({ upcoming, onBack, user, onMatchCreated }) {
     const u = upcoming;
     const advLogo = u.logoUrl || getAdvLogo(u.adversaire);
@@ -5753,6 +5974,7 @@ function App() {
                     fetch(API_URL + "?action=get_custom_upcoming", { credentials: "same-origin" }).then(r => r.json()).then(d => { if (d.success) { setCustomUpcoming(d.matches || []); customUpcomingRef.current = d.matches || []; } }).catch(() => {});
                 }, onMatchAdded: (newMatches) => { setMatches(newMatches); matchesRef.current = newMatches; } }),
                 tab === "matchs" && selectedMatch && React.createElement(MatchDetail, { match: selectedMatch, onBack: goBack, coachUnlocked: coachUnlocked, matchNotes: matchNotes, setMatchNotes: setMatchNotes, user: user, onDelete: handleDeleteMatch }),
+                tab === "matchs" && selectedUpcoming && String(selectedUpcoming.id) === "custom_14" && React.createElement(FinaleHero, { upcoming: selectedUpcoming, matches: matches }),
                 tab === "matchs" && selectedUpcoming && React.createElement(UpcomingDetail, { upcoming: selectedUpcoming, onBack: goBack, user: user, onMatchCreated: (d) => {
                     fetch(API_URL + "?action=get_matches", { credentials: "same-origin" }).then(r => r.json()).then(data => {
                         if (data.success && data.matches) {
