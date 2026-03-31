@@ -2283,8 +2283,9 @@ body {
   animation:finaleGlow 3s ease-in-out infinite, finaleSlideUp 0.9s ease-out;
 }
 .finale-championship-text {
-  font-family:'Bebas Neue', sans-serif; font-size:clamp(18px, 4vw, 26px);
-  letter-spacing:3px; color:#c8a832;
+  font-family:'Outfit', sans-serif; font-size:clamp(14px, 3.2vw, 17px);
+  font-weight:500; letter-spacing:0.02em; line-height:1.5; color:rgba(255,255,255,0.92);
+  max-width:36em; margin:0 auto;
 }
 
 /* Season stats */
@@ -2318,9 +2319,14 @@ body {
   display:flex; flex-direction:column; align-items:center; gap:8px; flex:1;
 }
 .finale-vs-logo {
-  width:64px; height:64px; object-fit:contain; border-radius:12px;
-  border:2px solid rgba(255,255,255,0.15); padding:4px;
-  background:rgba(255,255,255,0.05);
+  width:96px; height:96px; object-fit:contain; border-radius:14px;
+  border:2px solid rgba(255,255,255,0.18); padding:6px;
+  background:rgba(255,255,255,0.06);
+}
+.finale-vs-logo--knockout {
+  background:transparent !important;
+  mix-blend-mode:multiply;
+  border-color:rgba(255,255,255,0.12);
 }
 .finale-vs-name {
   font-family:'Bebas Neue', sans-serif; font-size:18px; letter-spacing:2px;
@@ -2364,7 +2370,7 @@ body {
   .finale-hero-inner { padding:28px 20px 24px; }
   .finale-trophy { font-size:56px; }
   .finale-vs { gap:12px; }
-  .finale-vs-logo { width:48px; height:48px; }
+  .finale-vs-logo { width:72px; height:72px; }
   .finale-stats { gap:14px; }
 }
 
@@ -5002,6 +5008,7 @@ function FinaleHero({ upcoming, matches }) {
     var el = React.createElement;
     var u = upcoming;
     var advLogo = u.logoUrl || getAdvLogo(u.adversaire);
+    var advKnockoutLogo = /vitry|gauloise/i.test(u.adversaire || "");
     var wins = matches.filter(function(m){ return m.win; }).length;
     var losses = matches.length - wins;
     var totalPts = matches.reduce(function(a,m){ return a + m.espeScore; }, 0);
@@ -5034,7 +5041,8 @@ function FinaleHero({ upcoming, matches }) {
                 el('div', { className: 'finale-title' }, 'LE MATCH POUR\nLE TITRE'),
                 el('div', { className: 'finale-subtitle' }, 'Saison 2025-2026 \u2022 D\u00E9partementale U9'),
                 el('div', { className: 'finale-championship' },
-                    el('div', { className: 'finale-championship-text' }, '\u2B50 SI ON GAGNE, ON EST CHAMPIONS \u2B50')),
+                    el('div', { className: 'finale-championship-text' },
+                        'L\u2019important, c\u2019est la progression r\u00E9alis\u00E9e cette saison : une belle ann\u00E9e collective, et les enfants ont vraiment beaucoup progress\u00E9 \u2014 fiers d\u2019eux, sur le terrain comme en dehors !')),
                 // VS
                 el('div', { className: 'finale-vs' },
                     el('div', { className: 'finale-vs-team' },
@@ -5042,7 +5050,7 @@ function FinaleHero({ upcoming, matches }) {
                         el('div', { className: 'finale-vs-name' }, 'ESPE CH\u00C2LONS')),
                     el('div', { className: 'finale-vs-icon' }, 'VS'),
                     el('div', { className: 'finale-vs-team' },
-                        advLogo && el('img', { src: advLogo, alt: u.adversaire, className: 'finale-vs-logo' }),
+                        advLogo && el('img', { src: advLogo, alt: u.adversaire, className: 'finale-vs-logo' + (advKnockoutLogo ? ' finale-vs-logo--knockout' : '') }),
                         el('div', { className: 'finale-vs-name' }, u.adversaire || 'ADVERSAIRE'))),
                 // Info
                 el('div', { className: 'finale-info' },
